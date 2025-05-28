@@ -197,30 +197,150 @@ class Authentication(QWidget):
         self.signup_window.show()
 
 #HI JASSMINEEEEEE DITOO KAAAAAAA!!!!
+from PySide6.QtCore import Qt
+
+
 class SignUp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Sign Up")
-        self.setFixedSize(400, 300)
-        label = QLabel("ZZZzzzzz Antok na me Jas")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout = QVBoxLayout()
-        layout.addWidget(label)
-        self.setLayout(layout)
+        self.setFixedSize(400, 400)
+  
 
-class Dashboard(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Dashboard")
-        self.setFixedSize(800, 600)
-        label = QLabel("Welcome to the Dashboard!")
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.error_label = QLabel("")
+        self.error_label.setStyleSheet("color: red; font-weight: bold;")
+        self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        layout = QVBoxLayout()
-        layout.addWidget(label)
-        self.setLayout(layout)
+        # USERNAME (CAPITALLL GALIT SI SHELLEY)
+        username_label = QLabel("Username")
+        self.username_input = QLineEdit()
+        self.username_input.setPlaceholderText("Enter username")
+        self.username_input.setFixedHeight(40)
+        self.username_input.setFixedWidth(300)
+        self.username_input.setStyleSheet(self.input_style())
+
+        # PASSWORD
+        password_label = QLabel("Password")
+        self.password_input = QLineEdit()
+        self.password_input.setPlaceholderText("Enter password")
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_input.setFixedHeight(40)
+        self.password_input.setFixedWidth(300)
+        self.password_input.setStyleSheet(self.input_style())
+
+        # PASSWORD NGANI
+        confirm_label = QLabel("Confirm Password")
+        self.confirm_input = QLineEdit()
+        self.confirm_input.setPlaceholderText("Confirm password")
+        self.confirm_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.confirm_input.setFixedHeight(40)
+        self.confirm_input.setFixedWidth(300)
+        self.confirm_input.setStyleSheet(self.input_style())
 
 
+        
+        # SIGN UP BUTTON CLICK
+        signup_button = QPushButton("Sign Up")
+        signup_button.setFixedHeight(40)
+        signup_button.setFixedWidth(150)
+        signup_button.setStyleSheet("""
+            QPushButton {
+                background-color: #B7966B;
+                color: white;
+                border-radius: 10px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #A67B5B;
+            }
+        """)
+        signup_button.clicked.connect(self.handle_signup)
+
+         # BASTA LAYOUT NG INPUT
+        username_layout = QVBoxLayout()
+        username_layout.addWidget(username_label)
+        username_layout.addWidget(self.username_input)
+
+        password_layout = QVBoxLayout()
+        password_layout.addWidget(password_label)
+        password_layout.addWidget(self.password_input)
+
+        confirm_layout = QVBoxLayout()
+        confirm_layout.addWidget(confirm_label)
+        confirm_layout.addWidget(self.confirm_input)
+
+        form_layout = QVBoxLayout()
+        form_layout.addLayout(username_layout)
+        form_layout.addSpacing(10)
+        form_layout.addLayout(password_layout)
+        form_layout.addSpacing(10)
+        form_layout.addLayout(confirm_layout)
+        form_layout.addSpacing(20)
+        form_layout.addWidget(signup_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        form_layout.addSpacing(15)
+        form_layout.addWidget(self.error_label)
+        form_layout.addStretch()
+
+    # PARA GITNA SHA
+        outer_layout = QVBoxLayout()
+        outer_layout.addStretch()  # top 
+
+        h_center = QHBoxLayout()
+        h_center.addStretch()  # left 
+        h_center.addLayout(form_layout)
+        h_center.addStretch()  # right 
+
+        outer_layout.addLayout(h_center)
+        outer_layout.addStretch()  # bottom 
+
+        self.setLayout(outer_layout)
+
+    def input_style(self, error=False): 
+        border_color = "#FF0000" if error else "#B7966B"
+        return f"""
+            QLineEdit {{
+                border: 2px solid {border_color};
+                border-radius: 10px;
+                padding: 8px;
+                font-size: 16px;
+                background-color: #F0ECE9;
+            }}
+            QLineEdit:focus {{
+                border: 3px solid #4A4947;
+            }}
+        """
+
+    def handle_signup(self):
+        username = self.username_input.text().strip()
+        password = self.password_input.text()
+        confirm = self.confirm_input.text()
+
+     
+        self.username_input.setStyleSheet(self.input_style())
+        self.password_input.setStyleSheet(self.input_style())
+        self.confirm_input.setStyleSheet(self.input_style())
+        self.error_label.setText("")
+
+
+        if not username:
+            self.error_label.setText("Username cannot be empty.")
+            self.username_input.setStyleSheet(self.input_style(error=True))
+            return
+
+        if not password:
+            self.error_label.setText("Password cannot be empty.")
+            self.password_input.setStyleSheet(self.input_style(error=True))
+            return
+
+        if password != confirm:
+            self.error_label.setText("Passwords do not match.")
+            self.password_input.setStyleSheet(self.input_style(error=True))
+            self.confirm_input.setStyleSheet(self.input_style(error=True))
+            return
+        
+        
+        self.error_label.setStyleSheet("color: green; font-weight: bold;")
+        self.error_label.setText("Account created successfully!")
 
 #This runs the program
 app = QApplication(sys.argv)
@@ -228,7 +348,7 @@ app = QApplication(sys.argv)
 default_font = QFont("Times New Roman")
 app.setFont(default_font)
 app.setStyleSheet("""
-      QLabel {color: #5C4033}         
+      QLabel {color: #4A4947}         
  """)
 
 window = Authentication()

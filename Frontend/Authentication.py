@@ -210,7 +210,7 @@ class SignUp(QWidget):
         self.error_label.setStyleSheet("color: red; font-weight: bold;")
         self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # USERNAME (CAPITALLL GALIT SI SHELLEY)
+        # USERNAME (CAPITALLL GALIT SI SHELLEY) 
         username_label = QLabel("Username")
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("Enter username")

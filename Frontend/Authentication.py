@@ -8,6 +8,7 @@ password: qtqt
 """
 
 import sys
+import sqlite3
 
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QMovie
@@ -23,7 +24,6 @@ class Authentication(QWidget):
 
         self.setWindowTitle("Library Management System")
         self.setFixedSize(800,600) #width,height
-
 
         label = QLabel("Welcome to BJRS Library")
         font = QFont()
@@ -204,7 +204,8 @@ class SignUp(QWidget):
         super().__init__()
         self.setWindowTitle("Sign Up")
         self.setFixedSize(400, 400)
-  
+        self.conn = sqlite3.connect("librarydbms.db")
+        self.cursor = self.conn.cursor()
 
         self.error_label = QLabel("")
         self.error_label.setStyleSheet("color: red; font-weight: bold;")
@@ -235,8 +236,6 @@ class SignUp(QWidget):
         self.confirm_input.setFixedHeight(40)
         self.confirm_input.setFixedWidth(300)
         self.confirm_input.setStyleSheet(self.input_style())
-
-
         
         # SIGN UP BUTTON CLICK
         signup_button = QPushButton("Sign Up")
@@ -308,24 +307,33 @@ class SignUp(QWidget):
                 border: 3px solid #4A4947;
             }}
         """
+    
+    def usernameExists(self, username):
+        query = "SELECT COUNT (*) FROM Librarian WHERE LibUsername = ?"
+        result = self.cursor.execute(query, (username,)).fetchone()
+        return result[0]>0
+
 
     def handle_signup(self):
         username = self.username_input.text().strip()
         password = self.password_input.text()
         confirm = self.confirm_input.text()
-
      
         self.username_input.setStyleSheet(self.input_style())
         self.password_input.setStyleSheet(self.input_style())
         self.confirm_input.setStyleSheet(self.input_style())
         self.error_label.setText("")
 
-
         if not username:
             self.error_label.setText("Username cannot be empty.")
             self.username_input.setStyleSheet(self.input_style(error=True))
             return
 
+        if self.usernameExists(username):
+            self.error_label.setText("Username already exists. Please enter a new username.")
+            self.username_input.setStyleSheet(self.input_style(error=True))
+            return
+        
         if not password:
             self.error_label.setText("Password cannot be empty.")
             self.password_input.setStyleSheet(self.input_style(error=True))
@@ -337,6 +345,9 @@ class SignUp(QWidget):
             self.confirm_input.setStyleSheet(self.input_style(error=True))
             return
         
+        insert_query = "INSERT INTO Librarian (LibUsername, LibPass) VALUES (?, ?)"
+        self.cursor.execute(insert_query, (username, password))
+        self.connection.commit()
         
         self.error_label.setStyleSheet("color: green; font-weight: bold;")
         self.error_label.setText("Account created successfully!")

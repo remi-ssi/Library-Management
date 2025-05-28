@@ -204,7 +204,9 @@ class SignUp(QWidget):
         super().__init__()
         self.setWindowTitle("Sign Up")
         self.setFixedSize(400, 400)
-        self.conn = sqlite3.connect("librarydbms.db")
+
+        #connect to database
+        self.conn = sqlite3.connect("bjrsLib.db")
         self.cursor = self.conn.cursor()
 
         self.error_label = QLabel("")
@@ -347,7 +349,7 @@ class SignUp(QWidget):
         
         insert_query = "INSERT INTO Librarian (LibUsername, LibPass) VALUES (?, ?)"
         self.cursor.execute(insert_query, (username, password))
-        self.connection.commit()
+        self.conn.commit()
         
         self.error_label.setStyleSheet("color: green; font-weight: bold;")
         self.error_label.setText("Account created successfully!")

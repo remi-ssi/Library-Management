@@ -9,6 +9,7 @@ password: qtqt
 
 import sys
 import sqlite3
+import bcrypt #for password hashing
 
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QMovie
@@ -72,6 +73,7 @@ class Authentication(QWidget):
         password_label = QLabel("Password")
         self.password_input = QLineEdit()
         self.password_input.setPlaceholderText("Enter password")
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)   #para nakatago yung password pag ittype
         self.password_input.setFixedHeight(40)
         self.password_input.setFixedWidth(300)
         self.password_input.setStyleSheet("""
@@ -183,14 +185,45 @@ class Authentication(QWidget):
     def handle_login(self):
         username = self.username_input.text()
         password = self.password_input.text()
-        if username == "jas" and password == "qtqt": #WAIT BABAGUHIN THIS PAG MAY DATABASE NA
-            self.error_label.setText("Invalid username or password.")
-            self.dashboard = Dashboard()
-            self.dashboard.show()
-            self.close()
-        else:
-            self.error_label.setText("Invalid Username or Password.")
 
+        if not username:
+            self.error_label.setText("Please enter your username!")
+            return
+        
+        if not password:
+            self.error_label.setText("Please enter your password!")
+            return
+        
+        try:
+            conn = sqlite3.connect("bjrsLib.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT LibPass from Librarian WHERE LibUsername =?", (username,))
+            result = cursor.fetchone()
+
+            if result:
+                stored_hashed_password = result[0]
+
+                if isinstance(stored_hashed_password, str):
+                    stored_hashed_password = stored_hashed_password.encode("utf-8")
+
+                if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
+                    print("Login successful!")
+                    self.dashboard = Dashboard()
+                    self.dashboard.show()
+                    self.close()
+                    # You can emit a signal or open the next screen here
+                    return
+                else:
+                    self.error_label.setText("Invalid username or password.")
+            else:
+                self.error_label.setText("Invalid username or password.")
+
+        except sqlite3.Error as e:
+            print("Database error:", e)
+            self.login_error.setText("Database error. Please try again later.")
+        finally:
+            conn.close()
+    
     def open_signup(self, link):
         # Open the SignUp screen 
         self.signup_window = SignUp()
@@ -347,8 +380,10 @@ class SignUp(QWidget):
             self.confirm_input.setStyleSheet(self.input_style(error=True))
             return
         
+        #PARA YUNG HASHESD PASS YUNG MAISTORE SA DATABASE
+        hashedPass = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
         insert_query = "INSERT INTO Librarian (LibUsername, LibPass) VALUES (?, ?)"
-        self.cursor.execute(insert_query, (username, password))
+        self.cursor.execute(insert_query, (username, hashedPass))
         self.conn.commit()
         
         self.error_label.setStyleSheet("color: green; font-weight: bold;")

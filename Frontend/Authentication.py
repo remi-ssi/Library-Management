@@ -199,7 +199,6 @@ class Authentication(QWidget):
 #HI JASSMINEEEEEE DITOO KAAAAAAA!!!!
 from PySide6.QtCore import Qt
 
-
 class SignUp(QWidget):
     def __init__(self):
         super().__init__()

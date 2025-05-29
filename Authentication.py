@@ -382,6 +382,7 @@ class SignUp(QWidget):
         
         #PARA YUNG HASHESD PASS YUNG MAISTORE SA DATABASE
         hashedPass = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
+        hashed_password_str = hashedPass.decode('utf-8')
         insert_query = "INSERT INTO Librarian (LibUsername, LibPass) VALUES (?, ?)"
         self.cursor.execute(insert_query, (username, hashedPass))
         self.conn.commit()

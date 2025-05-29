@@ -63,12 +63,12 @@ class Authentication(QWidget):
             border: 3px solid #714423;     /*  border color when selected (focused) */
         }
     """)
-
+        
         #ANG PURPOSE NITO IS PARA MAGKAPATONG YUNG USERNAME NA LABEL AT USERNAME NA INPUT!
         username_v_layout = QVBoxLayout()
         username_v_layout.addWidget(username_label)
         username_v_layout.addWidget(self.username_input)
-
+        
         #Password
         password_label = QLabel("Password")
         self.password_input = QLineEdit()
@@ -89,12 +89,12 @@ class Authentication(QWidget):
             border: 3px solid #714423;     /*  border color when selected (focused) */
         }
     """)
-
+        
         #PATONG YUNG PASSWORD NA TEXT AT IINPUT-AN
         password_v_layout = QVBoxLayout()
         password_v_layout.addWidget(password_label)
         password_v_layout.addWidget(self.password_input)
-
+        
 
         # PARA NASA RIGHT SIDE LANG YUNG YUNG USERNAME AT PASSWORD KASI ANG NASA LEFT IS SI GIF SO MAY MALAKING PARANG PADDING SIYA
         # Make the username input to the right
@@ -166,7 +166,7 @@ class Authentication(QWidget):
         right_layout.addLayout(button_layout)
         right_layout.addStretch()
         right_layout.addWidget(signup_label)
-
+        
         self.error_label = QLabel("")
         self.error_label.setStyleSheet("color: red; font-weight: bold;")
         right_layout.addWidget(self.error_label)
@@ -203,8 +203,8 @@ class Authentication(QWidget):
             if result:
                 stored_hashed_password = result[0]
 
-                if isinstance(stored_hashed_password, str):
-                    stored_hashed_password = stored_hashed_password.encode("utf-8")
+              #  if isinstance(stored_hashed_password, str):
+               #     stored_hashed_passwords = stored_hashed_password.encode('utf-8')
 
                 if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
                     print("Login successful!")
@@ -220,7 +220,7 @@ class Authentication(QWidget):
 
         except sqlite3.Error as e:
             print("Database error:", e)
-            self.login_error.setText("Database error. Please try again later.")
+            self.error_label.setText("Database error. Please try again later.")
         finally:
             conn.close()
     
@@ -271,7 +271,7 @@ class SignUp(QWidget):
         self.confirm_input.setFixedHeight(40)
         self.confirm_input.setFixedWidth(300)
         self.confirm_input.setStyleSheet(self.input_style())
-
+        
         # SIGN UP BUTTON CLICK
         signup_button = QPushButton("Sign Up")
         signup_button.setFixedHeight(40)
@@ -342,18 +342,20 @@ class SignUp(QWidget):
                 border: 3px solid #4A4947;
             }}
         """
-
+    
     def usernameExists(self, username):
-        query = "SELECT COUNT (*) FROM Librarian WHERE LibUsername = ?"
-        result = self.cursor.execute(query, (username,)).fetchone()
-        return result[0]>0
+        query = "SELECT COUNT(*) FROM Librarian WHERE LibUsername = ?"
+        result = self.cursor.execute(query, (username,))
+        count = result.fetchone()[0]
+        return count > 0
+
 
 
     def handle_signup(self):
         username = self.username_input.text().strip()
         password = self.password_input.text()
         confirm = self.confirm_input.text()
-
+     
         self.username_input.setStyleSheet(self.input_style())
         self.password_input.setStyleSheet(self.input_style())
         self.confirm_input.setStyleSheet(self.input_style())
@@ -368,7 +370,7 @@ class SignUp(QWidget):
             self.error_label.setText("Username already exists. Please enter a new username.")
             self.username_input.setStyleSheet(self.input_style(error=True))
             return
-
+        
         if not password:
             self.error_label.setText("Password cannot be empty.")
             self.password_input.setStyleSheet(self.input_style(error=True))
@@ -379,14 +381,13 @@ class SignUp(QWidget):
             self.password_input.setStyleSheet(self.input_style(error=True))
             self.confirm_input.setStyleSheet(self.input_style(error=True))
             return
-
+        
         #PARA YUNG HASHESD PASS YUNG MAISTORE SA DATABASE
         hashedPass = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
         insert_query = "INSERT INTO Librarian (LibUsername, LibPass) VALUES (?, ?)"
-        self.cursor.execute(insert_query, (username, password))
         self.cursor.execute(insert_query, (username, hashedPass))
         self.conn.commit()
-
+        
         self.error_label.setStyleSheet("color: green; font-weight: bold;")
         self.error_label.setText("Account created successfully!")
 

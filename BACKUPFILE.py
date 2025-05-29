@@ -185,13 +185,6 @@ class Authentication(QWidget):
     def handle_login(self):
         username = self.username_input.text()
         password = self.password_input.text()
-        if username == "jas" and password == "qtqt": #WAIT BABAGUHIN THIS PAG MAY DATABASE NA
-            self.error_label.setText("Invalid username or password.")
-            self.dashboard = Dashboard()
-            self.dashboard.show()
-            self.close()
-        else:
-            self.error_label.setText("Invalid Username or Password.")
 
         if not username:
             self.error_label.setText("Please enter your username!")
@@ -408,3 +401,4 @@ app.setStyleSheet("""
 
 window = Authentication()
 window.show()
+sys.exit(app.exec())

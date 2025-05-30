@@ -18,6 +18,37 @@ from PySide6.QtWidgets import (
     QSpacerItem, QSizePolicy, QHBoxLayout
 )
 
+from db_seeder import DatabaseSeeder
+
+def initialize_database():
+    import os
+    db_exists = os.path.exists("bjrsLib.db")
+
+    if not db_exists:
+        print("Database not found. Creating and seeding database...")
+        seeder = DatabaseSeeder
+        seeder.seed_all()
+    else:
+        try:
+            conn = sqlite3.connect("bjrsLib.db")
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT COUNT(*) FROM Librarian")
+            librarian_count = cursor.fetchone()[0]
+
+            if librarian_count == 0:
+                print("Database exists but is empty. Seeding data...")
+                seeder = DatabaseSeeder()
+                seeder.seed_all()
+            else: 
+                print("Database is ready")
+            conn.close()
+
+        except sqlite3.Error as e:
+            print(f"Database error, attempting to seed: {e}")
+            seedder = DatabaseSeeder()
+            seeder.seed_all()
+
 #The authentication inherits the QWidget
 class Authentication(QWidget): 
     def __init__(self):
@@ -390,15 +421,23 @@ class SignUp(QWidget):
         self.error_label.setStyleSheet("color: green; font-weight: bold;")
         self.error_label.setText("Account created successfully!")
 
-#This runs the program
-app = QApplication(sys.argv)
 
-default_font = QFont("Times New Roman")
-app.setFont(default_font)
-app.setStyleSheet("""
-      QLabel {color: #4A4947}         
- """)
 
-window = Authentication()
-window.show()
-app.exec()
+
+
+if __name__ == "__main__":
+
+    initialize_database()
+    
+    #This runs the program
+    app = QApplication(sys.argv)
+
+    default_font = QFont("Times New Roman")
+    app.setFont(default_font)
+    app.setStyleSheet("""
+        QLabel {color: #4A4947}         
+    """)
+
+    window = Authentication()
+    window.show()
+    app.exec()

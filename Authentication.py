@@ -50,35 +50,43 @@ def initialize_database():
             seeder.seed_all()
 
 #The authentication inherits the QWidget
+
+
 class Authentication(QWidget): 
     def __init__(self):
         super().__init__() #GIVEN NA TO EVERYTIME
 
         self.setWindowTitle("Library Management System")
-        self.setFixedSize(800,600) #width,height
+        self.setFixedSize(900,600) #width,height
+        
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #f1efe3;
+            }
+        """)
 
         label = QLabel("Welcome to BJRS Library")
         font = QFont()
-        font.setPointSize(28)
+        font.setPointSize(30)
         label.setFont(font)
         label.setAlignment(Qt.AlignmentFlag.AlignTop)
-        label.setContentsMargins(330,100,0,0) #left, top, right, bottom
+        label.setContentsMargins(450,100,0,0) #left, top, right, bottom
 
         #For Gif
         self.gif_label = QLabel()
         self.movie = QMovie("assets/book2.gif")
-        self.movie.setScaledSize(QSize(220,220)) #width, height
+        self.movie.setScaledSize(QSize(250,250)) #width, height
         self.gif_label.setMovie(self.movie)
         self.gif_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.gif_label.setContentsMargins(90,20,0,0) #left, top, right, bottom
+        self.gif_label.setContentsMargins(100,20,0,0) #left, top, right, bottom
         self.movie.start()
 
         #Username or Email
-        username_label = QLabel("Username")
+        username_label = QLabel("Email")
         font = QFont()
         font.setPointSize (20)
         self.username_input = QLineEdit()
-        self.username_input.setPlaceholderText("Enter username or email")
+        self.username_input.setPlaceholderText("Enter email")
         self.username_input.setFixedHeight(40)
         self.username_input.setFixedWidth(300)
         self.username_input.setStyleSheet("""
@@ -88,11 +96,15 @@ class Authentication(QWidget):
             padding: 8px;                  /*  space inside the textbox */
             font-size: 16px;               /*  font size  */
             background-color: #F0ECE9;
+            color: #4A4947; /* user input text color */                              
         }
 
         QLineEdit:focus {
             border: 3px solid #714423;     /*  border color when selected (focused) */
         }
+        QLineEdit::placeholder {
+            color: #A0A0A0; /* placeholder text color */
+        }    
     """)
         
         #ANG PURPOSE NITO IS PARA MAGKAPATONG YUNG USERNAME NA LABEL AT USERNAME NA INPUT!
@@ -114,11 +126,15 @@ class Authentication(QWidget):
             padding: 8px;                  /*  space inside the textbox */
             font-size: 16px;               /*  font size */
             background-color: #F0ECE9;
+            color: #4A4947; /* user input text color */                              
         }
 
         QLineEdit:focus {
             border: 3px solid #714423;     /*  border color when selected (focused) */
         }
+        QLineEdit::placeholder {
+            color: #A0A0A0; /* placeholder text color */
+        }                                  
     """)
         
         #PATONG YUNG PASSWORD NA TEXT AT IINPUT-AN
@@ -128,7 +144,6 @@ class Authentication(QWidget):
         
 
         # PARA NASA RIGHT SIDE LANG YUNG YUNG USERNAME AT PASSWORD KASI ANG NASA LEFT IS SI GIF SO MAY MALAKING PARANG PADDING SIYA
-        # Make the username input to the right
         h_layout_user = QHBoxLayout()
         h_layout_user.addSpacerItem(QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Minimum)) #width, height
         h_layout_user.addLayout(username_v_layout)
@@ -161,13 +176,14 @@ class Authentication(QWidget):
         #FOR SIGNUP!!!!
         signup_label = QLabel()
         signup_label.setText('Don\'t have an account? <a href="signup">Sign Up</a>')
+        signup_label.setContentsMargins(180,20,0,0)
         signup_label.setTextFormat(Qt.TextFormat.RichText)
         signup_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         signup_label.setOpenExternalLinks(False)  
         signup_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         # Connect link click 
-        signup_label.linkActivated.connect(self.open_signup)       
+        signup_label.linkActivated.connect(self.open_signUp)       
 
         button_layout = QHBoxLayout()
         button_layout.addSpacerItem(QSpacerItem(50, 0, QSizePolicy.Fixed, QSizePolicy.Minimum))  # 50 px space before button
@@ -219,10 +235,12 @@ class Authentication(QWidget):
 
         if not username:
             self.error_label.setText("Please enter your username!")
+            self.error_label.setContentsMargins(180,20,0,0)
             return
         
         if not password:
             self.error_label.setText("Please enter your password!")
+            self.error_label.setContentsMargins(180,20,0,0)
             return
         
         try:
@@ -253,21 +271,37 @@ class Authentication(QWidget):
             print("Database error:", e)
             self.login_error.setText("Database error. Please try again later.")
         finally:
-            conn.close()
-    
-    def open_signup(self, link):
+            conn.close() 
+
+    def open_signUp(self):
         # Open the SignUp screen 
         self.signup_window = SignUp()
         self.signup_window.show()
 
 #HI JASSMINEEEEEE DITOO KAAAAAAA!!!!
-from PySide6.QtCore import Qt
 
 class SignUp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Sign Up")
-        self.setFixedSize(400, 400)
+        self.setFixedSize(900,600)
+        
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #f1efe3;
+            }
+        """)
+
+        
+        label = QLabel("Create an Account")
+        font = QFont()
+        font.setPointSize(28)
+        label.setFont(font)
+        label.setAlignment(Qt.AlignmentFlag.AlignTop)
+        label.setContentsMargins(200,100,0,0) #left, top, right, bottom
+
+
+
 
         #connect to database
         self.conn = sqlite3.connect("bjrsLib.db")
@@ -277,13 +311,39 @@ class SignUp(QWidget):
         self.error_label.setStyleSheet("color: red; font-weight: bold;")
         self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # USERNAME (CAPITALLL GALIT SI SHELLEY) 
-        username_label = QLabel("Username")
+        # EMAIL (CAPITALLL GALIT SI SHELLEY) 
+        username_label = QLabel("Email")
         self.username_input = QLineEdit()
-        self.username_input.setPlaceholderText("Enter username")
+        self.username_input.setPlaceholderText("Enter Email")
         self.username_input.setFixedHeight(40)
         self.username_input.setFixedWidth(300)
         self.username_input.setStyleSheet(self.input_style())
+
+        # LAST NAME 
+        lname_label = QLabel("Last Name")
+        self.lname__input = QLineEdit()
+        self.lname__input.setPlaceholderText("Last Name")
+        self.lname__input.setFixedHeight(40)
+        self.lname__input.setFixedWidth(300)
+        self.lname__input.setStyleSheet(self.input_style())
+
+         # FIRST NAME 
+        fname_label = QLabel("First Name")
+        self.fname_input = QLineEdit()
+        self.fname_input.setPlaceholderText("First Name")
+        self.fname_input.setFixedHeight(40)
+        self.fname_input.setFixedWidth(300)
+        self.fname_input.setStyleSheet(self.input_style())
+
+
+        # MIDDLE NAME
+        mname_label = QLabel("Middle Name")
+        self.mname_input = QLineEdit()
+        self.mname_input.setPlaceholderText("Middle Name")
+        self.mname_input.setFixedHeight(40)
+        self.mname_input.setFixedWidth(300)
+        self.mname_input.setStyleSheet(self.input_style())
+       
 
         # PASSWORD
         password_label = QLabel("Password")
@@ -320,10 +380,28 @@ class SignUp(QWidget):
         """)
         signup_button.clicked.connect(self.handle_signup)
 
-         # BASTA LAYOUT NG INPUT
+        # BASTA LAYOUT NG INPUT
         username_layout = QVBoxLayout()
         username_layout.addWidget(username_label)
         username_layout.addWidget(self.username_input)
+
+
+        # Last Name
+        lname_layout = QVBoxLayout()
+        lname_layout.addWidget(lname_label)
+        lname_layout.addWidget(self.lname__input)
+
+        # First Name
+        fname_layout = QVBoxLayout()
+        fname_layout.addWidget(fname_label)
+        fname_layout.addWidget(self.fname_input)
+
+
+        # Middle Name
+        mname_layout = QVBoxLayout()
+        mname_layout.addWidget(mname_label)
+        mname_layout.addWidget(self.mname_input)
+
 
         password_layout = QVBoxLayout()
         password_layout.addWidget(password_label)
@@ -336,12 +414,18 @@ class SignUp(QWidget):
         form_layout = QVBoxLayout()
         form_layout.addLayout(username_layout)
         form_layout.addSpacing(10)
+        form_layout.addLayout(lname_layout)
+        form_layout.addSpacing(10)
+        form_layout.addLayout(fname_layout)
+        form_layout.addSpacing(10)
+        form_layout.addLayout(mname_layout)
+        form_layout.addSpacing(10)
         form_layout.addLayout(password_layout)
         form_layout.addSpacing(10)
         form_layout.addLayout(confirm_layout)
-        form_layout.addSpacing(20)
+        form_layout.addSpacing(10)
         form_layout.addWidget(signup_button, alignment=Qt.AlignmentFlag.AlignCenter)
-        form_layout.addSpacing(15)
+        form_layout.addSpacing(20)
         form_layout.addWidget(self.error_label)
         form_layout.addStretch()
 
@@ -368,10 +452,15 @@ class SignUp(QWidget):
                 padding: 8px;
                 font-size: 16px;
                 background-color: #F0ECE9;
-            }}
-            QLineEdit:focus {{
-                border: 3px solid #4A4947;
-            }}
+                color: #4A4947; /* user input text color */                              
+        }}
+
+        QLineEdit:focus {{
+            border: 3px solid #714423;     /*  border color when selected (focused) */
+        }}
+        QLineEdit::placeholder {{
+            color: #A0A0A0; /* placeholder text color */
+        }}
         """
     
     def usernameExists(self, username):
@@ -382,21 +471,20 @@ class SignUp(QWidget):
 
     def handle_signup(self):
         username = self.username_input.text().strip()
+        lname = self.lname_input.text().strip ()
+        fname = self.fname_input.text().strip()
+        mname = self.mname_input.text ().strip ()
         password = self.password_input.text()
         confirm = self.confirm_input.text()
-     
-        self.username_input.setStyleSheet(self.input_style())
-        self.password_input.setStyleSheet(self.input_style())
-        self.confirm_input.setStyleSheet(self.input_style())
-        self.error_label.setText("")
+       
 
         if not username:
-            self.error_label.setText("Username cannot be empty.")
+            self.error_label.setText("Email cannot be empty.")
             self.username_input.setStyleSheet(self.input_style(error=True))
             return
 
         if self.usernameExists(username):
-            self.error_label.setText("Username already exists. Please enter a new username.")
+            self.error_label.setText("Email already exists. Please enter a new username.")
             self.username_input.setStyleSheet(self.input_style(error=True))
             return
         

@@ -18,37 +18,6 @@ from PySide6.QtWidgets import (
     QSpacerItem, QSizePolicy, QHBoxLayout
 )
 
-from db_seeder import DatabaseSeeder
-
-def initialize_database():
-    import os
-    db_exists = os.path.exists("bjrsLib.db")
-
-    if not db_exists:
-        print("Database not found. Creating and seeding database...")
-        seeder = DatabaseSeeder
-        seeder.seed_all()
-    else:
-        try:
-            conn = sqlite3.connect("bjrsLib.db")
-            cursor = conn.cursor()
-
-            cursor.execute("SELECT COUNT(*) FROM Librarian")
-            librarian_count = cursor.fetchone()[0]
-
-            if librarian_count == 0:
-                print("Database exists but is empty. Seeding data...")
-                seeder = DatabaseSeeder()
-                seeder.seed_all()
-            else: 
-                print("Database is ready")
-            conn.close()
-
-        except sqlite3.Error as e:
-            print(f"Database error, attempting to seed: {e}")
-            seedder = DatabaseSeeder()
-            seeder.seed_all()
-
 #The authentication inherits the QWidget
 class Authentication(QWidget): 
     def __init__(self):
@@ -234,8 +203,8 @@ class Authentication(QWidget):
             if result:
                 stored_hashed_password = result[0]
 
-                if isinstance(stored_hashed_password, str):
-                    stored_hashed_password = stored_hashed_password.encode("utf-8")
+              #  if isinstance(stored_hashed_password, str):
+               #     stored_hashed_passwords = stored_hashed_password.encode('utf-8')
 
                 if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
                     print("Login successful!")
@@ -251,7 +220,7 @@ class Authentication(QWidget):
 
         except sqlite3.Error as e:
             print("Database error:", e)
-            self.login_error.setText("Database error. Please try again later.")
+            self.error_label.setText("Database error. Please try again later.")
         finally:
             conn.close()
     
@@ -375,9 +344,11 @@ class SignUp(QWidget):
         """
     
     def usernameExists(self, username):
-        query = "SELECT COUNT (*) FROM Librarian WHERE LibUsername = ?"
-        result = self.cursor.execute(query, (username,)).fetchone()
-        return result[0]>0
+        query = "SELECT COUNT(*) FROM Librarian WHERE LibUsername = ?"
+        result = self.cursor.execute(query, (username,))
+        count = result.fetchone()[0]
+        return count > 0
+
 
 
     def handle_signup(self):
@@ -413,7 +384,6 @@ class SignUp(QWidget):
         
         #PARA YUNG HASHESD PASS YUNG MAISTORE SA DATABASE
         hashedPass = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
-        hashed_password_str = hashedPass.decode('utf-8')
         insert_query = "INSERT INTO Librarian (LibUsername, LibPass) VALUES (?, ?)"
         self.cursor.execute(insert_query, (username, hashedPass))
         self.conn.commit()
@@ -421,23 +391,15 @@ class SignUp(QWidget):
         self.error_label.setStyleSheet("color: green; font-weight: bold;")
         self.error_label.setText("Account created successfully!")
 
+#This runs the program
+app = QApplication(sys.argv)
 
+default_font = QFont("Times New Roman")
+app.setFont(default_font)
+app.setStyleSheet("""
+      QLabel {color: #4A4947}         
+ """)
 
-
-
-if __name__ == "__main__":
-
-    initialize_database()
-    
-    #This runs the program
-    app = QApplication(sys.argv)
-
-    default_font = QFont("Times New Roman")
-    app.setFont(default_font)
-    app.setStyleSheet("""
-        QLabel {color: #4A4947}         
-    """)
-
-    window = Authentication()
-    window.show()
-    app.exec()
+window = Authentication()
+window.show()
+sys.exit(app.exec())

@@ -1,10 +1,12 @@
 import sys
+import requests
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer
 from PySide6.QtGui import QFont, QIcon, QFont
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QHBoxLayout,
     QLabel, QSizePolicy, QSpacerItem, QLineEdit, QScrollArea, QGridLayout,
-    QTabWidget, QTextEdit, QMessageBox, QFormLayout
+    QTabWidget, QTextEdit, QMessageBox, QFormLayout, QDialog, QListWidget,
+    QListWidgetItem
 )
 
 #for the navbar to automatically open
@@ -37,7 +39,7 @@ class NavigationArea(QWidget):
 class BookEditView(QWidget):
     def __init__(self, book_data, parent_window):
         super().__init__()
-        self.book_data = book_data #store the book_data(title, author...)
+        self.book_data = book_data
         self.parent_window = parent_window
         self.init_ui()
     
@@ -77,7 +79,7 @@ class BookEditView(QWidget):
         title.setStyleSheet("""
             QLabel {
                 color: #5C4033;
-                font-size: 32px;
+                font-size: 30px;
                 font-weight: bold;
                 padding: 10px 0px;
             }
@@ -89,7 +91,7 @@ class BookEditView(QWidget):
         form_widget.setStyleSheet("""
             QWidget {
                 background-color: white;
-                border-radius: 15px;
+                border-radius: 16px;
                 border: 2px solid #dbcfc1;
             }
         """)
@@ -97,36 +99,55 @@ class BookEditView(QWidget):
         form_layout.setContentsMargins(30, 30, 30, 30)
         form_layout.setSpacing(15)
         
-        # Book details form
+        # Book details form - Read-only fields
         self.title_input = QLineEdit(self.book_data['title'])
-        self.title_input.setStyleSheet(self.get_input_style())
+        self.title_input.setReadOnly(True)
+        self.title_input.setStyleSheet(self.get_readonly_input_style())
         
         self.author_input = QLineEdit(self.book_data['author'])
-        self.author_input.setStyleSheet(self.get_input_style())
+        self.author_input.setReadOnly(True)
+        self.author_input.setStyleSheet(self.get_readonly_input_style())
+        
+        self.genre_input = QLineEdit(self.book_data.get('genre', 'N/A'))
+        self.genre_input.setReadOnly(True)
+        self.genre_input.setStyleSheet(self.get_readonly_input_style())
         
         self.isbn_input = QLineEdit(self.book_data.get('isbn', 'N/A'))
-        self.isbn_input.setStyleSheet(self.get_input_style())
+        self.isbn_input.setReadOnly(True)
+        self.isbn_input.setStyleSheet(self.get_readonly_input_style())
+
+
+        
+        # Editable fields
+        self.copies_input = QLineEdit(str(self.book_data.get('copies', '1')))
+        self.copies_input.setStyleSheet(self.get_editable_input_style())
+        
+        self.shelf_input = QLineEdit(self.book_data.get('shelf', ''))
+        self.shelf_input.setStyleSheet(self.get_editable_input_style())
         
         self.description_input = QTextEdit(self.book_data.get('description', 'No description available'))
         self.description_input.setMaximumHeight(150)
         self.description_input.setStyleSheet("""
             QTextEdit {
                 color: #5C4033;
-                font-size: 16px;
+                font-size: 15px;
                 padding: 10px;
                 background-color: white;
                 border: 2px solid #dbcfc1;
-                border-radius: 8px;
+                border-radius: 10px;
             }
             QTextEdit:focus {
                 border-color: #5C4033;
             }
         """)
         
-        # JAS PADAGDAG HERE NG UHMMM NALIMUTAN KO MWHEHEHE PERO NASA PAPER YUNG SHELF ROW SOMETHING
+        # Add fields to form
         form_layout.addRow(self.create_label("Title:"), self.title_input)
         form_layout.addRow(self.create_label("Author:"), self.author_input)
+        form_layout.addRow(self.create_label("Genre:"), self.genre_input)
         form_layout.addRow(self.create_label("ISBN:"), self.isbn_input)
+        form_layout.addRow(self.create_label("Available copy of books:"), self.copies_input)
+        form_layout.addRow(self.create_label("Shelf No.:"), self.shelf_input)
         form_layout.addRow(self.create_label("Description:"), self.description_input)
         
         layout.addWidget(form_widget)
@@ -207,7 +228,19 @@ class BookEditView(QWidget):
         """)
         return label
     
-    def get_input_style(self):
+    def get_readonly_input_style(self):
+        return """
+            QLineEdit {
+                color: #666666;
+                font-size: 16px;
+                padding: 10px;
+                background-color: #f5f5f5;
+                border: 2px solid #dbcfc1;
+                border-radius: 8px;
+            }
+        """
+    
+    def get_editable_input_style(self):
         return """
             QLineEdit {
                 color: #5C4033;
@@ -224,9 +257,8 @@ class BookEditView(QWidget):
     
     def save_changes(self):
         # Update book data
-        self.book_data['title'] = self.title_input.text()
-        self.book_data['author'] = self.author_input.text()
-        self.book_data['isbn'] = self.isbn_input.text()
+        self.book_data['copies'] = self.copies_input.text()
+        self.book_data['shelf'] = self.shelf_input.text()
         self.book_data['description'] = self.description_input.toPlainText()
         
         # Show confirmation
@@ -276,21 +308,21 @@ class CollapsibleSidebar(QWidget):
         
         # Initialize books data PYTHON LIST!
         self.books_data = [
-            {"image": "assets/book1.png", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald", "isbn": "978-0-7432-7356-5", "description": "A classic American novel set in the 1920s."},
-            {"image": "assets/book2.png", "title": "To Kill a Mockingbird", "author": "Harper Lee", "isbn": "978-0-06-112008-4", "description": "A gripping tale of racial injustice and childhood in the American South."},
-            {"image": "assets/book3.png", "title": "1984", "author": "George Orwell", "isbn": "978-0-452-28423-4", "description": "A dystopian social science fiction novel and cautionary tale."},
-            {"image": "assets/book4.png", "title": "Pride and Prejudice", "author": "Jane Austen", "isbn": "978-0-14-143951-8", "description": "A romantic novel of manners written by Jane Austen."},
-            {"image": "assets/book5.png", "title": "The Catcher in the Rye", "author": "J.D. Salinger", "isbn": "978-0-316-76948-0", "description": "A controversial novel originally published for adults."},
-            {"image": "assets/book6.png", "title": "Lord of the Flies", "author": "William Golding", "isbn": "978-0-571-05686-2", "description": "A 1954 novel about a group of British boys stuck on an uninhabited island."},
-            {"image": "assets/book7.png", "title": "Animal Farm", "author": "George Orwell", "isbn": "978-0-452-28424-1", "description": "An allegorical novella reflecting events leading up to the Russian Revolution."},
-            {"image": "assets/book8.png", "title": "Brave New World", "author": "Aldous Huxley", "isbn": "978-0-06-085052-4", "description": "A dystopian novel set in a futuristic World State."},
-            {"image": "assets/book9.png", "title": "The Hobbit", "author": "J.R.R. Tolkien", "isbn": "978-0-547-92822-7", "description": "A children's fantasy novel about the adventure of Bilbo Baggins."},
-            {"image": "assets/book10.png", "title": "Fahrenheit 451", "author": "Ray Bradbury", "isbn": "978-1-4516-7331-9", "description": "A dystopian novel about a future where books are outlawed."},
-            {"image": "assets/book11.png", "title": "Moby Dick", "author": "Herman Melville", "isbn": "978-0-14-243724-7", "description": "The narrative of Captain Ahab's obsessive quest for revenge."},
-            {"image": "assets/book12.png", "title": "War and Peace", "author": "Leo Tolstoy", "isbn": "978-0-14-044793-4", "description": "A novel that chronicles the French invasion of Russia."},
-            {"image": "assets/book13.png", "title": "The Odyssey", "author": "Homer", "isbn": "978-0-14-044911-2", "description": "An ancient Greek epic poem attributed to Homer."},
-            {"image": "assets/book14.png", "title": "Crime and Punishment", "author": "Fyodor Dostoevsky", "isbn": "978-0-14-044913-6", "description": "A psychological novel focusing on the mental anguish of Raskolnikov."},
-            {"image": "assets/book15.png", "title": "Jane Eyre", "author": "Charlotte Brontë", "isbn": "978-0-14-144114-6", "description": "A bildungsroman following the experiences of its eponymous heroine."}
+            {"image": "assets/book1.png", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald", "isbn": "978-0-7432-7356-5", "genre": "Classic Fiction", "description": "A classic American novel set in the 1920s."},
+            {"image": "assets/book2.png", "title": "To Kill a Mockingbird", "author": "Harper Lee", "isbn": "978-0-06-112008-4", "genre": "Literary Fiction", "description": "A gripping tale of racial injustice and childhood in the American South."},
+            {"image": "assets/book3.png", "title": "1984", "author": "George Orwell", "isbn": "978-0-452-28423-4", "genre": "Dystopian Fiction", "description": "A dystopian social science fiction novel and cautionary tale."},
+            {"image": "assets/book4.png", "title": "Pride and Prejudice", "author": "Jane Austen", "isbn": "978-0-14-143951-8", "genre": "Romance", "description": "A romantic novel of manners written by Jane Austen."},
+            {"image": "assets/book5.png", "title": "The Catcher in the Rye", "author": "J.D. Salinger", "isbn": "978-0-316-76948-0", "genre": "Coming-of-age Fiction", "description": "A controversial novel originally published for adults."},
+            {"image": "assets/book6.png", "title": "Lord of the Flies", "author": "William Golding", "isbn": "978-0-571-05686-2", "genre": "Allegory", "description": "A 1954 novel about a group of British boys stuck on an uninhabited island."},
+            {"image": "assets/book7.png", "title": "Animal Farm", "author": "George Orwell", "isbn": "978-0-452-28424-1", "genre": "Political Satire", "description": "An allegorical novella reflecting events leading up to the Russian Revolution."},
+            {"image": "assets/book8.png", "title": "Brave New World", "author": "Aldous Huxley", "isbn": "978-0-06-085052-4", "genre": "Science Fiction", "description": "A dystopian novel set in a futuristic World State."},
+            {"image": "assets/book9.png", "title": "The Hobbit", "author": "J.R.R. Tolkien", "isbn": "978-0-547-92822-7", "genre": "Fantasy", "description": "A children's fantasy novel about the adventure of Bilbo Baggins."},
+            {"image": "assets/book10.png", "title": "Fahrenheit 451", "author": "Ray Bradbury", "isbn": "978-1-4516-7331-9", "genre": "Dystopian Fiction", "description": "A dystopian novel about a future where books are outlawed."},
+            {"image": "assets/book11.png", "title": "Moby Dick", "author": "Herman Melville", "isbn": "978-0-14-243724-7", "genre": "Adventure Fiction", "description": "The narrative of Captain Ahab's obsessive quest for revenge."},
+            {"image": "assets/book12.png", "title": "War and Peace", "author": "Leo Tolstoy", "isbn": "978-0-14-044793-4", "genre": "Historical Fiction", "description": "A novel that chronicles the French invasion of Russia."},
+            {"image": "assets/book13.png", "title": "The Odyssey", "author": "Homer", "isbn": "978-0-14-044911-2", "genre": "Epic Poetry", "description": "An ancient Greek epic poem attributed to Homer."},
+            {"image": "assets/book14.png", "title": "Crime and Punishment", "author": "Fyodor Dostoevsky", "isbn": "978-0-14-044913-6", "genre": "Psychological Fiction", "description": "A psychological novel focusing on the mental anguish of Raskolnikov."},
+            {"image": "assets/book15.png", "title": "Jane Eyre", "author": "Charlotte Brontë", "isbn": "978-0-14-144114-6", "genre": "Gothic Fiction", "description": "A bildungsroman following the experiences of its eponymous heroine."}
         ]
         
         # Main layout
@@ -430,7 +462,7 @@ class CollapsibleSidebar(QWidget):
         
         # Create search bar
         self.search_bar = QLineEdit()
-        self.search_bar.setPlaceholderText("Search books, pati ba author? wag na")
+        self.search_bar.setPlaceholderText("Search books...")
         self.search_bar.setFixedSize(300, 50)
         self.search_bar.returnPressed.connect(self.perform_search)
         self.search_bar.setStyleSheet("""
@@ -467,8 +499,28 @@ class CollapsibleSidebar(QWidget):
             }
         """)
         
+        # ADD A BOOK BUTTON
+        self.add_button = QPushButton("➕")
+        self.add_button.setFixedSize(50, 50)
+        self.add_button.clicked.connect(self.show_add_book_dialog)
+        self.add_button.setStyleSheet("""
+             QPushButton {
+                color: #5C4033;
+                font-size: 20px;
+                font-weight: bold;
+                background-color: #F5F5F5;
+                border: 3px solid #5C4033;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #5C4033;
+                color: white;
+            }
+        """)
+        
         search_layout.addWidget(self.search_bar)
         search_layout.addWidget(self.search_button)
+        search_layout.addWidget(self.add_button)
         
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
@@ -753,6 +805,218 @@ class CollapsibleSidebar(QWidget):
             for btn in self.buttons:
                 btn.setText("")
             self.animation.start()
+
+    def show_add_book_dialog(self):
+        """Show the book search and add dialog"""
+        dialog = BookSearchDialog(self)
+        dialog.exec()
+
+class BookSearchDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent = parent
+        self.setWindowTitle("Search Books")
+        self.setFixedSize(600, 500)
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+        
+        # Title
+        title_label = QLabel("Search Books")
+        title_label.setStyleSheet("""
+            QLabel {
+                color: #5C4033;
+                font-size: 24px;
+                font-weight: bold;
+            }
+        """)
+        layout.addWidget(title_label)
+        
+        # Search bar
+        search_layout = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Enter book title to search...")
+        self.search_input.returnPressed.connect(self.search_books)
+        self.search_input.setMinimumHeight(40)
+        self.search_input.setStyleSheet("""
+            QLineEdit {
+                color: #5C4033;
+                font-size: 16px;
+                padding: 10px 15px;
+                background-color: white;
+                border: 2px solid #5C4033;
+                border-radius: 5px;
+            }
+            QLineEdit:focus {
+                border-color: #8B4513;
+            }
+            QLineEdit::placeholder {
+                color: #999999;
+            }
+        """)
+        
+        search_button = QPushButton("Search")
+        search_button.setMinimumHeight(40)
+        search_button.clicked.connect(self.search_books)
+        
+        search_layout.addWidget(self.search_input)
+        search_layout.addWidget(search_button)
+        layout.addLayout(search_layout)
+        
+        # Status label
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet("""
+            QLabel {
+                color: #5C4033;
+                font-size: 14px;
+                padding: 5px;
+                min-height: 20px;
+            }
+        """)
+        layout.addWidget(self.status_label)
+        
+        # Results list with white background and visible items
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                background-color: white;
+                border: 2px solid #dbcfc1;
+                border-radius: 10px;
+            }
+            QScrollBar:vertical {
+                width: 12px;
+                background-color: #f0f0f0;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #5C4033;
+                border-radius: 6px;
+                min-height: 30px;
+            }
+        """)
+        
+        self.results_list = QListWidget()
+        self.results_list.setStyleSheet("""
+            QListWidget {
+                background-color: white;
+                border: none;
+                padding: 10px;
+            }
+            QListWidget::item {
+                color: #5C4033;
+                background-color: #f8f8f8;
+                padding: 10px;
+                margin: 2px 5px;
+                border: 1px solid #dbcfc1;
+                border-radius: 5px;
+                min-height: 20px;
+            }
+            QListWidget::item:selected {
+                background-color: #dbcfc1;
+                color: #5C4033;
+            }
+            QListWidget::item:hover {
+                background-color: #f0f0f0;
+                border-color: #5C4033;
+            }
+        """)
+        self.results_list.itemDoubleClicked.connect(self.add_book)
+        scroll_area.setWidget(self.results_list)
+        layout.addWidget(scroll_area)
+        
+        # Add button
+        add_button = QPushButton("Add Selected Book")
+        add_button.setMinimumHeight(40)
+        add_button.clicked.connect(self.add_book)
+        layout.addWidget(add_button)
+        
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f1efe3;
+            }
+            QLineEdit {
+                padding: 8px;
+                border: 2px solid #5C4033;
+                border-radius: 5px;
+                font-size: 14px;
+                background-color: white;
+            }
+            QPushButton {
+                background-color: #5C4033;
+                color: white;
+                padding: 8px 15px;
+                border: none;
+                border-radius: 5px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #8B4513;
+            }
+        """)
+    
+    def search_books(self):
+        query = self.search_input.text().strip()
+        if not query:
+            self.status_label.setText("Please enter a search term")
+            return
+            
+        self.status_label.setText("Searching...")
+        self.results_list.clear()
+        QApplication.processEvents()  # Update the UI
+            
+        try:
+            # Google Books API endpoint with maxResults parameter
+            url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=20"
+            response = requests.get(url)
+            data = response.json()
+            
+            if 'items' not in data:
+                self.status_label.setText("No books found. Try a different search term.")
+                return
+                
+            for book in data['items']:
+                volume_info = book.get('volumeInfo', {})
+                title = volume_info.get('title', 'Unknown Title')
+                authors = volume_info.get('authors', ['Unknown Author'])
+                isbn_list = volume_info.get('industryIdentifiers', [])
+                isbn = next((item['identifier'] for item in isbn_list if item['type'] in ['ISBN_13', 'ISBN_10']), 'N/A')
+                description = volume_info.get('description', 'No description available')
+                
+                # Create item with book data and format it nicely
+                display_text = f"{title}\nby {', '.join(authors)}"
+                item = QListWidgetItem(display_text)
+                item.setData(Qt.UserRole, {
+                    'title': title,
+                    'author': ', '.join(authors),
+                    'isbn': isbn,
+                    'description': description,
+                    'image': volume_info.get('imageLinks', {}).get('thumbnail', 'assets/book1.png')
+                })
+                self.results_list.addItem(item)
+            
+            self.status_label.setText(f"Found {self.results_list.count()} books")
+            
+        except requests.exceptions.ConnectionError:
+            self.status_label.setText("Error: No internet connection. Please check your connection and try again.")
+        except Exception as e:
+            self.status_label.setText(f"Error: {str(e)}")
+    
+    def add_book(self):
+        current_item = self.results_list.currentItem()
+        if not current_item:
+            QMessageBox.warning(self, "Error", "Please select a book to add")
+            return
+            
+        book_data = current_item.data(Qt.UserRole)
+        self.parent.books_data.append(book_data)
+        self.parent.populate_books()
+        
+        QMessageBox.information(self, "Success", f"Book '{book_data['title']}' has been added!")
+        self.close()
 
 # Run app
 if __name__ == "__main__":

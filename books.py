@@ -1,7 +1,7 @@
 import sys
 import requests
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer
-from PySide6.QtGui import QFont, QIcon, QFont
+from PySide6.QtGui import QFont, QIcon, QFont, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QHBoxLayout,
     QLabel, QSizePolicy, QSpacerItem, QLineEdit, QScrollArea, QGridLayout,
@@ -134,7 +134,7 @@ class BookEditView(QWidget):
                 padding: 10px;
                 background-color: white;
                 border: 2px solid #dbcfc1;
-                border-radius: 10px;
+                border-radius: 16px;
             }
             QTextEdit:focus {
                 border-color: #5C4033;
@@ -167,7 +167,7 @@ class BookEditView(QWidget):
                 font-weight: bold;
                 background-color: #5C4033;
                 border: none;
-                border-radius: 10px;
+                border-radius: 16px;
             }
             QPushButton:hover {
                 background-color: #8B4513;
@@ -185,7 +185,7 @@ class BookEditView(QWidget):
                 font-weight: bold;
                 background-color: #CC4125;
                 border: none;
-                border-radius: 10px;
+                border-radius: 16px;
             }
             QPushButton:hover {
                 background-color: #E55B4A;
@@ -236,7 +236,7 @@ class BookEditView(QWidget):
                 padding: 10px;
                 background-color: #f5f5f5;
                 border: 2px solid #dbcfc1;
-                border-radius: 8px;
+                border-radius: 10px;
             }
         """
     
@@ -248,7 +248,7 @@ class BookEditView(QWidget):
                 padding: 10px;
                 background-color: white;
                 border: 2px solid #dbcfc1;
-                border-radius: 8px;
+                border-radius: 10px;
             }
             QLineEdit:focus {
                 border-color: #5C4033;
@@ -299,6 +299,289 @@ class BookEditView(QWidget):
     def go_back(self):
         # Go back to main books view without saving
         self.parent_window.show_books_view()
+
+class AddBookDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent = parent
+        self.setWindowTitle("Add New Book")
+        self.setFixedSize(500, 700)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f1efe3;
+            }
+        """)
+        self.init_ui()
+        
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
+        # Book Information Section
+        info_group = QWidget()
+        info_group.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 15px;
+                border: 2px solid #dbcfc1;
+            }
+            QLabel {
+                color: #5C4033;
+                font-size: 16px;
+                font-weight: bold;
+                background: transparent;
+            }
+        """)
+        info_layout = QVBoxLayout(info_group)
+        info_layout.setContentsMargins(20, 20, 20, 20)
+        info_layout.setSpacing(15)
+
+        # Section Title
+        section_title = QLabel("Book Information")
+        section_title.setStyleSheet("""
+            QLabel {
+                font-size: 20px;
+                padding-top: 5px;
+                padding-bottom: 12px;
+            }
+        """)
+        info_layout.addWidget(section_title)
+
+        # Form fields
+        form_layout = QFormLayout()
+        form_layout.setSpacing(15)
+        form_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Title input
+        self.title_input = QLineEdit()
+        self.title_input.setPlaceholderText("Enter Title")
+        self.title_input.setStyleSheet("""
+            QLineEdit {
+                color: #5C4033;
+                font-size: 16px;
+                padding: 12px 20px;
+                background-color: white;
+                border: 2px solid #dbcfc1;
+                border-radius: 22px;
+            }
+            QLineEdit:focus {
+                border-color: #5C4033;
+            }
+            QLineEdit::placeholder {
+                color: #999999;
+            }
+        """)
+
+        # Author input
+        self.author_input = QLineEdit()
+        self.author_input.setPlaceholderText("Enter Author")
+        self.author_input.setStyleSheet(self.title_input.styleSheet())
+
+        # ISBN input
+        self.isbn_input = QLineEdit()
+        self.isbn_input.setPlaceholderText("Enter ISBN")
+        self.isbn_input.setStyleSheet(self.title_input.styleSheet())
+
+        form_layout.addRow("Title:", self.title_input)
+        form_layout.addRow("Author:", self.author_input)
+        form_layout.addRow("ISBN:", self.isbn_input)
+        
+        info_layout.addLayout(form_layout)
+
+        # Search button
+        search_btn = QPushButton("Search & Verify Book")
+        search_btn.clicked.connect(self.search_book)
+        search_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #5C4033;
+                color: white;
+                padding: 14px;
+                border: none;
+                border-radius: 22px;
+                font-size: 16px;;
+            }
+            QPushButton:hover {
+                background-color: #8B4513;
+            }
+        """)
+        info_layout.addWidget(search_btn)
+        
+        layout.addWidget(info_group)
+
+        # Book Results Section
+        results_group = QWidget()
+        results_group.setStyleSheet("""
+            QWidget {
+                background-color: white;
+                border-radius: 15px;
+                border: 2px solid #dbcfc1;
+            }
+            QLabel {
+                color: #5C4033;
+                font-size: 16px;
+                background: transparent;
+            }
+        """)
+        results_layout = QVBoxLayout(results_group)
+        results_layout.setContentsMargins(20, 20, 20, 20)
+        results_layout.setSpacing(15)
+
+        # Book Cover Preview
+        self.cover_preview = QLabel()
+        self.cover_preview.setFixedSize(180, 210)
+        self.cover_preview.setAlignment(Qt.AlignCenter)
+        self.cover_preview.setStyleSheet("""
+            QLabel {
+                background-color: #f5f5f5;
+                border: 2px dashed #dbcfc1;
+                border-radius: 15px;
+                color: #999999;
+            }
+        """)
+        self.cover_preview.setText("Book Cover Preview")
+        results_layout.addWidget(self.cover_preview, 0, Qt.AlignCenter)
+
+        layout.addWidget(results_group)
+
+        # Bottom buttons
+        button_container = QWidget()
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(15)
+        
+        add_btn = QPushButton("Add Book")
+        add_btn.clicked.connect(self.add_book)
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #5C4033;
+                color: white;
+                padding: 15px;
+                border: none;
+                border-radius: 22px;
+                font-size: 16px;
+                min-width: 150px;
+            }
+            QPushButton:hover {
+                background-color: #8B4513;
+            }
+        """)
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: white;
+                color: #5C4033;
+                padding: 12px;
+                border: 2px solid #5C4033;
+                border-radius: 22px;
+                font-size: 16px;
+                min-width: 150px;
+            }
+            QPushButton:hover {
+                background-color: #f0f0f0;
+            }
+        """)
+        
+        button_layout.addWidget(add_btn)
+        button_layout.addWidget(cancel_btn)
+        
+        layout.addWidget(button_container)
+
+    def search_book(self):
+        # Get search terms
+        title = self.title_input.text().strip()
+        author = self.author_input.text().strip()
+        isbn = self.isbn_input.text().strip()
+        
+        if not any([title, author, isbn]):
+            QMessageBox.warning(self, "Error", "Please enter at least one search term (Title, Author, or ISBN)")
+            return
+        
+        try:
+            # Build search query
+            search_terms = []
+            if isbn:
+                search_terms.append(f"isbn:{isbn}")
+            if title:
+                search_terms.append(f"intitle:{title}")
+            if author:
+                search_terms.append(f"inauthor:{author}")
+            
+            query = "+".join(search_terms)
+            
+            # Search Google Books API
+            url = f"https://www.googleapis.com/books/v1/volumes?q={query}"
+            response = requests.get(url)
+            data = response.json()
+            
+            if 'items' in data:
+                book = data['items'][0]['volumeInfo']
+                
+                # Store book data for adding later
+                self.found_book_data = {
+                    'title': book.get('title', ''),
+                    'authors': book.get('authors', []),
+                    'isbn': '',
+                }
+                
+                # Get ISBN-13 or ISBN-10
+                identifiers = book.get('industryIdentifiers', [])
+                for identifier in identifiers:
+                    if identifier['type'] in ['ISBN_13', 'ISBN_10']:
+                        self.found_book_data['isbn'] = identifier['identifier']
+                        break
+                
+                # Handle cover image
+                if 'imageLinks' in book:
+                    image_url = book['imageLinks'].get('thumbnail', '')
+                    if image_url:
+                        # Convert http to https if needed
+                        image_url = image_url.replace('http://', 'https://')
+                        
+                        # Download and display cover
+                        response = requests.get(image_url)
+                        image = QPixmap()
+                        image.loadFromData(response.content)
+                        self.cover_preview.setPixmap(image.scaled(200, 250, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                        self.book_cover_url = image_url
+                
+                # Update input fields with found data
+                self.title_input.setText(self.found_book_data['title'])
+                self.author_input.setText(', '.join(self.found_book_data['authors']))
+                self.isbn_input.setText(self.found_book_data['isbn'])
+            else:
+                QMessageBox.warning(self, "Not Found", "No book found with the provided information")
+                self.found_book_data = None
+                self.cover_preview.setText("Book Cover Preview")
+        
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Failed to search: {str(e)}")
+            self.found_book_data = None
+    
+    def add_book(self):
+        if not hasattr(self, 'found_book_data') or not self.found_book_data:
+            QMessageBox.warning(self, "Error", "Please search for a valid book first")
+            return
+        
+        # Create book data
+        book_data = {
+            "title": self.found_book_data['title'],
+            "author": ', '.join(self.found_book_data['authors']),
+            "isbn": self.found_book_data['isbn'],
+            "description": "No description available",
+            "copies": "1",
+            "shelf": "",
+            "image": getattr(self, 'book_cover_url', 'assets/book1.png')  # Use default if no cover
+        }
+        
+        # Add to parent's books data
+        self.parent.books_data.append(book_data)
+        self.parent.populate_books()
+        
+        QMessageBox.information(self, "Success", f"Book '{book_data['title']}' has been added!")
+        self.accept()
 
 class CollapsibleSidebar(QWidget):
     def __init__(self):
@@ -635,7 +918,7 @@ class CollapsibleSidebar(QWidget):
     
     def create_book_card(self, book_data):
         """Create a clickable book card"""
-        card_widget = QPushButton()  # Changed to QPushButton to make it clickable
+        card_widget = QPushButton()
         card_widget.setFixedSize(180, 240)
         card_widget.clicked.connect(lambda: self.open_book_edit(book_data))
         card_widget.setStyleSheet("""
@@ -671,10 +954,20 @@ class CollapsibleSidebar(QWidget):
             }
         """)
         
-        # Try to load image or show placeholder
+        # Try to load image
         try:
-            pixmap = QIcon(book_data["image"]).pixmap(116, 156)
-            book_cover.setPixmap(pixmap)
+            # Handle both local files and URLs
+            image_path = book_data["image"]
+            if image_path.startswith('http'):
+                # Load from URL
+                response = requests.get(image_path)
+                pixmap = QPixmap()
+                pixmap.loadFromData(response.content)
+            else:
+                # Load from local file
+                pixmap = QIcon(image_path).pixmap(116, 156)
+            
+            book_cover.setPixmap(pixmap.scaled(116, 156, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             book_cover.setScaledContents(True)
         except:
             book_cover.setText("📚")
@@ -807,216 +1100,9 @@ class CollapsibleSidebar(QWidget):
             self.animation.start()
 
     def show_add_book_dialog(self):
-        """Show the book search and add dialog"""
-        dialog = BookSearchDialog(self)
+        """Show the book add dialog"""
+        dialog = AddBookDialog(self)
         dialog.exec()
-
-class BookSearchDialog(QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.parent = parent
-        self.setWindowTitle("Search Books")
-        self.setFixedSize(600, 500)
-        self.init_ui()
-        
-    def init_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
-        
-        # Title
-        title_label = QLabel("Search Books")
-        title_label.setStyleSheet("""
-            QLabel {
-                color: #5C4033;
-                font-size: 24px;
-                font-weight: bold;
-            }
-        """)
-        layout.addWidget(title_label)
-        
-        # Search bar
-        search_layout = QHBoxLayout()
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Enter book title to search...")
-        self.search_input.returnPressed.connect(self.search_books)
-        self.search_input.setMinimumHeight(40)
-        self.search_input.setStyleSheet("""
-            QLineEdit {
-                color: #5C4033;
-                font-size: 16px;
-                padding: 10px 15px;
-                background-color: white;
-                border: 2px solid #5C4033;
-                border-radius: 5px;
-            }
-            QLineEdit:focus {
-                border-color: #8B4513;
-            }
-            QLineEdit::placeholder {
-                color: #999999;
-            }
-        """)
-        
-        search_button = QPushButton("Search")
-        search_button.setMinimumHeight(40)
-        search_button.clicked.connect(self.search_books)
-        
-        search_layout.addWidget(self.search_input)
-        search_layout.addWidget(search_button)
-        layout.addLayout(search_layout)
-        
-        # Status label
-        self.status_label = QLabel("")
-        self.status_label.setStyleSheet("""
-            QLabel {
-                color: #5C4033;
-                font-size: 14px;
-                padding: 5px;
-                min-height: 20px;
-            }
-        """)
-        layout.addWidget(self.status_label)
-        
-        # Results list with white background and visible items
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("""
-            QScrollArea {
-                background-color: white;
-                border: 2px solid #dbcfc1;
-                border-radius: 10px;
-            }
-            QScrollBar:vertical {
-                width: 12px;
-                background-color: #f0f0f0;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #5C4033;
-                border-radius: 6px;
-                min-height: 30px;
-            }
-        """)
-        
-        self.results_list = QListWidget()
-        self.results_list.setStyleSheet("""
-            QListWidget {
-                background-color: white;
-                border: none;
-                padding: 10px;
-            }
-            QListWidget::item {
-                color: #5C4033;
-                background-color: #f8f8f8;
-                padding: 10px;
-                margin: 2px 5px;
-                border: 1px solid #dbcfc1;
-                border-radius: 5px;
-                min-height: 20px;
-            }
-            QListWidget::item:selected {
-                background-color: #dbcfc1;
-                color: #5C4033;
-            }
-            QListWidget::item:hover {
-                background-color: #f0f0f0;
-                border-color: #5C4033;
-            }
-        """)
-        self.results_list.itemDoubleClicked.connect(self.add_book)
-        scroll_area.setWidget(self.results_list)
-        layout.addWidget(scroll_area)
-        
-        # Add button
-        add_button = QPushButton("Add Selected Book")
-        add_button.setMinimumHeight(40)
-        add_button.clicked.connect(self.add_book)
-        layout.addWidget(add_button)
-        
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #f1efe3;
-            }
-            QLineEdit {
-                padding: 8px;
-                border: 2px solid #5C4033;
-                border-radius: 5px;
-                font-size: 14px;
-                background-color: white;
-            }
-            QPushButton {
-                background-color: #5C4033;
-                color: white;
-                padding: 8px 15px;
-                border: none;
-                border-radius: 5px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #8B4513;
-            }
-        """)
-    
-    def search_books(self):
-        query = self.search_input.text().strip()
-        if not query:
-            self.status_label.setText("Please enter a search term")
-            return
-            
-        self.status_label.setText("Searching...")
-        self.results_list.clear()
-        QApplication.processEvents()  # Update the UI
-            
-        try:
-            # Google Books API endpoint with maxResults parameter
-            url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=20"
-            response = requests.get(url)
-            data = response.json()
-            
-            if 'items' not in data:
-                self.status_label.setText("No books found. Try a different search term.")
-                return
-                
-            for book in data['items']:
-                volume_info = book.get('volumeInfo', {})
-                title = volume_info.get('title', 'Unknown Title')
-                authors = volume_info.get('authors', ['Unknown Author'])
-                isbn_list = volume_info.get('industryIdentifiers', [])
-                isbn = next((item['identifier'] for item in isbn_list if item['type'] in ['ISBN_13', 'ISBN_10']), 'N/A')
-                description = volume_info.get('description', 'No description available')
-                
-                # Create item with book data and format it nicely
-                display_text = f"{title}\nby {', '.join(authors)}"
-                item = QListWidgetItem(display_text)
-                item.setData(Qt.UserRole, {
-                    'title': title,
-                    'author': ', '.join(authors),
-                    'isbn': isbn,
-                    'description': description,
-                    'image': volume_info.get('imageLinks', {}).get('thumbnail', 'assets/book1.png')
-                })
-                self.results_list.addItem(item)
-            
-            self.status_label.setText(f"Found {self.results_list.count()} books")
-            
-        except requests.exceptions.ConnectionError:
-            self.status_label.setText("Error: No internet connection. Please check your connection and try again.")
-        except Exception as e:
-            self.status_label.setText(f"Error: {str(e)}")
-    
-    def add_book(self):
-        current_item = self.results_list.currentItem()
-        if not current_item:
-            QMessageBox.warning(self, "Error", "Please select a book to add")
-            return
-            
-        book_data = current_item.data(Qt.UserRole)
-        self.parent.books_data.append(book_data)
-        self.parent.populate_books()
-        
-        QMessageBox.information(self, "Success", f"Book '{book_data['title']}' has been added!")
-        self.close()
 
 # Run app
 if __name__ == "__main__":

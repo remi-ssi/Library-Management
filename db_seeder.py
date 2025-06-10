@@ -40,11 +40,17 @@ class DatabaseSeeder:
         sample_librarians = [
             {
                 'username': 'admin',
-                'password': 'admin123'
+                'password': 'admin123',
+                'fname': 'Shelley',
+                'lname': 'Sesante',
+                'mname': 'Hi'
             },
             {
                 'username': 'jas',
-                'password': 'qtqt'
+                'password': 'qtqt',
+                'fname': 'Jasmine',
+                'lname': 'Aninion',
+                'mname': 'Anne'
             }
         ]
         
@@ -55,8 +61,8 @@ class DatabaseSeeder:
                     bcrypt.gensalt()
                 )
 
-                cursor.execute("INSERT INTO Librarian (LibUsername, LibPass) VALUES(?, ?)", 
-                              (lib_data['username'], hashed_password))
+                cursor.execute("INSERT INTO Librarian (LibUsername, LibPass, FName, LName, MName) VALUES(?, ?, ?, ?, ?)", 
+                              (lib_data['username'], hashed_password, lib_data['fname'], lib_data['lname'], lib_data['mname']))
             
             conn.commit()
             print(f"✓ Seeded {len(sample_librarians)} librarians")   

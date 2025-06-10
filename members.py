@@ -14,6 +14,9 @@ from PySide6.QtWidgets import (
 # Import the reusable navigation sidebar
 from navigation_sidebar import NavigationSidebar
 
+#connect to database seeder 
+from db_seeder import DatabaseSeeder
+
 #WALA TO WAG NIYONG PANSININ TO PARA LANG MAGING ROUND ANG PIC
 def get_rounded_pixmap(pixmap, size):
     rounded = QPixmap(size, size)
@@ -317,7 +320,7 @@ class MemberEditDialog(QDialog):
         
         # Contact Number - Use protected contact input
         self.contact_edit = ProtectedContactLineEdit()
-        self.contact_edit.setText(self.member_data["contact"])
+        self.contact_edit.setText(str(self.member_data["contact"]))
         self.contact_edit.setStyleSheet(self.get_input_style())
         
         # Add fields to form
@@ -493,8 +496,18 @@ class MembersMainWindow(QWidget):
             {"id": "M011", "name": "Jas", "contact": "09345678901"},
             {"id": "M012", "name": "Shell", "contact": "09456789012"},
         ]
-        
+        self.db_seeder = DatabaseSeeder() #initialize seeder
+        self.load_db_members() #load exsting members
+
         self.init_ui()
+
+    def load_db_members(self):
+        try: 
+            self.members = self.db_seeder.get_all_members()
+        except Exception as e:
+            QMessageBox.critical(self, "Database error", f"Failed to load members: {str(e)}")
+            self.members=[]
+
     
     def init_ui(self):
         # Main layout
@@ -747,18 +760,34 @@ class MembersMainWindow(QWidget):
         """Handle member container click"""
         dialog = MemberEditDialog(member, self.members, self)
         result = dialog.exec()
-        
-        if result == QDialog.Accepted:
-            # Update the member in the list
-            self.members[index] = dialog.member_data
-            # Refresh the display
-            self.refresh_members_grid()
-        elif result == 2:  # Delete
-            # Remove member from list
-            self.members.pop(index)
-            # Refresh the display
-            self.refresh_members_grid()
 
+        if result == QDialog.Accepted:
+            try:
+                #update database through seeder
+                self.db_seeder.update_member(member["id"], dialog.member_data)
+                dialog.member_data["id"] = member["id"] #keeping the same id
+                # Update the member in the list
+                self.members[index] = dialog.member_data
+                # Refresh the display
+                self.refresh_members_grid()
+
+                QMessageBox.information(self, "Success", "Member updated successfully")
+            except ValueError as e:
+                QMessageBox.warning(self, "Error", str(e))
+            except Exception as e:
+                QMessageBox.critical(self, "DataBase Error", f"Failed to update member: {str(e)}")
+        elif result == 2:  # Delete
+            try: 
+                self.db_seeder.delete_member(member["id"])
+                # Remove member from list
+                self.members.pop(index)
+                # Refresh the display
+                self.refresh_members_grid()
+                QMessageBox.information(self, "Success", "Member deleted successfully")
+            except ValueError as e:
+                QMessageBox.warning(self, "Error", str(e))
+            except Exception as e:
+                QMessageBox.critical(self, "Database Error", f"Failed to delete")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

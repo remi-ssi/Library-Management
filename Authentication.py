@@ -471,7 +471,7 @@ class SignUp(QWidget):
 
     def handle_signup(self):
         username = self.username_input.text().strip()
-        lname = self.lname_input.text().strip ()
+        lname = self.lname__input.text().strip ()
         fname = self.fname_input.text().strip()
         mname = self.mname_input.text ().strip ()
         password = self.password_input.text()
@@ -501,9 +501,9 @@ class SignUp(QWidget):
         
         #PARA YUNG HASHESD PASS YUNG MAISTORE SA DATABASE
         hashedPass = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
-        hashed_password_str = hashedPass.decode('utf-8')
-        insert_query = "INSERT INTO Librarian (LibUsername, LibPass) VALUES (?, ?)"
-        self.cursor.execute(insert_query, (username, hashedPass))
+       # hashed_password_str = hashedPass.decode('utf-8')
+        insert_query = "INSERT INTO Librarian (LibUsername, LibPass, FName, LName, MName) VALUES (?, ?, ?, ?, ?)"
+        self.cursor.execute(insert_query, (username, hashedPass, fname, lname, mname))
         self.conn.commit()
         
         self.error_label.setStyleSheet("color: green; font-weight: bold;")

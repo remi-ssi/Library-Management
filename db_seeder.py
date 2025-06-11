@@ -1,156 +1,199 @@
 import sqlite3
 import bcrypt
 
-
 class DatabaseSeeder:
     def __init__(self, db_path='bjrsLib.db'):
-        #initializing seeder with db path
+        # Initialize with the path to the SQLite database
         self.db_path = db_path
-    
+
     def connect(self):
-        #connecting db
+        # Connect to the SQLite database
         return sqlite3.connect(self.db_path)
-    
-    def check_librarian_table(self):
-        #check librarian table if it exists
+
+    # ===========================
+    # Generic Utility Functions
+    # ===========================
+
+    def check_table_exists(self, table_name):
+        """Check if a table exists in the database"""
         conn = self.connect()
         cursor = conn.cursor()
-
-        try: 
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='Librarian'")
-            result = cursor.fetchone()
-
-            if result:
-                print("✓ Librarian table found")
-                return True
-            else:
-                print("✗ Librarian table not found")
-                return False
+        try:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+            return bool(cursor.fetchone())
         except Exception as e:
-            print(f"Error checking librarian table: {e}")
+            print(f"Error checking table {table_name}: {e}")
             return False
         finally:
             conn.close()
 
-    def seed_librarians(self):
-        #seeding librarian table with sample data
+    def create_table(self, create_sql):
+        """Create a table using provided SQL statement"""
         conn = self.connect()
         cursor = conn.cursor()
-
-        sample_librarians = [
-            {
-                'username': 'admin',
-                'password': 'admin123',
-                'fname': 'Shelley',
-                'lname': 'Sesante',
-                'mname': 'Hi'
-            },
-            {
-                'username': 'jas',
-                'password': 'qtqt',
-                'fname': 'Jasmine',
-                'lname': 'Aninion',
-                'mname': 'Anne'
-            }
-        ]
-        
         try:
-            for lib_data in sample_librarians:
-                hashed_password = bcrypt.hashpw(
-                    lib_data['password'].encode('utf-8'),
-                    bcrypt.gensalt()
-                )
-
-                cursor.execute("INSERT INTO Librarian (LibUsername, LibPass, FName, LName, MName) VALUES(?, ?, ?, ?, ?)", 
-                              (lib_data['username'], hashed_password, lib_data['fname'], lib_data['lname'], lib_data['mname']))
-            
+            cursor.execute(create_sql)
             conn.commit()
-            print(f"✓ Seeded {len(sample_librarians)} librarians")   
-            print("Login credentials:")
-            for lib_data in sample_librarians:
-                print(f"  Username: {lib_data['username']}, Password: {lib_data['password']}")
-        
+            print("✓ Table created successfully")
+            return True
         except Exception as e:
-            print(f"Error seeding librarians: {e}")
-        
+            print(f"Error creating table: {e}")
+            return False
         finally:
             conn.close()
 
-    def clear_librarian_data(self):
-        """Clear all data from Librarian table"""
+    def clear_table(self, table_name):
+        """Delete all rows from the specified table"""
         conn = self.connect()
         cursor = conn.cursor()
-        
         try:
-            cursor.execute("DELETE FROM Librarian")
+            cursor.execute(f"DELETE FROM {table_name}")
             conn.commit()
-            print("✓ Cleared all data from Librarian table")
+            print(f"✓ Cleared all data from {table_name}")
         except Exception as e:
-            print(f"Error clearing Librarian data: {e}")
+            print(f"Error clearing {table_name}: {e}")
         finally:
             conn.close()
 
-    def seed_all(self, clear_first=False):
-        #Initialize Librarian table and seed with data
-        if clear_first:
-            self.clear_librarian_data()
-        
-        print("Starting BJRS Library database initialization...")
-        
-        # Check if Librarian table exists
-        if not self.check_librarian_table():
-            print("ERROR: Librarian table not found! Please create it in SQLite Studio first.")
-            return
-        
-        # Seed librarian data
-        self.seed_librarians()
-        
-        print("✓ Librarian initialization completed!")
-        print("\nYou can now log in with:")
-        print("  Username: admin, Password: admin123")
-        print("  Username: jas, Password: qtqt")
-    
-    def verify_login(self, username, password):
-        #test login functionality
+    def seed_data(self, table_name, data_list, column_order, hash_password_field=None):
+        """
+        Seed data into any table
+
+        Parameters:
+        - table_name: str, name of the table
+        - data_list: list of dicts containing row data
+        - column_order: list of column names in order
+        - hash_password_field: optional str, name of the column to hash (like password)
+        """
         conn = self.connect()
         cursor = conn.cursor()
-
         try:
-            # Fixed: Use correct column names and proper tuple syntax
-            cursor.execute("SELECT LibPass FROM Librarian WHERE LibUsername = ?", (username,))
+            for data in data_list:
+                values = []
+                for col in column_order:
+                    value = data[col]
+                    if col == hash_password_field:
+                        value = bcrypt.hashpw(value.encode('utf-8'), bcrypt.gensalt())
+                    values.append(value)
+
+                placeholders = ', '.join(['?'] * len(column_order))
+                columns = ', '.join(column_order)
+
+                cursor.execute(f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})", values)
+
+            conn.commit()
+            print(f"✓ Seeded {len(data_list)} rows into {table_name}")
+        except Exception as e:
+            print(f"Error seeding data into {table_name}: {e}")
+        finally:
+            conn.close()
+
+    def verify_login(self, table_name, username_column, password_column, username, password):
+        """Simple login test based on hashed password"""
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"SELECT {password_column} FROM {table_name} WHERE {username_column} = ?", (username,))
             result = cursor.fetchone()
 
             if result:
-                stored_hashed_password = result[0]
+                stored_password = result[0]
+                if isinstance(stored_password, str):
+                    stored_password = stored_password.encode('utf-8')
 
-                if isinstance(stored_hashed_password, str):
-                    stored_hashed_password = stored_hashed_password.encode("utf-8")
-                
-                if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
-                    print(f"✓ Login test successful for {username}")
+                if bcrypt.checkpw(password.encode('utf-8'), stored_password):
+                    print(f"✓ Login successful for {username}")
                     return True
-                else: 
-                    print("✗ Login test failed - incorrect password")
+                else:
+                    print("✗ Incorrect password")
                     return False
-            else: 
-                print("✗ Login test failed - user not found")
+            else:
+                print("✗ User not found")
                 return False
-            
         except Exception as e:
-            print(f"Error testing login: {e}")
+            print(f"Login error for {username}: {e}")
             return False
-
-        finally: 
+        finally:
             conn.close()
+
+    # ===========================
+    # Table-specific Definitions
+    # ===========================
+
+    def seed_all(self):
+        """Seed all required tables using generalized logic"""
+
+        # --- Librarian Table ---
+        librarian_sql = '''CREATE TABLE IF NOT EXISTS Librarian (
+            LibrarianID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            LibUsername VARCHAR NOT NULL,
+            FName VARCHAR NOT NULL,
+            LName VARCHAR NOT NULL,
+            MName VARCHAR NOT NULL,
+            LibPass BLOB NOT NULL
+        )'''
+
+        librarian_data = [
+            {'LibUsername': 'admin', 'LibPass': 'admin123', 'FName': 'Shelley', 'LName': 'Sesante', 'MName': 'Hi'},
+            {'LibUsername': 'jas', 'LibPass': 'qtqt', 'FName': 'Jasmine', 'LName': 'Aninion', 'MName': 'Anne'}
+        ]
+
+        self._initialize_table(
+            table_name="Librarian",
+            create_sql=librarian_sql,
+            data=librarian_data,
+            columns=["LibUsername", "LibPass", "FName", "LName", "MName"],
+            hash_password_column="LibPass",
+            clear=True
+        )
+
+        # --- Member Table ---
+        member_sql = '''CREATE TABLE IF NOT EXISTS Member (
+            MemberID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            MemberLN VARCHAR NOT NULL,
+            MemberMI VARCHAR NOT NULL,
+            MemberFN VARCHAR NOT NULL,
+            MemberContact INTEGER NOT NULL,
+            CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )'''
+
+        member_data = [
+            {'MemberLN': 'Gonzaga', 'MemberMI': 'Lovete', 'MemberFN': 'Reymie', 'MemberContact': '0912345678'},
+            {'MemberLN': 'Sesante', 'MemberMI': 'Losinada', 'MemberFN': 'Shelley', 'MemberContact': '0923456789'}
+        ]
+
+        self._initialize_table(
+            table_name="Member",
+            create_sql=member_sql,
+            data=member_data,
+            columns=["MemberLN", "MemberMI", "MemberFN", "MemberContact"],
+            clear=True
+        )
+
+    def _initialize_table(self, table_name, create_sql, data, columns, hash_password_column=None, clear=False):
+        """Helper function to check, create, clear, and seed a table"""
+        print(f"\n🔧 Initializing {table_name}...")
+
+        if not self.check_table_exists(table_name):
+            print(f"{table_name} table not found. Creating...")
+            if not self.create_table(create_sql):
+                print(f"✗ Failed to create {table_name}")
+                return
+
+        if clear:
+            self.clear_table(table_name)
+
+        self.seed_data(table_name, data, column_order=columns, hash_password_field=hash_password_column)
+        print(f"✅ {table_name} setup complete.")
 
 
 if __name__ == "__main__":
     seeder = DatabaseSeeder()
-    
-    # Seed the database
-    seeder.seed_all(clear_first=True)
-    
+
+    # Seed all tables
+    seeder.seed_all()
+
     # Test login
-    print("\nTesting login:")
-    seeder.verify_login("admin", "admin123")
-    seeder.verify_login("jas", "qtqt")
+    print("\n🔐 Testing login:")
+    seeder.verify_login("Librarian", "LibUsername", "LibPass", "admin", "admin123")
+    seeder.verify_login("Librarian", "LibUsername", "LibPass", "jas", "qtqt")

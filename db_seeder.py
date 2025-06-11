@@ -9,6 +9,10 @@ class DatabaseSeeder:
     def connect(self):
         # Connect to the SQLite database
         return sqlite3.connect(self.db_path)
+    
+    def get_cursor_and_connection(self):
+        conn = self.connect()
+        return conn.cursor(), conn
 
     # ===========================
     # Generic Utility Functions
@@ -30,6 +34,7 @@ class DatabaseSeeder:
     def create_table(self, create_sql):
         """Create a table using provided SQL statement"""
         conn = self.connect()
+        conn.execute("PRAGMA foreign_keys = ON;")
         cursor = conn.cursor()
         try:
             cursor.execute(create_sql)
@@ -45,6 +50,7 @@ class DatabaseSeeder:
     def clear_table(self, table_name):
         """Delete all rows from the specified table"""
         conn = self.connect()
+        conn.execute("PRAGMA foreign_keys = ON;")
         cursor = conn.cursor()
         try:
             cursor.execute(f"DELETE FROM {table_name}")
@@ -66,6 +72,7 @@ class DatabaseSeeder:
         - hash_password_field: optional str, name of the column to hash (like password)
         """
         conn = self.connect()
+        conn.execute("PRAGMA foreign_keys = ON;")
         cursor = conn.cursor()
         try:
             for data in data_list:
@@ -154,7 +161,9 @@ class DatabaseSeeder:
             MemberMI VARCHAR NOT NULL,
             MemberFN VARCHAR NOT NULL,
             MemberContact INTEGER NOT NULL,
-            CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            LibrarianID INTEGER,
+            FOREIGN KEY (LibrarianID) REFERENCES Librarian(LibrarianID)
         )'''
 
         member_data = [

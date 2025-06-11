@@ -1,5 +1,6 @@
 #labyu rems wala pa ko maisip na picture
 import sys
+import sqlite3
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QPixmap, QPainter, QBrush, QColor, QPainterPath
 from PySide6.QtWidgets import (
@@ -67,10 +68,10 @@ class ProtectedContactLineEdit(QLineEdit):
             self.blockSignals(False)
 
 class AddMemberDialog(QDialog):
-    def __init__(self, existing_members, parent=None):
+    def __init__(self, existing_members, db_seeder, parent=None):
         super().__init__(parent)
         self.existing_members = existing_members
-        self.member_data = {}
+        self.db = db_seeder
         self.setWindowTitle("Add New Member")
         self.setFixedSize(400, 500)
         self.setStyleSheet("""
@@ -257,6 +258,11 @@ class AddMemberDialog(QDialog):
             "name": full_name,
             "contact": contact
         }
+        cursor, conn = self.db.get_cursor_and_connection()
+        insert_query = "INSERT INTO Member (MemberLN, MemberFN, MemberMI, MemberContact) VALUES (?, ?, ?, ?)"
+        cursor.execute(insert_query, (last_name, first_name, middle_name, contact))
+        conn.commit()
+        conn.close()
         
         QMessageBox.information(self, "Success", f"Member {full_name} added successfully!")
         self.accept()
@@ -480,34 +486,16 @@ class MembersMainWindow(QWidget):
         super().__init__()
         self.setWindowTitle("Library Management System - Members")
         self.setGeometry(100, 100, 1200, 800)
-        
+
         # Initialize members data
-        self.members = [    
-            {"id": "M001", "name": "Reymie L. Gonzaga", "contact": "09123456789"},
-            {"id": "M002", "name": "Nads", "contact": "09234567890"},
-            {"id": "M003", "name": "Jas", "contact": "09345678901"},
-            {"id": "M004", "name": "Shell", "contact": "09456789012"},
-            {"id": "M005", "name": "Reymie L. Gonzaga", "contact": "09123456789"},
-            {"id": "M006", "name": "Nads", "contact": "09234567890"},
-            {"id": "M007", "name": "Jas", "contact": "09345678901"},
-            {"id": "M008", "name": "Shell", "contact": "09456789012"},
-            {"id": "M009", "name": "Reymie L. Gonzaga", "contact": "09123456789"},
-            {"id": "M010", "name": "Nads", "contact": "09234567890"},
-            {"id": "M011", "name": "Jas", "contact": "09345678901"},
-            {"id": "M012", "name": "Shell", "contact": "09456789012"},
-        ]
+        self.members = []
+
         self.db_seeder = DatabaseSeeder() #initialize seeder
-        self.load_db_members() #load exsting members
+
 
         self.init_ui()
 
-    def load_db_members(self):
-        try: 
-            self.members = self.db_seeder.get_all_members()
-        except Exception as e:
-            QMessageBox.critical(self, "Database error", f"Failed to load members: {str(e)}")
-            self.members=[]
-
+  
     
     def init_ui(self):
         # Main layout
@@ -655,7 +643,7 @@ class MembersMainWindow(QWidget):
     
     def add_new_member(self):
         """Open the add member dialog"""
-        dialog = AddMemberDialog(self.members, self)
+        dialog = AddMemberDialog(self.members, self.db_seeder)
         result = dialog.exec()
         
         if result == QDialog.Accepted:

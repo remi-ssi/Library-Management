@@ -258,6 +258,8 @@ class AddMemberDialog(QDialog):
             "name": full_name,
             "contact": contact
         }
+
+        #to insert the entry to the database
         cursor, conn = self.db.get_cursor_and_connection()
         insert_query = "INSERT INTO Member (MemberLN, MemberFN, MemberMI, MemberContact) VALUES (?, ?, ?, ?)"
         cursor.execute(insert_query, (last_name, first_name, middle_name, contact))
@@ -271,6 +273,7 @@ class MemberEditDialog(QDialog):
     def __init__(self, member_data, existing_members, parent=None):
         super().__init__(parent)
         self.member_data = member_data.copy()
+        self.db = DatabaseSeeder()  #initialize the database seeder
         self.existing_members = existing_members
         self.original_contact = member_data["contact"]  # Store original contact for duplicate checking
         self.setWindowTitle("Edit Member")
@@ -464,6 +467,12 @@ class MemberEditDialog(QDialog):
         # Update member data
         self.member_data["name"] = full_name
         self.member_data["contact"] = contact
+
+        # Extract MemberID from the passed data 
+        member_id = self.member_data["id"]
+
+        #call the update_member_full function in the seeder to update the entry to the database
+        self.db.update_member_full(member_id, last_name, first_name, middle_name, contact)
         
         QMessageBox.information(self, "Success", "Member information updated successfully!")
         self.accept()
@@ -488,14 +497,10 @@ class MembersMainWindow(QWidget):
         self.setGeometry(100, 100, 1200, 800)
 
         # Initialize members data
-        self.members = []
-
-        self.db_seeder = DatabaseSeeder() #initialize seeder
-
+        self.db_seeder = DatabaseSeeder()
+        self.members = self.db_seeder.get_all_members()
 
         self.init_ui()
-
-  
     
     def init_ui(self):
         # Main layout
@@ -751,25 +756,38 @@ class MembersMainWindow(QWidget):
 
         if result == QDialog.Accepted:
             try:
-                #update database through seeder
-                self.db_seeder.update_member(member["id"], dialog.member_data)
-                dialog.member_data["id"] = member["id"] #keeping the same id
-                # Update the member in the list
+                # 🔽 Split full name into components
+                full_name = dialog.member_data["name"].split()
+                first_name = full_name[0]
+                middle_name = full_name[1] if len(full_name) == 3 else ""
+                last_name = full_name[-1]
+                contact = dialog.member_data["contact"]
+
+                # 🔽 Update in the database
+                self.db_seeder.update_member_full(
+                    dialog.member_data["id"],
+                    last_name,
+                    first_name,
+                    middle_name,
+                    contact
+                )
+
+                dialog.member_data["id"] = member["id"]  # keep same ID
+
+                # 🔽 Update in memory
                 self.members[index] = dialog.member_data
-                # Refresh the display
                 self.refresh_members_grid()
 
                 QMessageBox.information(self, "Success", "Member updated successfully")
             except ValueError as e:
                 QMessageBox.warning(self, "Error", str(e))
             except Exception as e:
-                QMessageBox.critical(self, "DataBase Error", f"Failed to update member: {str(e)}")
+                QMessageBox.critical(self, "Database Error", f"Failed to update member: {str(e)}")
+
         elif result == 2:  # Delete
-            try: 
+            try:
                 self.db_seeder.delete_member(member["id"])
-                # Remove member from list
                 self.members.pop(index)
-                # Refresh the display
                 self.refresh_members_grid()
                 QMessageBox.information(self, "Success", "Member deleted successfully")
             except ValueError as e:

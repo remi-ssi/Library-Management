@@ -409,7 +409,7 @@ class AddBookDialog(QDialog):
         
         layout.addWidget(info_group)
 
-        # Book Results Section
+        # Book Results Section - Horizontal layout with info labels
         results_group = QWidget()
         results_group.setStyleSheet("""
             QWidget {
@@ -423,11 +423,15 @@ class AddBookDialog(QDialog):
                 background: transparent;
             }
         """)
-        results_layout = QVBoxLayout(results_group)
+        results_layout = QHBoxLayout(results_group)
         results_layout.setContentsMargins(20, 20, 20, 20)
-        results_layout.setSpacing(15)
+        results_layout.setSpacing(20)
 
-        # Book Cover Preview
+        # Left side - Book Cover Preview
+        left_section = QWidget()
+        left_layout = QVBoxLayout(left_section)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+
         self.cover_preview = QLabel()
         self.cover_preview.setFixedSize(180, 210)
         self.cover_preview.setAlignment(Qt.AlignCenter)
@@ -440,7 +444,40 @@ class AddBookDialog(QDialog):
             }
         """)
         self.cover_preview.setText("Book Cover Preview")
-        results_layout.addWidget(self.cover_preview, 0, Qt.AlignCenter)
+        left_layout.addWidget(self.cover_preview, 0, Qt.AlignCenter)
+
+        # Right side - Book Information
+        right_section = QWidget()
+        right_layout = QVBoxLayout(right_section)
+        right_layout.setContentsMargins(5,5,5,5)
+        right_layout.setSpacing(10)
+
+        # Info labels
+        self.info_title = QLabel("Title: ")
+        self.info_author = QLabel("Author: ")
+        self.info_publisher = QLabel("Publisher: ")
+        self.info_isbn = QLabel("ISBN: ")
+        self.info_genre = QLabel("Genre: ")
+        self.info_published = QLabel("Published: ")
+
+        info_style = """
+            QLabel {
+                color: #5C4033;
+                font-size: 14px;
+                padding: 5px;
+                background-color: #f9f9f9;
+                border-radius: 15px;
+            }
+        """
+        for label in [self.info_title, self.info_author, self.info_publisher,
+                      self.info_isbn, self.info_genre, self.info_published]:
+            label.setStyleSheet(info_style)
+            label.setWordWrap(True)
+            right_layout.addWidget(label)
+        right_layout.addStretch()
+
+        results_layout.addWidget(left_section)
+        results_layout.addWidget(right_section)
 
         layout.addWidget(results_group)
 
@@ -490,6 +527,11 @@ class AddBookDialog(QDialog):
         layout.addWidget(button_container)
 
     def search_book(self):
+        # Reset info labels
+        for label in [self.info_title, self.info_author, self.info_publisher, 
+                      self.info_isbn, self.info_genre, self.info_published]:
+            label.setText(label.text().split(':')[0] + ": Not found")
+
         # Get search terms
         title = self.title_input.text().strip()
         author = self.author_input.text().strip()
@@ -537,20 +579,32 @@ class AddBookDialog(QDialog):
                 if 'imageLinks' in book:
                     image_url = book['imageLinks'].get('thumbnail', '')
                     if image_url:
-                        # Convert http to https if needed
                         image_url = image_url.replace('http://', 'https://')
-                        
-                        # Download and display cover
                         response = requests.get(image_url)
                         image = QPixmap()
                         image.loadFromData(response.content)
                         self.cover_preview.setPixmap(image.scaled(200, 250, Qt.KeepAspectRatio, Qt.SmoothTransformation))
                         self.book_cover_url = image_url
-                
+
                 # Update input fields with found data
                 self.title_input.setText(self.found_book_data['title'])
                 self.author_input.setText(', '.join(self.found_book_data['authors']))
                 self.isbn_input.setText(self.found_book_data['isbn'])
+
+                # Update information labels
+                self.info_title.setText(f"Title: {book.get('title', 'Not available')}")
+                self.info_author.setText(f"Author: {', '.join(book.get('authors', ['Not available']))}")
+                self.info_publisher.setText(f"Publisher: {book.get('publisher', 'Not available')}")
+                self.info_isbn.setText(f"ISBN: {self.found_book_data['isbn'] or 'Not available'}")
+                self.info_genre.setText(f"Genre: {', '.join(book.get('categories', ['Not available']))}")
+                self.info_published.setText(f"Published: {book.get('publishedDate', 'Not available')}")
+
+                # Store additional data
+                self.found_book_data.update({
+                    'publisher': book.get('publisher', ''),
+                    'genre': ', '.join(book.get('categories', [])),
+                    'published_date': book.get('publishedDate', '')
+                })
             else:
                 QMessageBox.warning(self, "Not Found", "No book found with the provided information")
                 self.found_book_data = None

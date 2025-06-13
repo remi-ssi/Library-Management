@@ -1,12 +1,15 @@
+import os
+import re
 import sys
 import requests
+import shutil
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer
 from PySide6.QtGui import QFont, QIcon, QFont, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QHBoxLayout,
     QLabel, QSizePolicy, QSpacerItem, QLineEdit, QScrollArea, QGridLayout,
     QTabWidget, QTextEdit, QMessageBox, QFormLayout, QDialog, QListWidget,
-    QListWidgetItem
+    QListWidgetItem, QGroupBox, QSpinBox, QFileDialog
 )
 
 #for the navbar to automatically open
@@ -39,7 +42,7 @@ class NavigationArea(QWidget):
 class BookEditView(QWidget):
     def __init__(self, book_data, parent_window):
         super().__init__()
-        self.book_data = book_data
+        self.book_data = book_data 
         self.parent_window = parent_window
         self.init_ui()
     
@@ -68,7 +71,6 @@ class BookEditView(QWidget):
                 background-color: #e0e0e0;
             }
         """)
-        
         header_layout.addWidget(back_btn)
         header_layout.addStretch()
         
@@ -108,16 +110,14 @@ class BookEditView(QWidget):
         self.author_input.setReadOnly(True)
         self.author_input.setStyleSheet(self.get_readonly_input_style())
         
-        self.genre_input = QLineEdit(self.book_data.get('genre', 'N/A'))
+        self.genre_input = QLineEdit(self.book_data.get('genre', ''))
         self.genre_input.setReadOnly(True)
         self.genre_input.setStyleSheet(self.get_readonly_input_style())
         
-        self.isbn_input = QLineEdit(self.book_data.get('isbn', 'N/A'))
+        self.isbn_input = QLineEdit(self.book_data.get('isbn', ''))
         self.isbn_input.setReadOnly(True)
         self.isbn_input.setStyleSheet(self.get_readonly_input_style())
-
-
-        
+       
         # Editable fields
         self.copies_input = QLineEdit(str(self.book_data.get('copies', '1')))
         self.copies_input.setStyleSheet(self.get_editable_input_style())
@@ -255,9 +255,13 @@ class BookEditView(QWidget):
             }
         """
     
-    def save_changes(self):
+    def save_changes(self): #saves book
+        if not self.copies_input.text().isdigit() or int(self.copies_input.text()) < 1: #check if copies if positive number
+            QMessageBox.warning(self, "Validation Error", "Copies must be a positive integer")
+            return
         # Update book data
-        self.book_data['copies'] = self.copies_input.text()
+        self.book_data['copies'] = int(self.copies_input.text())
+        self.book_data['available_copies'] = int(self.copies_input.text())
         self.book_data['shelf'] = self.shelf_input.text()
         self.book_data['description'] = self.description_input.toPlainText()
         
@@ -267,9 +271,7 @@ class BookEditView(QWidget):
         msg.setText(f"Book '{self.book_data['title']}' has been updated successfully!")
         msg.setIcon(QMessageBox.Information)
         msg.exec()
-        
-        # Go back to main books view
-        self.parent_window.show_books_view()
+        self.parent_window.show_books_view() # Go back to main books view
     
     def delete_book(self):
         # Confirm deletion
@@ -432,10 +434,10 @@ class AddBookDialog(QDialog):
         left_layout = QVBoxLayout(left_section)
         left_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.cover_preview = QLabel()
-        self.cover_preview.setFixedSize(180, 210)
-        self.cover_preview.setAlignment(Qt.AlignCenter)
-        self.cover_preview.setStyleSheet("""
+        self.book_preview = QLabel()
+        self.book_preview.setFixedSize(180, 210)
+        self.book_preview.setAlignment(Qt.AlignCenter)
+        self.book_preview.setStyleSheet("""
             QLabel {
                 background-color: #f5f5f5;
                 border: 2px dashed #dbcfc1;
@@ -443,8 +445,8 @@ class AddBookDialog(QDialog):
                 color: #999999;
             }
         """)
-        self.cover_preview.setText("Book Cover Preview")
-        left_layout.addWidget(self.cover_preview, 0, Qt.AlignCenter)
+        self.book_preview.setText("Book Cover Preview")
+        left_layout.addWidget(self.book_preview, 0, Qt.AlignCenter)
 
         # Right side - Book Information
         right_section = QWidget()
@@ -525,116 +527,730 @@ class AddBookDialog(QDialog):
         button_layout.addWidget(cancel_btn)
         
         layout.addWidget(button_container)
+    
+    def validate_isbn(self, isbn): # check isbn len
+        isbn_clean = re.sub(r'[^0-9X]', '', isbn.upper()) #remove  special characters, allows X
 
-    def search_book(self):
-        # Reset info labels
-        for label in [self.info_title, self.info_author, self.info_publisher, 
-                      self.info_isbn, self.info_genre, self.info_published]:
-            label.setText(label.text().split(':')[0] + ": Not found")
-
-        # Get search terms
-        title = self.title_input.text().strip()
-        author = self.author_input.text().strip()
-        isbn = self.isbn_input.text().strip()
-        
-        if not any([title, author, isbn]):
-            QMessageBox.warning(self, "Error", "Please enter at least one search term (Title, Author, or ISBN)")
-            return
-        
-        try:
-            # Build search query
-            search_terms = []
-            if isbn:
-                search_terms.append(f"isbn:{isbn}")
-            if title:
-                search_terms.append(f"intitle:{title}")
-            if author:
-                search_terms.append(f"inauthor:{author}")
-            
-            query = "+".join(search_terms)
-            
-            # Search Google Books API
-            url = f"https://www.googleapis.com/books/v1/volumes?q={query}"
-            response = requests.get(url)
-            data = response.json()
-            
-            if 'items' in data:
-                book = data['items'][0]['volumeInfo']
-                
-                # Store book data for adding later
-                self.found_book_data = {
-                    'title': book.get('title', ''),
-                    'authors': book.get('authors', []),
-                    'isbn': '',
-                }
-                
-                # Get ISBN-13 or ISBN-10
-                identifiers = book.get('industryIdentifiers', [])
-                for identifier in identifiers:
-                    if identifier['type'] in ['ISBN_13', 'ISBN_10']:
-                        self.found_book_data['isbn'] = identifier['identifier']
-                        break
-                
-                # Handle cover image
-                if 'imageLinks' in book:
-                    image_url = book['imageLinks'].get('thumbnail', '')
-                    if image_url:
-                        image_url = image_url.replace('http://', 'https://')
-                        response = requests.get(image_url)
-                        image = QPixmap()
-                        image.loadFromData(response.content)
-                        self.cover_preview.setPixmap(image.scaled(200, 250, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                        self.book_cover_url = image_url
-
-                # Update input fields with found data
-                self.title_input.setText(self.found_book_data['title'])
-                self.author_input.setText(', '.join(self.found_book_data['authors']))
-                self.isbn_input.setText(self.found_book_data['isbn'])
-
-                # Update information labels
-                self.info_title.setText(f"Title: {book.get('title', 'Not available')}")
-                self.info_author.setText(f"Author: {', '.join(book.get('authors', ['Not available']))}")
-                self.info_publisher.setText(f"Publisher: {book.get('publisher', 'Not available')}")
-                self.info_isbn.setText(f"ISBN: {self.found_book_data['isbn'] or 'Not available'}")
-                self.info_genre.setText(f"Genre: {', '.join(book.get('categories', ['Not available']))}")
-                self.info_published.setText(f"Published: {book.get('publishedDate', 'Not available')}")
-
-                # Store additional data
-                self.found_book_data.update({
-                    'publisher': book.get('publisher', ''),
-                    'genre': ', '.join(book.get('categories', [])),
-                    'published_date': book.get('publishedDate', '')
-                })
+        if len(isbn_clean) not in [10, 13]: #check length if its 10 or 13
+            return False
+        if len(isbn_clean) == 10:
+            return self.validate_isbn10(isbn_clean) #pass isbn10 to validate 
+        return self.validate_isbn13(isbn_clean) #pass isbn13 to validate
+    
+    def validate_isbn10(self, isbn):
+        if len(isbn)!= 10:
+            return False
+        total = 0 
+        for i in range(9): #calculate checksum (each digit multipled by its position)
+            if not isbn[i].isdigit():
+                return False
+            total += int(isbn[i]) * (10 - i) 
+        if isbn[9] == 'X': # X represents 10, so add 10 to total
+            total += 10
+        elif isbn[9].isdigit():
+            total += int(isbn[9])
+        else:
+            return False
+        return total % 11 == 0 #valid if totals is divisible by 11
+    
+    def validate_isbn13(self, isbn):
+        if len(isbn) != 13:
+            return False
+        if not isbn.isdigit():
+            return False 
+        total = 0 
+        for i in range(12): #calculate checksum (alternate bewteen 1 and 3 multipliers)
+            if i % 2 == 0:
+                total += int(isbn[i])
             else:
-                QMessageBox.warning(self, "Not Found", "No book found with the provided information")
-                self.found_book_data = None
-                self.cover_preview.setText("Book Cover Preview")
-        
-        except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to search: {str(e)}")
+                total += int(isbn[i]) *3
+        check_digit = (10 - (total % 10)) % 10
+        return check_digit == int(isbn[12]) #valid f last digit is matched with the check digit
+    
+    def reset_cover_preview(self):
+        self.book_preview.setPixmap(QPixmap()) #clear book cover image
+        self.book_preview.setText("Book Cover Preview")   
+        self.book_preview.setStyleSheet(""" #preview box layout
+            QLabel {
+                background-color: #f5f5f5;
+                border: 2px dashed #dbcfc1;
+                border-radius: 15px;
+                color: #999999;
+            }
+        """)
+        # Reset info labels
+        self.info_title.setText("Title: ")
+        self.info_author.setText("Author: ")
+        self.info_publisher.setText("Publisher: ")
+        self.info_isbn.setText("ISBN: ")
+        self.info_genre.setText("Genre: ")
+        self.info_published.setText("Published: ")
+       
+    def search_book(self): #search book through API 
+        title = self.title_input.text().strip() #get user input
+        author = self.author_input.text().strip()
+        isbn = re.sub(r'[^0-9X]', '', self.isbn_input.text().strip().upper())  # Clean ISBN early
+
+        #check if fields are filled
+        if not any([title, author, isbn]):
+            QMessageBox.information(self, "Search Error", "Please fill in at least one field: Title, Author, or ISBN")
+            return
+
+        # Validate ISBN 
+        if isbn and not self.validate_isbn(isbn):
+            QMessageBox.warning(
+                self,
+                "Invalid ISBN",
+                "The provided ISBN is invalid. Please correct the ISBN or enter book details manually."
+            )
             self.found_book_data = None
+            self.reset_cover_preview()
+            return
+        try:
+            self.reset_cover_preview() #clear preview book preview
+            API_KEY = os.getenv('GOOGLE_BOOKS_API_KEY', 'AIzaSyBk4UqlqwPwSQwhdLQfOG5-Z-S3L7oTtYY')
+            search_term = [] #builds search query from inputs
+            if isbn:
+                search_term.append(f"isbn:{isbn}")
+            if title:
+                search_term.append(f" {title}")
+            if author:
+                search_term.append(f"{author}")
+            query = " ".join(search_term) 
+            url = f"https://www.googleapis.com/books/v1/volumes?q={query}&key={API_KEY}"
+            print(f"API query: {url}")
+            response = requests.get(url, timeout=10) #send requests to api
+            response.raise_for_status() #raise error for bad responses
+            data = response.json()
+
+            # Check for results
+            if 'items' not in data or len(data['items']) == 0:
+                self.open_manual_entry(title, author, isbn) #redirect to manual entry if no match
+                return
+
+            # Process first result
+            book_info = data['items'][0]['volumeInfo'] #use first book result from response 
+            api_isbns = [ #extract isbn (both 10 and 13)  from the result
+                re.sub(r'[^0-9X]', '', identifier['identifier'].upper())
+                for identifier in book_info.get('industryIdentifiers', [])
+                if identifier['type'] in ['ISBN_10', 'ISBN_13']
+            ]
+            print(f"Input ISBN: {isbn}, API ISBNs: {api_isbns}")
+
+            found_isbn =isbn if (isbn and self.validate_isbn(isbn)) else api_isbns[0] if api_isbns else ''
+            #stroe book data from api
+            self.found_book_data = {
+                'title': book_info.get('title', 'Unknown Title'),
+                'author': ', '.join(book_info.get('authors', ['Unknown Author'])),
+                'isbn': found_isbn,
+                'publisher': book_info.get('publisher', 'Unknown Publisher'),
+                'description': book_info.get('description', ''),
+                'categories': book_info.get('categories', ['']),
+                'image_url': book_info.get('imageLinks', {}).get('thumbnail', '').replace('http:', 'https:'),
+                'published_date': book_info.get('publishedDate', ''),
+                'api_isbns': api_isbns
+            }
+            # Update UI
+            self.info_title.setText(f"Title: {self.found_book_data['title']}")
+            self.info_author.setText(f"Author: {self.found_book_data['author']}")
+            self.info_publisher.setText(f"Publisher: {self.found_book_data['publisher']}")
+            self.info_isbn.setText(f"ISBN: {self.found_book_data['isbn'] or 'N/A'}")
+            self.info_genre.setText(f"Genre: {', '.join(self.found_book_data['categories'])}")
+            self.info_published.setText(f"Published: {self.found_book_data['published_date']}")
+            if 'imageLinks' in book_info: #load book cover if available
+                self.load_cover(self.found_book_data['image_url']) 
+        except requests.exceptions.RequestException as e: # error handling
+            QMessageBox.warning(self, "Network Error", "Unable to search books. Please check your internet connection")
+            print(f"Network error: {e}")
+            self.found_book_data = None
+            self.reset_cover_preview()
+        except requests.exceptions.HTTPError as e:  #for debug in request format or api key
+            if response.status_code == 403:
+                QMessageBox.warning(self, "API Error", "Invalid API key")
+            else:
+                QMessageBox.warning(self, "API Error", f"HTTP Error: {e}")
+            print(f"API Error: {e}")
+            self.reset_cover_preview()
+        except Exception as e: #for unexpected error
+            QMessageBox.warning(self, "Search Error", f"Error: {e}")
+            print(f"Search error: {e}")
+            self.open_manual_entry(title, author, isbn)
+            self.reset_cover_preview()
+
+    def open_manual_entry(self, title, author, isbn): #manual entry if no book is found
+        book_data = {
+            'title': title,
+            'author': author if author else "Unknown Author",
+            'isbn': isbn if isbn and self.validate_isbn(isbn) else '',
+            'publisher': '',
+            'description': '',
+            'categories': [''],
+            'image_url': '',
+            'published_date': '',
+            'image': ''
+        }
+        details_dialog = BookDetailsDialog(
+            parent = self,
+            book_data = book_data,
+            is_found_book =False #allow edit all fields
+        )
+        if details_dialog.exec() ==QDialog.Accepted:
+            standardized_book = {
+                'title': details_dialog.book_data['title'],
+                'author': details_dialog.book_data['author'],
+                'isbn': details_dialog.book_data['isbn'],
+                'genre': details_dialog.book_data['genre'],
+                'description': details_dialog.book_data['description'],
+                'shelf': details_dialog.book_data['shelf'],
+                'copies': details_dialog.book_data['copies'],
+                'image': details_dialog.book_data.get('image', ''),
+                'available_copies': details_dialog.book_data['available_copies']
+            }
+            print(f"Adding book to book-data: {standardized_book}")
+            self.parent.books_data.append(standardized_book)
+            self.parent.refresh_books_display()
+            self.accept()
+            
+    def load_cover(self, image_url):
+        try: #download image
+            response = requests.get(image_url, timeout = 10)
+            response.raise_for_status()
+
+            pixmap = QPixmap() #create qpixmap from download
+            pixmap.loadFromData(response.content)
+            if not pixmap.isNull():
+                scaled_pixmap = pixmap.scaled( #scale image to fit in preview
+                    self.book_preview.size(),
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                self.book_preview.setPixmap(scaled_pixmap)
+                self.book_preview.setStyleSheet("")
+
+                if not os.path.exists('assets'): 
+                    os.makedirs('assets') #creates local folder to save image locally
+                isbn = self.found_book_data.get('isbn', 'temp') #use isbn for filename, temp if not available
+                image_path = os.path.normpath(os.path.join('assets', f"book_cover_{isbn}.png"))
+                with open(image_path, 'wb') as f: #save iamge file
+                    f.write(response.content)
+                self.found_book_data['image'] = image_path #store the imagepath in book_data
+                print(f"API cover saved to: {image_path}")
+            else:
+                self.book_preview.setText("")
+                self.book_preview.setStyleSheet("""
+                    QLabel {
+                        background-color: #dbcfc1;
+                        border-radius: 8px;
+                        border: 2px solid #5C4033;
+                    }
+                """)
+                self.found_book_data['image'] = ''
+        except Exception as e:
+            print(f"Failed to load API image: {e}")
+            self.book_preview.setText("Cover not available")
+            self.found_book_data['image'] = ''
     
     def add_book(self):
-        if not hasattr(self, 'found_book_data') or not self.found_book_data:
-            QMessageBox.warning(self, "Error", "Please search for a valid book first")
+        title = self.title_input.text().strip() #get input values
+        author = self.author_input.text().strip()
+        isbn = re.sub(r'[^0-9X]', '', self.isbn_input.text().strip().upper())
+
+        if not any([title, author, isbn]): #validate atleast one field
+            QMessageBox.information(self, "Add Book", "Please fill in at least one field: Title, Author, or ISBN")
             return
-        
-        # Create book data
-        book_data = {
-            "title": self.found_book_data['title'],
-            "author": ', '.join(self.found_book_data['authors']),
-            "isbn": self.found_book_data['isbn'],
-            "description": "No description available",
-            "copies": "1",
-            "shelf": "",
-            "image": getattr(self, 'book_cover_url', 'assets/book1.png')  # Use default if no cover
+
+        if not self.found_book_data and not (title and author): # for manual entry, title, author, isbn are req
+            QMessageBox.warning(self, "Validation Error", "Title and Author are required for manual entry")
+            return
+
+        book_data = self.found_book_data or { #use found book data or create manually
+            'title': title,
+            'author': author if author else 'Unknown Author',
+            'isbn': isbn if isbn and self.validate_isbn(isbn) else '',
+            'publisher': '',
+            'description': '',
+            'categories': [''],
+            'image_url': '',
+            'published_date': '',
+            'image': ''
         }
+        details_dialog = BookDetailsDialog( # for futher inputs
+            parent=self,
+            book_data=book_data,
+            is_found_book=bool(self.found_book_data)
+        )
+        if details_dialog.exec() == QDialog.Accepted:
+            standardized_book = { #book format and details
+                'title': details_dialog.book_data['title'],
+                'author': details_dialog.book_data['author'],
+                'isbn': details_dialog.book_data['isbn'],
+                'genre': details_dialog.book_data['genre'],
+                'description': details_dialog.book_data['description'],
+                'shelf': details_dialog.book_data['shelf'],
+                'copies': details_dialog.book_data['copies'],
+                'image': details_dialog.book_data.get('image', ''),
+                'available_copies': details_dialog.book_data['available_copies']
+            }
+            print(f"Adding book to books_data: {standardized_book}")
+            self.parent.books_data.append(standardized_book) #create parent wqindow for book list
+            self.parent.refresh_books_display() #refresh display
+            self.accept()
+
+class BookDetailsDialog(QDialog):
+    def __init__(self, parent=None, book_data=None, is_found_book=False):
+        super().__init__(parent)
+        self.parent = parent
+        self.book_data = book_data or {}
+        self.is_found_book = is_found_book
+        self.image_preview_size = QSize(180, 210)
+        self.setup_ui()
+        self.populate_fields()
+
+    def setup_ui(self):
+        self.setWindowTitle("Book Details")
+        self.setFixedSize(600, 700)
+        self.setStyleSheet('''
+            QDialog {
+                background-color: #f1efe3;
+                font-size: 14px;
+            }
+        ''')
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(8)
+
+        title_label = QLabel("Enter Book Details")
+        title_label.setStyleSheet("""
+            QLabel {
+                font-size: 18px;
+                font-weight: bold;
+                color: #5C4033;
+                margin-bottom: 5px;
+                background: transparent;
+            }
+        """)
+        main_layout.addWidget(title_label, alignment=Qt.AlignTop)
         
-        # Add to parent's books data
-        self.parent.books_data.append(book_data)
-        self.parent.populate_books()
+        # Input field style matching shelf_edit
+        input_style = """
+            QLineEdit, QTextEdit, QSpinBox {
+                background-color: white;
+                border: 1px solid #dbcfc1;
+                border-radius: 5px;
+                padding: 6px;
+                font-size: 14px;
+                color: #5C4033;
+                min-height: 10px;
+            }
+            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus {
+                border: 1px solid #5C4033;
+            }
+            QLineEdit[readOnly="true"], QTextEdit[readOnly="true"] {
+                background-color: #f5f5f5;
+                color: #666666;
+            }
+            QLineEdit::placeholder, QTextEdit::placeholder {
+                color: #999999;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                width: 16px;
+                background-color: #f5f5f5;
+                border: none;
+            }
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+                background-color: #e0e0e0;
+            }
+            QTextEdit {
+                min-height: 40px;
+            }
+        """
+        # Label style with background
+        label_style = """
+            QLabel {
+                color: #5C4033;
+                font-size: 13px;
+                font-weight: bold;
+                background-color: #f9f9f9;
+                border: 1px solid #dbcfc1;
+                border-radius: 8px;
+                padding: 3px 8px;
+                margin-right: 8px;
+            }
+        """
+        #book information group
+        info_group = QGroupBox("Book Information")
+        info_group.setStyleSheet("""
+            QGroupBox {
+                background-color: white;
+                border-radius: 15px;
+                border: 2px solid #dbcfc1;
+                color: #5C4033;
+                font-size: 16px;
+                font-weight: bold;
+                margin-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left:8px;
+                padding: 0 3px;
+            }
+        """)
+        info_layout = QFormLayout(info_group)
+        info_layout.setContentsMargins(12, 15, 12, 12)
+        info_layout.setVerticalSpacing(6)
+        info_layout.setHorizontalSpacing(8)
         
-        QMessageBox.information(self, "Success", f"Book '{book_data['title']}' has been added!")
+        # Form fields
+        self.title_edit = QLineEdit()
+        self.title_edit.setPlaceholderText("Enter Title")
+        self.title_edit.setStyleSheet(input_style)
+        self.title_edit.setFixedHeight(32)
+        
+        self.author_edit = QLineEdit()
+        self.author_edit.setPlaceholderText("Enter Author")
+        self.author_edit.setStyleSheet(input_style)
+        self.author_edit.setFixedHeight(32)
+        
+        self.isbn_edit = QLineEdit()
+        self.isbn_edit.setPlaceholderText("Enter ISBN")
+        self.isbn_edit.setStyleSheet(input_style)
+        self.isbn_edit.setFixedHeight(32)
+        
+        self.publisher_edit = QLineEdit()
+        self.publisher_edit.setPlaceholderText("Enter Publisher")
+        self.publisher_edit.setStyleSheet(input_style)
+        self.publisher_edit.setFixedHeight(32)
+        
+        self.genre_edit = QLineEdit()
+        self.genre_edit.setPlaceholderText("Enter Genre")
+        self.genre_edit.setStyleSheet(input_style)
+        self.genre_edit.setFixedHeight(32)
+        
+        self.description_edit = QTextEdit()
+        self.description_edit.setPlaceholderText("Enter Description")
+        self.description_edit.setStyleSheet(input_style)
+        self.description_edit.setMinimumHeight(30)
+
+        if self.is_found_book:
+            self.title_edit.setReadOnly(True)
+            self.author_edit.setReadOnly(True)
+            self.isbn_edit.setReadOnly(True)
+            self.publisher_edit.setReadOnly(True)
+            if self.book_data.get('categories', ['N/A'])[0] != 'N/A':
+                self.genre_edit.setReadOnly(True)
+        else:
+            self.title_edit.setReadOnly(False)
+            self.author_edit.setReadOnly(False)
+            self.isbn_edit.setReadOnly(False)
+            self.publisher_edit.setReadOnly(False)
+            self.genre_edit.setReadOnly(False)
+        
+        # Create and style labels
+        title_label = QLabel("Title:")
+        title_label.setStyleSheet(label_style)
+        author_label = QLabel("Author:")
+        author_label.setStyleSheet(label_style)
+        isbn_label = QLabel("ISBN:")
+        isbn_label.setStyleSheet(label_style)
+        publisher_label = QLabel("Publisher:")
+        publisher_label.setStyleSheet(label_style)
+        genre_label = QLabel("Genre:")
+        genre_label.setStyleSheet(label_style)
+        description_label = QLabel("Description:")
+        description_label.setStyleSheet(label_style)
+
+        # Add fields to form with styled labels
+        info_layout.addRow(title_label, self.title_edit)
+        info_layout.addRow(author_label, self.author_edit)
+        info_layout.addRow(isbn_label, self.isbn_edit)
+        info_layout.addRow(publisher_label, self.publisher_edit)
+        info_layout.addRow(genre_label, self.genre_edit)
+        info_layout.addRow(description_label, self.description_edit)
+
+        main_layout.addWidget(info_group)
+
+        #for book cover
+        image_group = QGroupBox("Book Cover")
+        image_group.setStyleSheet("""
+            QGroupBox {
+                background-color: white;
+                border-radius: 15px;
+                border: 2px solid #dbcfc1;
+                color: #5C4033;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                background: transparent;
+            }
+        """)
+
+        image_layout = QHBoxLayout(image_group)
+        image_layout.setContentsMargins(10, 10, 10, 10)
+        image_layout.setSpacing(10)
+
+        image_container = QWidget()
+        image_container_layout = QVBoxLayout(image_container)
+        image_container_layout.setContentsMargins(0,0,0,0)
+        image_container_layout.setSpacing(10)
+
+        self.image_preview = QLabel()
+        self.image_preview.setFixedSize(self.image_preview_size)
+        self.image_preview.setMinimumSize(160, 200)
+        self.image_preview.setAlignment(Qt.AlignCenter)
+        self.image_preview.setStyleSheet("")
+        
+        image_container_layout.addWidget(self.image_preview, alignment=Qt.AlignCenter)
+
+        self.image_label = QLabel("No image selected")
+        self.image_label.setAlignment(Qt.AlignCenter)
+        image_container_layout.addWidget(self.image_label)
+
+        image_layout.addWidget(image_container)
+
+        self.image_btn = QPushButton("Upload Cover")
+        self.image_btn.clicked.connect(self.upload_image)
+        self.image_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #5C4033;
+                color: white;
+                padding: 8px 12px;
+                border: none;
+                border-radius: 10px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #8B4513;
+            }
+        """)
+        image_layout.addWidget(self.image_btn, alignment=Qt.AlignCenter)
+
+        if self.is_found_book and self.book_data.get('image'):
+            self.load_cover_preview()
+
+        main_layout.addWidget(image_group)
+
+        lib_group= QGroupBox("Library Information")
+        lib_group.setStyleSheet("""
+            QGroupBox {
+                background-color: white;
+                border-radius: 15px;
+                border: 2px solid #dbcfc1;
+                color: #5C4033;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0px 5px;
+                background: transparent;
+            }
+        """)
+        lib_layout = QFormLayout(lib_group)
+        lib_layout.setContentsMargins(15, 20, 15, 15)
+        lib_layout.setVerticalSpacing(10)
+        lib_layout.setHorizontalSpacing(10)
+
+        self.shelf_edit= QLineEdit()
+        self.shelf_edit.setPlaceholderText("e.g., A1, B2")
+        self.shelf_edit.setStyleSheet(input_style)
+        self.shelf_edit.setFixedHeight(30)
+
+        self.copies_spin = QSpinBox()
+        self.copies_spin.setMaximum(999)
+        self.copies_spin.setMinimum(1)
+        self.copies_spin.setValue(1)
+        self.copies_spin.setStyleSheet(input_style)
+        self.copies_spin.setFixedHeight(30)
+
+        # Create and style library info labels
+        shelf_label = QLabel("Shelf Number:")
+        shelf_label.setStyleSheet(label_style)
+        copies_label = QLabel("Total Copies:")
+        copies_label.setStyleSheet(label_style)
+
+        lib_layout.addRow(shelf_label, self.shelf_edit)
+        lib_layout.addRow(copies_label, self.copies_spin)
+
+        main_layout.addWidget(lib_group)
+
+        # save and cancel buttons
+        button_layout = QHBoxLayout()
+        save_btn = QPushButton("Save Book")
+        save_btn.clicked.connect(self.save_book)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #5C4033;
+                color: white;
+                padding: 10px;
+                border: none;
+                border-radius: 10px;
+                font-size: 16px;
+                min-width: 120px;
+            }
+            QPushButton:hover {
+                background-color: #8B4513;
+            }
+        """)
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: white;
+                color: #5C4033;
+                padding: 10px;
+                border: 2px solid #5C4033;
+                border-radius: 10px;
+                font-size: 16px;
+                min-width: 120px;
+            }
+            QPushButton:hover {
+                background-color: #f0f0f0;
+            }
+        """)
+        button_layout.addStretch()
+        button_layout.addWidget(save_btn)
+        button_layout.addWidget(cancel_btn)
+        button_layout.addStretch()
+        main_layout.addLayout(button_layout)
+        main_layout.addStretch()
+
+    def load_cover_preview(self):
+        try:
+            image_path = os.path.normpath(self.book_data['image']) #get local image file
+            pixmap = QPixmap(image_path) #use qpixmap to load
+            if not pixmap.isNull():
+                scaled_pixmap = pixmap.scaled( #resize image to fit preview
+                    self.image_preview.size(),
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                self.image_preview.setPixmap(scaled_pixmap)
+                self.image_preview.setScaledContents(True) #pixmap automatically scale to preview size
+                self.image_label.setText(f"Image: {os.path.basename(image_path)}") #display name of the imagefile below
+            else:
+                self.image_preview.setText("") #if failed to load image, clear preview area
+                self.image_preview.setStyleSheet("""
+                    QLabel {
+                        background-color: #dbcfc1;
+                        border-radius: 8px;
+                        border: 2px solid #5C4033;
+                    }
+                """)
+                self.image_label.setText("No image selected")
+        except Exception as e:
+            print(f"Error loading local image {image_path}: {e}")
+            self.image_preview.setText("")
+            self.image_preview.setStyleSheet("""
+                QLabel {
+                    background-color: #dbcfc1;
+                    border-radius: 8px;
+                    border: 2px solid #5C4033;
+                }
+            """)
+            self.image_label.setText("No image selected")
+
+    def populate_fields(self): #fill form fields with book data
+        self.title_edit.setText(self.book_data.get('title', ''))
+        author = self.book_data.get('author', '')
+        if isinstance(author, list): # for response for author is list
+            author = ', '.join(author)
+        self.author_edit.setText(author)
+        self.isbn_edit.setText(self.book_data.get('isbn', ''))
+        self.publisher_edit.setText(self.book_data.get('publisher', ''))
+        self.genre_edit.setText(','.join(self.book_data.get('categories', [''])))
+        self.description_edit.setText(self.book_data.get('description', ''))
+
+    def upload_image(self):
+        file_path, _ = QFileDialog.getOpenFileName( #open file for user to upload image
+            self, "Select Book Cover", "", "Images (*.png *.jpg *.jpeg *.bmp *.gif)"
+        )
+        if file_path: #process only if file was selected
+            try:
+                if not os.path.exists('assets'): #create assests folder
+                    os.makedirs('assets')
+                isbn = re.sub(r'[^0-9X]', '', self.isbn_edit.text().strip().upper()) or 'temp' #isbn for filenames
+                filename = f"book_cover_{isbn}.png"
+                image_path = os.path.normpath(os.path.join('assets', filename)) #full path to dave the image
+                shutil.copy(file_path, image_path) #copy the imaget= tot the folder
+                print(f"Image copied to: {image_path}, Exists: {os.path.exists(image_path)}")
+                if os.path.exists(image_path):
+                    self.book_data['image'] = image_path #save image to book data
+                    self.image_label.setText(f"Image: {os.path.basename(image_path)}")
+                    pixmap = QPixmap(image_path) #load image in preview
+                    if not pixmap.isNull():
+                        scaled_pixmap = pixmap.scaled(
+                            self.image_preview.size(),
+                            Qt.KeepAspectRatio,
+                            Qt.SmoothTransformation
+                        )
+                        self.image_preview.setPixmap(scaled_pixmap)
+                        self.image_preview.setStyleSheet("")
+                    else: # for invald image
+                        print(f"Invalid image file: {image_path}")
+                        self.image_preview.setText("")
+                        self.image_preview.setStyleSheet("""
+                            QLabel {
+                                background-color: #dbcfc1;
+                                border-radius: 8px;
+                                border: 2px solid #5C4033;
+                            }
+                        """)
+                        self.image_label.setText("Invalid image")
+                else: #fallback for copy error
+                    print(f"Failed to copy image to: {image_path}")
+                    self.image_preview.setText("")
+                    self.image_preview.setStyleSheet("""
+                        QLabel {
+                            background-color: #dbcfc1;
+                            border-radius: 8px;
+                            border: 2px solid #5C4033;
+                        }
+                    """)
+                    self.image_label.setText("Image copy failed")
+            except Exception as e:
+                print(f"Error uploading image: {e}")
+                self.image_preview.setText("")
+                self.image_preview.setStyleSheet("""
+                    QLabel {
+                        background-color: #dbcfc1;
+                        border-radius: 8px;
+                        border: 2px solid #5C4033;
+                    }
+                """)
+                self.image_label.setText("Image upload failed")
+ 
+    def save_book(self):
+        if not self.title_edit.text().strip(): #check if title field is empty
+            QMessageBox.warning(self, "Validation Error", "Title is required")
+            return
+        if not self.shelf_edit.text().strip():
+            QMessageBox.warning(self, "Validation Error", "Shelf number is required")
+            return
+        isbn = re.sub(r'[^0-9X]', '', self.isbn_edit.text().strip().upper()) #clean isbn
+        if isbn and not self.parent.validate_isbn(isbn): #validate isbn
+            QMessageBox.warning(self, "Validation Error", "Invalid ISBN")
+            return
+        self.book_data = { #store book infos in a disctionary
+            'title': self.title_edit.text().strip(),
+            'author': self.author_edit.text().strip(),
+            'isbn': isbn,
+            'publisher': self.publisher_edit.text().strip(),
+            'genre': self.genre_edit.text().strip(),
+            'description': self.description_edit.toPlainText().strip(),
+            'shelf': self.shelf_edit.text().strip(),
+            'copies': self.copies_spin.value(),
+            'image': self.book_data.get('image', ''),
+            'available_copies': self.copies_spin.value(),
+            'image_url' : self.book_data.get('image_url', '')
+        }
+        print(f"Saving book: {self.book_data}") #for debudding 
+        QMessageBox.information(self, "Success", f"Book '{self.book_data['title']}' has been added to the library")
         self.accept()
 
 class CollapsibleSidebar(QWidget):
@@ -644,23 +1260,8 @@ class CollapsibleSidebar(QWidget):
         self.setFixedSize(1300, 700)
         
         # Initialize books data PYTHON LIST!
-        self.books_data = [
-            {"image": "assets/book1.png", "title": "The Great Gatsby", "author": "F. Scott Fitzgerald", "isbn": "978-0-7432-7356-5", "genre": "Classic Fiction", "description": "A classic American novel set in the 1920s."},
-            {"image": "assets/book2.png", "title": "To Kill a Mockingbird", "author": "Harper Lee", "isbn": "978-0-06-112008-4", "genre": "Literary Fiction", "description": "A gripping tale of racial injustice and childhood in the American South."},
-            {"image": "assets/book3.png", "title": "1984", "author": "George Orwell", "isbn": "978-0-452-28423-4", "genre": "Dystopian Fiction", "description": "A dystopian social science fiction novel and cautionary tale."},
-            {"image": "assets/book4.png", "title": "Pride and Prejudice", "author": "Jane Austen", "isbn": "978-0-14-143951-8", "genre": "Romance", "description": "A romantic novel of manners written by Jane Austen."},
-            {"image": "assets/book5.png", "title": "The Catcher in the Rye", "author": "J.D. Salinger", "isbn": "978-0-316-76948-0", "genre": "Coming-of-age Fiction", "description": "A controversial novel originally published for adults."},
-            {"image": "assets/book6.png", "title": "Lord of the Flies", "author": "William Golding", "isbn": "978-0-571-05686-2", "genre": "Allegory", "description": "A 1954 novel about a group of British boys stuck on an uninhabited island."},
-            {"image": "assets/book7.png", "title": "Animal Farm", "author": "George Orwell", "isbn": "978-0-452-28424-1", "genre": "Political Satire", "description": "An allegorical novella reflecting events leading up to the Russian Revolution."},
-            {"image": "assets/book8.png", "title": "Brave New World", "author": "Aldous Huxley", "isbn": "978-0-06-085052-4", "genre": "Science Fiction", "description": "A dystopian novel set in a futuristic World State."},
-            {"image": "assets/book9.png", "title": "The Hobbit", "author": "J.R.R. Tolkien", "isbn": "978-0-547-92822-7", "genre": "Fantasy", "description": "A children's fantasy novel about the adventure of Bilbo Baggins."},
-            {"image": "assets/book10.png", "title": "Fahrenheit 451", "author": "Ray Bradbury", "isbn": "978-1-4516-7331-9", "genre": "Dystopian Fiction", "description": "A dystopian novel about a future where books are outlawed."},
-            {"image": "assets/book11.png", "title": "Moby Dick", "author": "Herman Melville", "isbn": "978-0-14-243724-7", "genre": "Adventure Fiction", "description": "The narrative of Captain Ahab's obsessive quest for revenge."},
-            {"image": "assets/book12.png", "title": "War and Peace", "author": "Leo Tolstoy", "isbn": "978-0-14-044793-4", "genre": "Historical Fiction", "description": "A novel that chronicles the French invasion of Russia."},
-            {"image": "assets/book13.png", "title": "The Odyssey", "author": "Homer", "isbn": "978-0-14-044911-2", "genre": "Epic Poetry", "description": "An ancient Greek epic poem attributed to Homer."},
-            {"image": "assets/book14.png", "title": "Crime and Punishment", "author": "Fyodor Dostoevsky", "isbn": "978-0-14-044913-6", "genre": "Psychological Fiction", "description": "A psychological novel focusing on the mental anguish of Raskolnikov."},
-            {"image": "assets/book15.png", "title": "Jane Eyre", "author": "Charlotte Brontë", "isbn": "978-0-14-144114-6", "genre": "Gothic Fiction", "description": "A bildungsroman following the experiences of its eponymous heroine."}
-        ]
+        self.books_data = []
+        self.original_books_data = []
         
         # Main layout
         main_layout = QHBoxLayout(self)
@@ -876,12 +1477,18 @@ class CollapsibleSidebar(QWidget):
 
     def perform_search(self):
         """Perform search with the text from search bar"""
-        search_text = self.search_bar.text().strip()
+        search_text = self.search_bar.text().strip().lower()
         if search_text:
             print(f"Searching for: {search_text}")
-            # Here you would implement your actual search functionality
+            filtered_books = [ #search item in the books
+                book for book in self.original_books_data
+                if search_text in book['title'].lower() or search_text in book['author'].lower()
+            ]
+            self.books_data = filtered_books #display found books
+            self.populate_books()
         else:
-            print("Please enter a search term")
+            self.books_data = self.books_data #restore original list if needed
+            self.populate_books()
 
     def create_books_section(self):
         """Create the books display section with multiple columns and vertical scrolling"""
@@ -1009,30 +1616,24 @@ class CollapsibleSidebar(QWidget):
         """)
         
         # Try to load image
-        try:
-            # Handle both local files and URLs
-            image_path = book_data["image"]
-            if image_path.startswith('http'):
-                # Load from URL
-                response = requests.get(image_path)
-                pixmap = QPixmap()
-                pixmap.loadFromData(response.content)
-            else:
-                # Load from local file
-                pixmap = QIcon(image_path).pixmap(116, 156)
-            
-            book_cover.setPixmap(pixmap.scaled(116, 156, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-            book_cover.setScaledContents(True)
-        except:
-            book_cover.setText("📚")
-            book_cover.setStyleSheet("""
-                QLabel {
-                    background-color: #dbcfc1;
-                    border-radius: 8px;
-                    border: 2px solid #5C4033;
-                    font-size: 40px;
-                }
-            """)
+        image_path = book_data.get("image", "")
+        print(f"Book: {book_data['title']}, Image path: {image_path}, Type: {type(image_path)}")
+        if image_path and isinstance(image_path, str) and os.path.exists(image_path):
+            try:
+                pixmap = QPixmap(image_path)
+                if not pixmap.isNull():
+                    scaled_pixmap = pixmap.scaled(
+                        QSize(120, 160),
+                        Qt.KeepAspectRatio,
+                        Qt.SmoothTransformation
+                    )
+                    book_cover.setPixmap(scaled_pixmap)
+                    book_cover.setStyleSheet("")
+                    print(f"Loaded image: {image_path}")
+                else:
+                    print(f"Invalid image: {image_path}")
+            except Exception as e:
+                print(f"Error loading image for {book_data['title']}: {e}")
         
         # Book title
         title_label = QLabel(book_data["title"])
@@ -1046,10 +1647,13 @@ class CollapsibleSidebar(QWidget):
                 background-color: transparent;
                 border: none;
             }
+                                  
         """)
-        
         # Book author
-        author_label = QLabel(book_data["author"])
+        author = book_data["author"]
+        if isinstance(author, list):
+            author = ', '.join(author)
+        author_label = QLabel(author)
         author_label.setAlignment(Qt.AlignCenter)
         author_label.setWordWrap(True)
         author_label.setStyleSheet("""
@@ -1097,6 +1701,7 @@ class CollapsibleSidebar(QWidget):
     
     def refresh_books_display(self):
         """Refresh the books display after changes"""
+        self.original_books_data = self.books_data.copy()
         self.populate_books()
 
     def toggle_sidebar(self):

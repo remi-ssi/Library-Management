@@ -14,10 +14,7 @@ class DatabaseSeeder:
         conn = self.connect()
         return conn.cursor(), conn
 
-    # ===========================
-    # Generic Utility Functions
-    # ===========================
-
+    #check if table exists
     def check_table_exists(self, table_name):
         """Check if a table exists in the database"""
         conn = self.connect()
@@ -31,6 +28,7 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+    #create table if it doesnt exist
     def create_table(self, create_sql):
         """Create a table using provided SQL statement"""
         conn = self.connect()
@@ -61,6 +59,7 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+    #create an instance in database
     def seed_data(self, table_name, data_list, column_order, hash_password_field=None):
         """
         Seed data into any table
@@ -95,6 +94,7 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+    #for log in verification
     def verify_login(self, table_name, username_column, password_column, username, password):
         """Simple login test based on hashed password"""
         conn = self.connect()
@@ -123,10 +123,51 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
-    # ===========================
-    # Table-specific Definitions
-    # ===========================
+    #to update table
+    def update_member_full(self, member_id, new_last_name, new_first_name, new_middle_name, new_contact):
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            update_query = """
+                UPDATE Member
+                SET MemberLN = ?, MemberFN = ?, MemberMI = ?, MemberContact = ?
+                WHERE MemberID = ?
+            """
+            cursor.execute(update_query, (new_last_name, new_first_name, new_middle_name, new_contact, member_id))
+            conn.commit()
+            print(f"✓ Member {member_id} updated successfully.")
+        except Exception as e:
+            print(f"✗ Error updating member {member_id}: {e}")
+        finally:
+            conn.close()
 
+    #get the records of members
+    def get_all_members(self):
+        """Fetch all members from the Member table"""
+        conn = self.connect()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT MemberID, MemberLN, MemberFN, MemberMI, MemberContact FROM Member")
+            rows = cursor.fetchall()
+
+            members = []
+            for row in rows:
+                member_id, ln, fn, mi, contact = row
+                full_name = f"{fn} {mi} {ln}" if mi else f"{fn} {ln}"
+                members.append({
+                    "id": member_id,
+                    "name": full_name,
+                    "contact": contact
+                })
+
+            return members  # return the members to display in UI
+        except Exception as e:
+            print(f"✗ Error fetching members: {e}")
+            return []  # Return an empty list instead of None to avoid crashes
+        finally:
+            conn.close()
+
+    #seed all the data in database on their respective tables
     def seed_all(self):
         """Seed all required tables using generalized logic"""
 
@@ -158,7 +199,7 @@ class DatabaseSeeder:
         member_sql = '''CREATE TABLE IF NOT EXISTS Member (
             MemberID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
             MemberLN VARCHAR NOT NULL,
-            MemberMI VARCHAR NOT NULL,
+            MemberMI VARCHAR,
             MemberFN VARCHAR NOT NULL,
             MemberContact INTEGER NOT NULL,
             CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -179,6 +220,7 @@ class DatabaseSeeder:
             clear=True
         )
 
+    #initialize the table / for debugging purposes only
     def _initialize_table(self, table_name, create_sql, data, columns, hash_password_column=None, clear=False):
         """Helper function to check, create, clear, and seed a table"""
         print(f"\n🔧 Initializing {table_name}...")
@@ -194,7 +236,6 @@ class DatabaseSeeder:
 
         self.seed_data(table_name, data, column_order=columns, hash_password_field=hash_password_column)
         print(f"✅ {table_name} setup complete.")
-
 
 if __name__ == "__main__":
     seeder = DatabaseSeeder()

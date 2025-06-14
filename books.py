@@ -106,11 +106,17 @@ class BookEditView(QWidget):
         self.title_input.setReadOnly(True)
         self.title_input.setStyleSheet(self.get_readonly_input_style())
         
-        self.author_input = QLineEdit(self.book_data['author'])
+        author = self.book_data['author']
+        if isinstance(author, list):
+            author = ', '.join(author)
+        self.author_input = QLineEdit(author)
         self.author_input.setReadOnly(True)
         self.author_input.setStyleSheet(self.get_readonly_input_style())
         
-        self.genre_input = QLineEdit(self.book_data.get('genre', ''))
+        genre = self.book_data['genre']
+        if isinstance(genre, list):
+            genre = ', '.join(genre)
+        self.genre_input = QLineEdit(genre)
         self.genre_input.setReadOnly(True)
         self.genre_input.setStyleSheet(self.get_readonly_input_style())
         
@@ -259,20 +265,23 @@ class BookEditView(QWidget):
         if not self.copies_input.text().isdigit() or int(self.copies_input.text()) < 1: #check if copies if positive number
             QMessageBox.warning(self, "Validation Error", "Copies must be a positive integer")
             return
-        # Update book data
-        self.book_data['copies'] = int(self.copies_input.text())
-        self.book_data['available_copies'] = int(self.copies_input.text())
-        self.book_data['shelf'] = self.shelf_input.text()
-        self.book_data['description'] = self.description_input.toPlainText()
-        
-        # Show confirmation
-        msg = QMessageBox()
-        msg.setWindowTitle("Success")
-        msg.setText(f"Book '{self.book_data['title']}' has been updated successfully!")
-        msg.setIcon(QMessageBox.Information)
-        msg.exec()
-        self.parent_window.show_books_view() # Go back to main books view
-    
+        try:
+            # Update book data
+            self.book_data['copies'] = int(self.copies_input.text())
+            self.book_data['available_copies'] = int(self.copies_input.text())
+            self.book_data['shelf'] = self.shelf_input.text()
+            self.book_data['description'] = self.description_input.toPlainText()
+            
+            # Show confirmation
+            msg = QMessageBox()
+            msg.setWindowTitle("Success")
+            msg.setText(f"Book '{self.book_data['title']}' has been updated successfully!")
+            msg.setIcon(QMessageBox.Information)
+            msg.exec()
+            self.parent_window.show_books_view() # Go back to main books view
+        except:
+            QMessageBox.warning(self, "Error", "Error updating books: {e}")
+            print(f"Error updating books: {e}")    
     def delete_book(self):
         # Confirm deletion
         reply = QMessageBox.question(
@@ -598,13 +607,10 @@ class AddBookDialog(QDialog):
 
         # Validate ISBN 
         if isbn and not self.validate_isbn(isbn):
-            QMessageBox.warning(
-                self,
-                "Invalid ISBN",
-                "The provided ISBN is invalid. Please correct the ISBN"
+            QMessageBox.warning(self,"Invalid ISBN","The provided ISBN is invalid. Please correct the ISBN"
             )
             self.found_book_data = None
-            self.reset_cover_preview()
+            self.reset_cover_preview() 
             return
         try:
             self.reset_cover_preview() #clear preview book preview
@@ -1219,35 +1225,51 @@ class BookDetailsDialog(QDialog):
                 self.image_label.setText("Image upload failed")
  
     def save_book(self):
-        if not self.title_edit.text().strip():
-            QMessageBox.warning(self, "Validation Error", "Title is required")
-            return
-        if not self.author_edit.text().strip():
-            QMessageBox.warning(self, "Validation Error", "Author is required")
-            return
-        if not self.shelf_edit.text().strip():
-            QMessageBox.warning(self, "Validation Error", "Shelf number is required")
-            return
+        fields = [
+            ('Title', lambda: self.title_edit.text().strip(), "Title is required", None),
+            ('Author', lambda: self.author_edit.text().strip(), "Author is required", None),
+            ('ISBN', lambda: self.isbn_edit.text().strip(), "ISBN is required", None),
+            ('Publisher', lambda: self.publisher_edit.text().strip(), "Publisher is required", None),
+            ('Description', lambda: self.description_edit.toPlainText().strip(), "Description is required", None),
+            ('Shelf Number', lambda: self.shelf_edit.text().strip(), "Shelf number is required", None),
+        ]
         isbn = re.sub(r'[^0-9X]', '', self.isbn_edit.text().strip().upper()) #clean isbn
         if isbn and not self.parent.validate_isbn(isbn): #validate isbn
             QMessageBox.warning(self, "Validation Error", "Invalid ISBN")
+        shelf = self.shelf_edit.text().strip()
+        if not re.match(r'^[A-Z][0-9]{1,5}$', shelf):
+            QMessageBox.warning(self, "Validation Error", "Shelf number must be one letter (A-Z) followed by 1 to 5 digits. (e.g. A1, B12, C345)")
             return
-        self.book_data = { #store book infos in a disctionary
-            'title': self.title_edit.text().strip(),
-            'author': self.author_edit.text().strip(),
-            'isbn': isbn,
-            'publisher': self.publisher_edit.text().strip(),
-            'genre': self.genre_edit.text().strip(),
-            'description': self.description_edit.toPlainText().strip(),
-            'shelf': self.shelf_edit.text().strip(),
-            'copies': self.copies_spin.value(),
-            'image': self.book_data.get('image', ''),
-            'available_copies': self.copies_spin.value(),
-            'image_url' : self.book_data.get('image_url', '')
-        }
-        print(f"Saving book: {self.book_data}") #for debudding 
-        QMessageBox.information(self, "Success", f"Book '{self.book_data['title']}' has been added to the library")
-        self.accept()
+        for field_name , getter, error_msg, validator in fields:
+            value = getter()
+            if not value or (validator and not validator(value)):
+                QMessageBox.warning(self, "Validation Error", error_msg)
+                return
+        authors = list(set([a.strip() for a in self.author_edit.text().strip().split(',') if a.strip()]))
+        genres = list(set([g.strip() for g in self.genre_edit.text().strip().split(',') if g.strip()]))
+        if not genres:
+            QMessageBox.warning(self, "Validation Error", "At least one(1) genre is required")
+            return
+        try:
+            self.book_data = { #store book infos in a disctionary
+                'title': self.title_edit.text().strip(),
+                'author': authors,
+                'isbn': isbn,
+                'publisher': self.publisher_edit.text().strip(),
+                'genre': genres,
+                'description': self.description_edit.toPlainText().strip(),
+                'shelf': shelf,
+                'copies': self.copies_spin.value(),
+                'image': self.book_data.get('image', ''),
+                'available_copies': self.copies_spin.value(),
+                'image_url' : self.book_data.get('image_url', '')
+            }
+            print(f"Saving book: {self.book_data}") #for debudding 
+            QMessageBox.information(self, "Success", f"Book '{self.book_data['title']}' has been added to the library")
+            self.accept()
+        except Exception as e:
+            QMessageBox.warning(self, "Error", "Unexpected Error: {e}")
+            print(f"Unexpected Error: {e}")
 
 class CollapsibleSidebar(QWidget):
     def __init__(self):
@@ -1478,7 +1500,8 @@ class CollapsibleSidebar(QWidget):
             print(f"Searching for: {search_text}")
             filtered_books = [ #search item in the books
                 book for book in self.original_books_data
-                if search_text in book['title'].lower() or search_text in book['author'].lower()
+                if search_text in book['title'].lower() or # for 1 author
+                search_text in ', '.join(book['author']).lower() # for searching author in a list
             ]
             self.books_data = filtered_books #display found books
             self.populate_books()
@@ -1577,7 +1600,7 @@ class CollapsibleSidebar(QWidget):
         """Create a clickable book card"""
         card_widget = QPushButton()
         card_widget.setFixedSize(180, 240)
-        card_widget.clicked.connect(lambda: self.open_book_edit(book_data))
+        card_widget.clicked.connect(lambda checked, data = book_data: self.open_book_edit(data))
         card_widget.setStyleSheet("""
             QPushButton {
                 background-color: #f8f8f8;

@@ -591,9 +591,9 @@ class AddBookDialog(QDialog):
         author = self.author_input.text().strip()
         isbn = re.sub(r'[^0-9X]', '', self.isbn_input.text().strip().upper())  # Clean ISBN early
 
-        #check if fields are filled
-        if not any([title, author, isbn]):
-            QMessageBox.information(self, "Search Error", "Please fill in at least one field: Title, Author, or ISBN")
+        #ensure all fields are filleds
+        if not title or not author or not isbn:
+            QMessageBox.information(self, "Search Error", "Please fill all required fields: Title, Author, and ISBN")
             return
 
         # Validate ISBN 
@@ -601,7 +601,7 @@ class AddBookDialog(QDialog):
             QMessageBox.warning(
                 self,
                 "Invalid ISBN",
-                "The provided ISBN is invalid. Please correct the ISBN or enter book details manually."
+                "The provided ISBN is invalid. Please correct the ISBN"
             )
             self.found_book_data = None
             self.reset_cover_preview()
@@ -609,13 +609,7 @@ class AddBookDialog(QDialog):
         try:
             self.reset_cover_preview() #clear preview book preview
             API_KEY = os.getenv('GOOGLE_BOOKS_API_KEY', 'AIzaSyBk4UqlqwPwSQwhdLQfOG5-Z-S3L7oTtYY')
-            search_term = [] #builds search query from inputs
-            if isbn:
-                search_term.append(f"isbn:{isbn}")
-            if title:
-                search_term.append(f" {title}")
-            if author:
-                search_term.append(f"{author}")
+            search_term = [f"isbn:{isbn}", f"{title}", f"{author}"] #builds search query from inputs
             query = " ".join(search_term) 
             url = f"https://www.googleapis.com/books/v1/volumes?q={query}&key={API_KEY}"
             print(f"API query: {url}")
@@ -755,12 +749,11 @@ class AddBookDialog(QDialog):
         author = self.author_input.text().strip()
         isbn = re.sub(r'[^0-9X]', '', self.isbn_input.text().strip().upper())
 
-        if not any([title, author, isbn]): #validate atleast one field
-            QMessageBox.information(self, "Add Book", "Please fill in at least one field: Title, Author, or ISBN")
+        if not title or not author or not isbn: #require three fields for input
+            QMessageBox.information(self, "Adding book Error", "Please fill in all required fields: Title, Author, and ISBN")
             return
-
-        if not self.found_book_data and not (title and author): # for manual entry, title, author, isbn are req
-            QMessageBox.warning(self, "Validation Error", "Title and Author are required for manual entry")
+        if isbn and not self.validate_isbn(isbn): #check if isbn is valid
+            QMessageBox.warning(self, "Validation Error", "Invalid ISBN")
             return
 
         book_data = self.found_book_data or { #use found book data or create manually
@@ -1226,8 +1219,11 @@ class BookDetailsDialog(QDialog):
                 self.image_label.setText("Image upload failed")
  
     def save_book(self):
-        if not self.title_edit.text().strip(): #check if title field is empty
+        if not self.title_edit.text().strip():
             QMessageBox.warning(self, "Validation Error", "Title is required")
+            return
+        if not self.author_edit.text().strip():
+            QMessageBox.warning(self, "Validation Error", "Author is required")
             return
         if not self.shelf_edit.text().strip():
             QMessageBox.warning(self, "Validation Error", "Shelf number is required")

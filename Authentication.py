@@ -1,15 +1,7 @@
-"""
-PLACEHOLDER PALANG PO YUNG GIF! 
-wait lang kasiii 
-lalagyan ko red yung border kapag nagkamali si user ng input pero next time na ah hehehe
-
-username: jas
-password: qtqt
-"""
-
 import sys
 import sqlite3
 import bcrypt #for password hashing
+import books
 
 from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont, QMovie
@@ -27,7 +19,6 @@ class Authentication(QWidget):
         self.db_seeder = DatabaseSeeder()
 
         self.setWindowTitle("Library Management System")
-        self.setFixedSize(900,600) #width,height
         
         self.setStyleSheet("""
             QWidget {
@@ -37,18 +28,19 @@ class Authentication(QWidget):
 
         label = QLabel("Welcome to BJRS Library")
         font = QFont()
-        font.setPointSize(30)
+        font.setPointSize(45)
         label.setFont(font)
-        label.setAlignment(Qt.AlignmentFlag.AlignTop)
-        label.setContentsMargins(450,100,0,0) #left, top, right, bottom
+        label.setContentsMargins(0,100,0,20) #left, top, right, bottom 
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter) 
+        label.setStyleSheet("""color:#714423 """)
 
         #For Gif
         self.gif_label = QLabel()
         self.movie = QMovie("assets/book2.gif")
-        self.movie.setScaledSize(QSize(250,250)) #width, height
+        self.movie.setScaledSize(QSize(280,280)) #width, height
         self.gif_label.setMovie(self.movie)
         self.gif_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.gif_label.setContentsMargins(100,20,0,0) #left, top, right, bottom
+        self.gif_label.setContentsMargins(0,20,0,0) #left, top, right, bottom
         self.movie.start()
 
         #Username or Email
@@ -77,10 +69,20 @@ class Authentication(QWidget):
         }    
     """)
         
+        # Email error label
+        self.email_error_label = QLabel("")
+        self.email_error_label.setStyleSheet("color: red; font-weight: bold; font: 14px;")
+        self.email_error_label.setFixedWidth(300)
+        self.email_error_label.hide()  # Initially hidden
+        
+        # Connect text change to clear error
+        self.username_input.textChanged.connect(self.clear_email_error)
+        
         #ANG PURPOSE NITO IS PARA MAGKAPATONG YUNG USERNAME NA LABEL AT USERNAME NA INPUT!
         username_v_layout = QVBoxLayout()
         username_v_layout.addWidget(username_label)
         username_v_layout.addWidget(self.username_input)
+        username_v_layout.addWidget(self.email_error_label)
         
         #Password
         password_label = QLabel("Password")
@@ -107,14 +109,24 @@ class Authentication(QWidget):
         }                                  
     """)
         
+        # Password error label
+        self.password_error_label = QLabel("")
+        self.password_error_label.setStyleSheet("color: red; font-weight: bold; font: 14px;")
+        self.password_error_label.setFixedWidth(300)
+        self.password_error_label.hide()  # Initially hidden
+        
+        # Connect text change to clear error
+        self.password_input.textChanged.connect(self.clear_password_error)
+        
         #PATONG YUNG PASSWORD NA TEXT AT IINPUT-AN
         password_v_layout = QVBoxLayout()
         password_v_layout.addWidget(password_label)
         password_v_layout.addWidget(self.password_input)
+        password_v_layout.addWidget(self.password_error_label)
         
         # PARA NASA RIGHT SIDE LANG YUNG YUNG USERNAME AT PASSWORD KASI ANG NASA LEFT IS SI GIF SO MAY MALAKING PARANG PADDING SIYA
         h_layout_user = QHBoxLayout()
-        h_layout_user.addSpacerItem(QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Minimum)) #width, height
+        h_layout_user.addSpacerItem(QSpacerItem(80,20, QSizePolicy.Expanding, QSizePolicy.Minimum)) #width, height
         h_layout_user.addLayout(username_v_layout)
         h_layout_user.setContentsMargins(0,0,20,0) #left, top, right, bottom
 
@@ -122,7 +134,7 @@ class Authentication(QWidget):
         h_layout_password = QHBoxLayout()
         h_layout_password.addSpacerItem(QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Minimum)) #width, height
         h_layout_password.addLayout(password_v_layout)
-        h_layout_password.setContentsMargins(0,0,20,0) #left, top, right, bottom
+        h_layout_password.setContentsMargins(0,0,20,15) #left, top, right, bottom
 
         #Login Button
         login_button = QPushButton("Log In")
@@ -145,7 +157,7 @@ class Authentication(QWidget):
         #FOR SIGNUP!!!!
         signup_label = QLabel()
         signup_label.setText('Don\'t have an account? <a href="signup">Sign Up</a>')
-        signup_label.setContentsMargins(180,20,0,0)
+        signup_label.setContentsMargins(0,20,0,50)
         signup_label.setTextFormat(Qt.TextFormat.RichText)
         signup_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         signup_label.setOpenExternalLinks(False)  
@@ -169,7 +181,6 @@ class Authentication(QWidget):
         left_layout.addWidget(self.gif_label)
         left_layout.addStretch()
 
-
         #USERNAME, PASSWORD, LOG IN BUTTON
         # Right side layout for label and input fields
         right_layout = QVBoxLayout()
@@ -180,58 +191,112 @@ class Authentication(QWidget):
         right_layout.addLayout(h_layout_password)
         right_layout.addSpacing(40)
         right_layout.addLayout(button_layout)
-        right_layout.addStretch()
-        right_layout.addWidget(signup_label)
         
-        self.error_label = QLabel("")
-        self.error_label.setStyleSheet("color: red; font-weight: bold;")
-        right_layout.addWidget(self.error_label)
+        # General error label (for login failures)
+        self.general_error_label = QLabel("")
+        self.general_error_label.setStyleSheet("color: red; font-weight: bold; font: 15px;")
+        self.general_error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.general_error_label.setContentsMargins(50,10,0,0)
+        self.general_error_label.hide()  # Initially hidden
+        right_layout.addWidget(self.general_error_label)
 
-        # Main horizontal layout: GIF on the left, form on the right
-        main_layout = QHBoxLayout()
-        main_layout.addLayout(left_layout)
-        main_layout.addLayout(right_layout)
+        # Create a layout to center the form (right_layout) horizontally
+        center_layout = QHBoxLayout()
+        center_layout.addStretch()
+        center_layout.addLayout(left_layout)
+        center_layout.addLayout(right_layout)
+        center_layout.addStretch()
+
+        # Combine GIF + Form in a vertical layout to center vertically too
+        middle_layout = QVBoxLayout()
+        middle_layout.setContentsMargins(0, 50, 0, 0)
+        middle_layout.addStretch()
+        middle_inner_layout = QHBoxLayout()
+        middle_inner_layout.addLayout(left_layout)
+        middle_inner_layout.addLayout(center_layout)
+        middle_layout.addLayout(middle_inner_layout)
+        middle_layout.addStretch()
+
+        # This keeps it at the very bottom, centered
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch()
+        bottom_layout.addWidget(signup_label)
+        bottom_layout.addStretch()
 
         main_v_layout = QVBoxLayout()
         main_v_layout.addLayout(top_layout)
-        main_v_layout.addLayout(main_layout)
-        self.setLayout(main_v_layout)
+        main_v_layout.addLayout(middle_layout)
+        main_v_layout.addLayout(bottom_layout)
 
+        self.setLayout(main_v_layout)
+        self.showMaximized() 
+     
+    def clear_email_error(self):
+        """Clear email error when user starts typing"""
+        self.email_error_label.hide()
+        self.email_error_label.setText("")
+        
+    def clear_password_error(self):
+        """Clear password error when user starts typing"""
+        self.password_error_label.hide()
+        self.password_error_label.setText("")
+        
+    def clear_general_error(self):
+        """Clear general error"""
+        self.general_error_label.hide()
+        self.general_error_label.setText("")
+     
     def handle_login(self):
         username = self.username_input.text()
         password = self.password_input.text()
-
+        
+        # Clear all previous errors
+        self.clear_email_error()
+        self.clear_password_error()
+        self.clear_general_error()
+        
+        # Validate fields
+        has_error = False
+        
         if not username:
-            self.error_label.setText("Please enter your username!")
-            self.error_label.setContentsMargins(180,20,0,0)
-            return
+            self.email_error_label.setText("Email field is required")
+            self.email_error_label.show()
+            has_error = True
         
         if not password:
-            self.error_label.setText("Please enter your password!")
-            self.error_label.setContentsMargins(180,20,0,0)
+            self.password_error_label.setText("Password field is required")
+            self.password_error_label.show()
+            has_error = True
+            
+        # If there are field errors, don't proceed with login
+        if has_error:
             return
         
+        # Proceed with login validation
         if self.db_seeder.verify_librarian_login(username, password):
             print("Log in successful")
-            self.dashboard = Dashboard()
-            self.dashboard.show()
+            self.books_window = books.CollapsibleSidebar()  # use correct variable and class
+            self.books_window.show()
             self.close()
+
         else:
-            self.error_label.setText("Invalid username or password.") 
+            self.general_error_label.setText("Invalid email or password.")
+            self.general_error_label.show()
 
     def open_signUp(self):
         # Open the SignUp screen 
         self.signup_window = SignUp()
         self.signup_window.show()
 
-#HI JASSMINEEEEEE DITOO KAAAAAAA!!!!
+#FOR JASMINE
 
 class SignUp(QWidget):
     def __init__(self):
         super().__init__()
         self.db_seeder = DatabaseSeeder()
         self.setWindowTitle("Sign Up")
-        self.setFixedSize(900,600)
+        self.showMaximized() 
+
         
         self.setStyleSheet("""
             QWidget {
@@ -241,14 +306,26 @@ class SignUp(QWidget):
 
         label = QLabel("Create an Account")
         font = QFont()
-        font.setPointSize(28)
+        font.setPointSize(40)
         label.setFont(font)
-        label.setAlignment(Qt.AlignmentFlag.AlignTop)
-        label.setContentsMargins(200,100,0,0) #left, top, right, bottom
+        label.setContentsMargins(360,40,0,20) #left, top, right, bottom
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter) 
+        label.setStyleSheet("""color:#714423 """)
+
 
         self.error_label = QLabel("")
         self.error_label.setStyleSheet("color: red; font-weight: bold;")
         self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # For the GIF
+        self.gif_label = QLabel()
+        self.movie = QMovie("assets/book2.gif")
+        self.movie.setScaledSize(QSize(280, 280))  # adjust size as needed
+        self.gif_label.setMovie(self.movie)
+        self.gif_label.setContentsMargins(0,0,0,100)
+        self.gif_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.movie.start()
+
 
         # EMAIL (CAPITALLL GALIT SI SHELLEY) 
         username_label = QLabel("Email")
@@ -321,6 +398,7 @@ class SignUp(QWidget):
         login_link = QLabel()
         login_link.setText('Already have an account? <a href="login">Log In</a>')
         login_link.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        login_link.setContentsMargins(0,10,0,20)
         login_link.setTextFormat(Qt.TextFormat.RichText)
         login_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         login_link.setOpenExternalLinks(False)
@@ -328,9 +406,16 @@ class SignUp(QWidget):
         # Connect link click 
         login_link.linkActivated.connect(self.open_login)
 
+        top_layout = QHBoxLayout()
+        top_layout.addWidget(label)
+
         button_layout = QHBoxLayout()
         button_layout.addSpacerItem(QSpacerItem(50, 0, QSizePolicy.Fixed, QSizePolicy.Minimum))  # 50 px space before button
         button_layout.addWidget(signup_button) 
+
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addWidget(login_link)
+        bottom_layout.setContentsMargins(0,0,0,20)
 
         # BASTA LAYOUT NG INPUT
         username_layout = QVBoxLayout()
@@ -372,27 +457,36 @@ class SignUp(QWidget):
         form_layout.addLayout(password_layout)
         form_layout.addSpacing(10)
         form_layout.addLayout(confirm_layout)
-        form_layout.addSpacing(10)
+        form_layout.addSpacing(30)
         form_layout.addWidget(signup_button, alignment=Qt.AlignmentFlag.AlignCenter)
         form_layout.addSpacing(10)
         form_layout.addWidget(self.error_label)
-        form_layout.addSpacing(20)
-        form_layout.addWidget(login_link)
-        form_layout.addStretch()
+     
 
-    # PARA GITNA SHA
+        # Layout for form on the right
+        form_right_layout = QVBoxLayout()
+        form_right_layout.addSpacing(20)
+        form_right_layout.addLayout(form_layout)
+        form_right_layout.addStretch()
+
+        # Layout that puts GIF on the left and form on the right
+        main_h_layout = QHBoxLayout()
+        main_h_layout.addStretch()
+        main_h_layout.addWidget(self.gif_label)
+        main_h_layout.addSpacing(80)  # space between GIF and form
+        main_h_layout.addLayout(form_right_layout)
+        main_h_layout.addStretch()
+
+        # Vertically center everything
         outer_layout = QVBoxLayout()
-        outer_layout.addStretch()  # top 
-
-        h_center = QHBoxLayout()
-        h_center.addStretch()  # left 
-        h_center.addLayout(form_layout)
-        h_center.addStretch()  # right 
-
-        outer_layout.addLayout(h_center)
-        outer_layout.addStretch()  # bottom 
+        outer_layout.addLayout(top_layout)
+        outer_layout.addStretch()
+        outer_layout.addLayout(main_h_layout)
+        outer_layout.addStretch()
+        outer_layout.addLayout(bottom_layout)
 
         self.setLayout(outer_layout)
+
 
     def input_style(self, error=False): 
         border_color = "#FF0000" if error else "#B7966B"
@@ -451,7 +545,7 @@ class SignUp(QWidget):
         hashedPass = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
        # hashed_password_str = hashedPass.decode('utf-8')
        
-        self.db_seeder.preSeed_all_tables()
+       # self.db_seeder.preSeed_all_tables()
         self.db_seeder.seed_data(
             tableName="Librarian",
             data=[
@@ -484,5 +578,6 @@ if __name__ == "__main__":
     """)
 
     window = Authentication()
-    window.show()
+    #window.showFullScreen()
+    window.show() 
     app.exec()

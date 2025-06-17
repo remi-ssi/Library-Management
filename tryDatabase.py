@@ -11,50 +11,33 @@ class DatabaseSeeder:
         conn = sqlite3.connect(self.db_path)
         return conn, conn.cursor() 
     
-    def preSeed_all_tables(self):
+    def query(self, tableName):
+        conn, cursor = self.get_connection_and_cursor()
+        conn.execute("PRAGMA foreign_keys = ON;")
         
         # ----Librarian Table----
-        librarian_table = """CREATE TABLE IF NOT EXISTS Librarian (
-            LibrarianID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-            LibUsername VARCHAR(20) NOT NULL,
-            FName VARCHAR(30) NOT NULL,
-            LName VARCHAR(20) NOT NULL,
-            MName VARCHAR(20), 
-            LibPass BLOB NOT NULL
-            )"""       
-        librarian_data = [
-            {'LibUsername': 'admin', 'LibPass': 'admin123', 'FName': 'Shelley', 'LName': 'Sesante', 'MName': 'Hi'},
-            {'LibUsername': 'jas', 'LibPass': 'qtqt', 'FName': 'Jasmine', 'LName': 'Aninion', 'MName': 'Anne'}
-        ]
-
-        self.initialize_table(tableName="Librarian", sqlTable= librarian_table, data=librarian_data, columns= ["LibUsername", "LibPass", "FName", "LName", "MName"], password="LibPass", clear=True) #assumes that table exists that's why clear=TRUE
+        if tableName == "Librarian":
+            return """CREATE TABLE IF NOT EXISTS Librarian (
+                LibrarianID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                LibUsername VARCHAR(20) NOT NULL,
+                FName VARCHAR(30) NOT NULL,
+                LName VARCHAR(20) NOT NULL,
+                MName VARCHAR(20), 
+                LibPass BLOB NOT NULL
+                )"""      
 
         # ----Member Table ------
-        member_table = """CREATE TABLE IF NOT EXISTS Member(
-                MemberID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                MemberLN VARCHAR(20) NOT NULL,
-                MemberMI VARCHAR(20),
-                MemberFN VARCHAR (20) NOT NULL,
-                MemberContact INTEGER(11) NOT NULL,
-                CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
-                LibrarianID INTEGER,
-                FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID)
-                )"""
-
-    def initialize_table(self, tableName, sqlTable, data, columns, password=None, clear=False):
-        #Calls check_table to see if the table is already in the database.
-        if not self.check_table(tableName): 
-            print(f"{tableName} not found.")
-            if not self.create_table(sqlTable):
-                print(f"Failed to create {tableName}")
-                return
-
-        if clear: #IF CLEAR=TRUE
-            self.clear_table(tableName)
-
-        #seed all the data to the database    
-        self.seed_data(tableName, data, columnOrder = columns, hashPass = password)
-        print(f"{tableName} completed.")
+        elif tableName == "Member":
+            return """CREATE TABLE IF NOT EXISTS Member(
+                    MemberID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    MemberLN VARCHAR(20) NOT NULL,
+                    MemberMI VARCHAR(20),
+                    MemberFN VARCHAR (20) NOT NULL,
+                    MemberContact INTEGER(11) NOT NULL,
+                    CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
+                    LibrarianID INTEGER,
+                    FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID)
+                    )"""
 
     #check if the table exists in the database
     def check_table(self, tableName):
@@ -70,12 +53,13 @@ class DatabaseSeeder:
             conn.close() 
 
     #create a table if it doest exists in the database
-    def create_table(self, sqlTable):
+    def create_table(self, tableName):
         conn, cursor = self.get_connection_and_cursor()
         conn.execute("PRAGMA foreign_keys = ON;")
 
         try:
-            cursor.execute(sqlTable)
+            create = self.query(tableName)
+            cursor.execute(create)
             conn.commit()
             print("Table created")
             return True
@@ -89,6 +73,13 @@ class DatabaseSeeder:
     def seed_data(self, tableName, data, columnOrder, hashPass=None):
         conn, cursor = self.get_connection_and_cursor()
         conn.execute("PRAGMA foreign_keys = ON;")
+
+        #Calls check_table to see if the table is already in the database.
+        if not self.check_table(tableName): 
+            print(f"{tableName} not found.")
+            if not self.create_table(tableName):
+                print(f"Failed to create {tableName}")
+                return
 
         try:
             for i in data:
@@ -196,26 +187,15 @@ class DatabaseSeeder:
 
     def findUsername(self, username):
         conn, cursor = self.get_connection_and_cursor()
-        query = "SELECT COUNT (*) FROM Librarian WHERE LibUsername = ?"
-        result = cursor.execute(query, (username,)).fetchone()
-        return result[0]>0
+        try:
+            query = "SELECT COUNT (*) FROM Librarian WHERE LibUsername = ?"
+            result = cursor.execute(query, (username,)).fetchone()
+            return result[0] > 0
+        except Exception as e:
+            print(f"✗ Error finding username: {e}")
+            return False
+        finally:
+            conn.close()
     
 if __name__ == "__main__":
     seeder = DatabaseSeeder()
-
-    #seed all tablles
-    seeder.preSeed_all_tables()
-
-    #for debugging purposes only
-    all_librarians = seeder.get_all_records("Librarian")
-    print("\n📚 All Librarians:")
-    for librarian in all_librarians:
-        print(librarian)
-
-    # Retrieve and print all data from the Member table
-    all_members = seeder.get_all_records("Member")
-    print("\n👥 All Members:")
-    for member in all_members:
-        print(member)
-
-

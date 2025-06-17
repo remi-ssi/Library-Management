@@ -196,6 +196,18 @@ class DatabaseSeeder:
             return False
         finally:
             conn.close()
+
+    def findMemberContact(self, contact):
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            query = "SELECT COUNT (*) FROM Member WHERE MemberContact = ?"
+            result = cursor.execute(query, (contact,)).fetchone()
+            return result[0] > 0
+        except Exception as e:
+            print(f"Error finding member contact: {e}")
+            return False
+        finally:
+            conn.close()
     
 if __name__ == "__main__":
     seeder = DatabaseSeeder()

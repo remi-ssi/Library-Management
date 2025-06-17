@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from navigation_sidebar import NavigationSidebar
 
 #connect to database seeder 
-from db_seeder import DatabaseSeeder
+from tryDatabase import DatabaseSeeder
 
 #WALA TO WAG NIYONG PANSININ TO PARA LANG MAGING ROUND ANG PIC
 def get_rounded_pixmap(pixmap, size):
@@ -71,7 +71,7 @@ class AddMemberDialog(QDialog):
     def __init__(self, existing_members, db_seeder, parent=None):
         super().__init__(parent)
         self.existing_members = existing_members
-        self.db = db_seeder
+        self.db_seeder = DatabaseSeeder()
         self.setWindowTitle("Add New Member")
         self.setFixedSize(400, 500)
         self.setStyleSheet("""
@@ -125,7 +125,6 @@ class AddMemberDialog(QDialog):
         form_layout.addRow(self.create_label("Middle Name:"), self.middle_name_edit)
         form_layout.addRow(self.create_label("Last Name:"), self.last_name_edit)
         form_layout.addRow(self.create_label("Contact Number:"), self.contact_edit)
-
         
         layout.addLayout(form_layout)
         layout.addSpacing(50)
@@ -242,10 +241,9 @@ class AddMemberDialog(QDialog):
             return
         
         # Check for duplicate contact number
-        for member in self.existing_members:
-            if member["contact"] == contact:
-                QMessageBox.warning(self, "Validation Error", "This contact number is already registered!")
-                return
+        if self.db_seeder.findMemberContact(contact=contact):
+            QMessageBox.warning(self, "Validation Error", "This contact number is already registered!")
+            return
         
         # Construct full name
         full_name = first_name
@@ -260,11 +258,17 @@ class AddMemberDialog(QDialog):
         }
 
         #to insert the entry to the database
-        cursor, conn = self.db.get_cursor_and_connection()
-        insert_query = "INSERT INTO Member (MemberLN, MemberFN, MemberMI, MemberContact) VALUES (?, ?, ?, ?)"
-        cursor.execute(insert_query, (last_name, first_name, middle_name, contact))
-        conn.commit()
-        conn.close()
+        cursor, conn = self.db_seeder.get_connection_and_cursor()
+        self.db_seeder.seed_data(tableName="Member",
+                                 data=[
+                                     {
+                                         "MemberLN" : last_name,
+                                         "MemberFN" : first_name,
+                                         "MemberMI": middle_name,
+                                         "MemberContact": contact
+                                     }
+                                 ], 
+                                 columnOrder=["MemberLN", "MemberFN", "MemberMI", "MemberContact"])
         
         QMessageBox.information(self, "Success", f"Member {full_name} added successfully!")
         self.accept()
@@ -498,7 +502,15 @@ class MembersMainWindow(QWidget):
 
         # Initialize members data
         self.db_seeder = DatabaseSeeder()
-        self.members = self.db_seeder.get_all_members()
+        self.members = self.db_seeder.get_all_records(tableName="Member")
+        
+         # DEBUG: Check what we got
+        print("Fetched members:", self.members)
+        print("Type of members:", type(self.members))
+        print("Number of members:", len(self.members) if self.members else 0)
+        if self.members:
+            print("First member:", self.members[0])
+            print("Type of first member:", type(self.members[0]))
 
         self.init_ui()
     
@@ -653,7 +665,7 @@ class MembersMainWindow(QWidget):
         
         if result == QDialog.Accepted:
             # Generate new member ID
-            new_id = f"M{len(self.members) + 1:03d}"
+            new_id = f"M{len(self.members):03d}"
             dialog.member_data["id"] = new_id
             # Add the new member to the list
             self.members.append(dialog.member_data)
@@ -707,7 +719,14 @@ class MembersMainWindow(QWidget):
 
         image_label.setPixmap(rounded_pixmap)
         
-        memberid_label = QLabel(f'<span style="color:#5C4033;">Member ID:</span> <span style="color:#8b4513;">{member.get("id", "N/A")}</span>')
+        # 🔽 CHANGE THESE THREE LINES:
+        # Build the full name from database fields
+        first_name = member.get("MemberFN", "")
+        middle_initial = member.get("MemberMI", "")
+        last_name = member.get("MemberLN", "")
+        full_name = f"{first_name} {middle_initial} {last_name}".strip()
+        
+        memberid_label = QLabel(f'<span style="color:#5C4033;">Member ID:</span> <span style="color:#8b4513;">{member.get("MemberID", "N/A")}</span>')
         memberid_label.setStyleSheet("""
             font-size: 16px;
             font: bold;
@@ -717,7 +736,7 @@ class MembersMainWindow(QWidget):
         """)
         memberid_label.setAlignment(Qt.AlignLeft)
 
-        name_label = QLabel(f'<span style="color:#5C4033;">Name:</span> <span style="color:#8b4513;">{member["name"]}</span>')
+        name_label = QLabel(f'<span style="color:#5C4033;">Name:</span> <span style="color:#8b4513;">{full_name}</span>')
         name_label.setStyleSheet("""
             font-size: 16px;
             font: bold;
@@ -727,7 +746,7 @@ class MembersMainWindow(QWidget):
         """)
         name_label.setAlignment(Qt.AlignLeft)
 
-        contact_label = QLabel(f'<span style="color:#5C4033;">Contact Number:</span> <span style="color:#8b4513;">{member["contact"]}</span>')
+        contact_label = QLabel(f'<span style="color:#5C4033;">Contact Number:</span> <span style="color:#8b4513;">{member.get("MemberContact", "N/A")}</span>')
         contact_label.setStyleSheet("""
             font-size: 16px;
             font: bold;

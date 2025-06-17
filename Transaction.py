@@ -231,7 +231,7 @@ class LibraryTransactionSystem(QMainWindow):
         add_transaction_btn.setStyleSheet("""
             QPushButton {
                 color: #5e3e1f;
-                font-size: 12px;
+                font-size: 22px;
                 font-weight: bold;
                 background-color: #fff;
                 border: 2px solid #e8d8bd;
@@ -248,7 +248,7 @@ class LibraryTransactionSystem(QMainWindow):
         self.trans_table = QTableWidget()
         self.trans_table.setColumnCount(6)
         self.trans_table.setHorizontalHeaderLabels([
-            "Name", "Book Borrowed", "Borrowed Date", "Status", "Returned Date", ""
+            "Name", "Book Borrowed", "Borrowed Date", "Transaction Type", "Returned Date", ""
         ])
         self.trans_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.trans_table.verticalHeader().setVisible(False)
@@ -291,7 +291,7 @@ class LibraryTransactionSystem(QMainWindow):
         self.hist_table = QTableWidget()
         self.hist_table.setColumnCount(6)
         self.hist_table.setHorizontalHeaderLabels([
-            "Name", "Book Borrowed", "Borrowed Date", "Returned Date", "Status", "Transaction ID"
+            "Borrower", "Book Title", "Borrowed Date", "Returned Date", "Status", " "
         ])
         self.hist_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.hist_table.verticalHeader().setVisible(False)
@@ -365,7 +365,7 @@ class LibraryTransactionSystem(QMainWindow):
                 padding: 8px 16px;
             }
             QPushButton:hover {
-                background-color: white;
+                background-color: #f5f3ed;
                 border-color: #8B4513;
             }
         """)
@@ -378,17 +378,32 @@ class LibraryTransactionSystem(QMainWindow):
 
         self.trans_table.setRowCount(len(transactions_to_display))
         for row, trans in enumerate(transactions_to_display):
+            # Status logic
+            status = ""
+            if trans['action'] == 'Borrowed':
+                due_date = datetime.strptime(trans['due_date'], "%Y-%m-%d")
+                today = datetime.now()
+                if due_date < today:
+                    status = "Overdue"
+                else:
+                    status = "Active"
+
             values = [
                 trans['borrower'],
                 trans['book_title'],
                 trans['date'],
-                "",  # Status will be set below
-                trans.get('returned_date', ''),
-                ""   # Delete button will be set below
+                "Borrowed",  #always shows borrowed 
+                trans.get('returned_date', ''),  # Returned Date (will be empty for borrowed) 
             ]
+
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setForeground(QColor("#5C4033"))
+                if col == 3:  # Status column
+                    if status == "OVERDUE":
+                        item.setForeground(QColor("#c0392b"))
+                    elif status == "ACTIVE":
+                        item.setForeground(QColor("#27ae60"))
                 self.trans_table.setItem(row, col, item)
 
 
@@ -438,7 +453,6 @@ class LibraryTransactionSystem(QMainWindow):
 
     def display_history(self, filtered_history=None):
         from PySide6.QtGui import QColor
-        # Show all transactions, newest first
         sorted_transactions = sorted(self.transactions, key=lambda x: x['date'], reverse=True)
         history_to_display = filtered_history if filtered_history is not None else sorted_transactions
 
@@ -448,14 +462,52 @@ class LibraryTransactionSystem(QMainWindow):
                 trans['borrower'],
                 trans['book_title'],
                 trans['date'],
-                trans.get('returned_date', ''),
-                "Active" if trans['action'] == "Borrowed" else "Returned",
-                str(trans['id'])
+                trans.get('returned_date', 'N/A'),
+                "Active" if trans['action'] == "Borrowed" else "Returned"
             ]
+            # Set text columns
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
-                item.setForeground(QColor("#e8d8bd-"))
+                item.setForeground(QColor("#5C4033"))
+                if col == 4:
+                    if value == "Active":
+                        item.setForeground(QColor("#27ae60"))
+                    else:
+                        item.setForeground(QColor("#8B4513"))
                 self.hist_table.setItem(row, col, item)
+
+            # Add Delete button in last column of Transaction History
+            delete_btn = QPushButton("Delete")
+            delete_btn.setToolTip("Delete Transaction Historty")
+            delete_btn.setFont(QFont("Times New Roman", 10, QFont.Bold))
+            delete_btn.setStyleSheet("""
+                QPushButton {
+                    border-radius: 12px;
+                    font-size: 10px;
+                    color: #c0392b;
+                    background: white;
+                    font-family: "Segoe UI Emoji", "Times New Roman";
+                    font-weight: bold;
+                    border: 2px solid #c0392b;
+                    padding:5px 10px;
+                }
+                QPushButton:hover {
+                    background-color: #c0392b;
+                    color: white;
+                }
+            """)
+            delete_btn.clicked.connect(partial(self.delete_transaction, trans))
+
+            # Center the button using a layout
+            actions_widget = QWidget()
+            actions_layout = QHBoxLayout(actions_widget)
+            actions_layout.addStretch()
+            actions_layout.addWidget(delete_btn)
+            actions_layout.addStretch()
+            actions_layout.setContentsMargins(0, 0, 0, 0)
+
+            self.hist_table.setCellWidget(row, 5, actions_widget)
+            self.hist_table.setRowHeight(row, 40)
 
     def search_history(self):
         search_term = self.hist_search_edit.text().lower()
@@ -512,9 +564,7 @@ class LibraryTransactionSystem(QMainWindow):
             self.display_transactions()
             self.display_history()
 
-    def delete_transaction(self, row, transactions_to_display):
-        # Find the transaction to delete
-        transaction = transactions_to_display[row]
+    def delete_transaction(self, transaction):
         # Remove from the main transactions list
         self.transactions = [t for t in self.transactions if t['id'] != transaction['id']]
         # Refresh the table and history

@@ -830,7 +830,7 @@ class BookDetailsDialog(QDialog):
         """)
         main_layout.addWidget(title_label, alignment=Qt.AlignTop)
         
-        # Input field style matching shelf_edit
+        # Input fields
         input_style = """
             QLineEdit, QTextEdit, QSpinBox {
                 background-color: white;
@@ -839,7 +839,7 @@ class BookDetailsDialog(QDialog):
                 padding: 6px;
                 font-size: 14px;
                 color: #5C4033;
-                min-height: 10px;
+                min-height: 12px;
             }
             QLineEdit:focus, QTextEdit:focus, QSpinBox:focus {
                 border: 1px solid #5C4033;

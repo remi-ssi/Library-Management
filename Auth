@@ -11,7 +11,7 @@ import sys
 import sqlite3
 import bcrypt #for password hashing
 
-from PySide6.QtCore import Qt, QSize, QTimer
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QMovie
 from PySide6.QtWidgets import (
     QApplication, QLineEdit, QLabel, QPushButton, QWidget, QVBoxLayout,
@@ -302,6 +302,7 @@ class SignUp(QWidget):
 
 
 
+
         #connect to database
         self.conn = sqlite3.connect("bjrsLib.db")
         self.cursor = self.conn.cursor()
@@ -379,21 +380,6 @@ class SignUp(QWidget):
         """)
         signup_button.clicked.connect(self.handle_signup)
 
-        # "Already have an account? Log In" link
-        login_link = QLabel()
-        login_link.setText('Already have an account? <a href="login">Log In</a>')
-        login_link.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        login_link.setTextFormat(Qt.TextFormat.RichText)
-        login_link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-        login_link.setOpenExternalLinks(False)
-
-        # Connect link click 
-        login_link.linkActivated.connect(self.open_login)
-
-        button_layout = QHBoxLayout()
-        button_layout.addSpacerItem(QSpacerItem(50, 0, QSizePolicy.Fixed, QSizePolicy.Minimum))  # 50 px space before button
-        button_layout.addWidget(signup_button) 
-
         # BASTA LAYOUT NG INPUT
         username_layout = QVBoxLayout()
         username_layout.addWidget(username_label)
@@ -439,10 +425,8 @@ class SignUp(QWidget):
         form_layout.addLayout(confirm_layout)
         form_layout.addSpacing(10)
         form_layout.addWidget(signup_button, alignment=Qt.AlignmentFlag.AlignCenter)
-        form_layout.addSpacing(10)
-        form_layout.addWidget(self.error_label)
         form_layout.addSpacing(20)
-        form_layout.addWidget(login_link)
+        form_layout.addWidget(self.error_label)
         form_layout.addStretch()
 
     # PARA GITNA SHA
@@ -484,9 +468,6 @@ class SignUp(QWidget):
         result = self.cursor.execute(query, (username,)).fetchone()
         return result[0]>0
 
-    def open_login(self):
-        # Close the SignUp window and go back to login
-        self.close()
 
     def handle_signup(self):
         username = self.username_input.text().strip()
@@ -525,12 +506,8 @@ class SignUp(QWidget):
         self.cursor.execute(insert_query, (username, hashedPass, fname, lname, mname))
         self.conn.commit()
         
-        # Show success message briefly then go back to login
         self.error_label.setStyleSheet("color: green; font-weight: bold;")
-        self.error_label.setText("Account created successfully! Redirecting to login...")
-        
-        # Use QTimer to delay the redirect
-        QTimer.singleShot(2000, self.close)  # Close after 2 seconds
+        self.error_label.setText("Account created successfully!")
 
 
 

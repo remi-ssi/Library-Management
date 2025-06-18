@@ -35,9 +35,9 @@ class NavigationManager(QObject):
             from members import MembersMainWindow
             self._current_window = MembersMainWindow()
            
-        #elif item_name == "Settings":
-        #    from settings import SettingsApp
-        #    self._current_window = SettingsApp()
+        elif item_name == "Settings":
+            from settings import Settings
+            self._current_window = Settings()
             
         # Show the new window if one was created
         if self._current_window:

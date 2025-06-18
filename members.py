@@ -277,9 +277,10 @@ class MemberEditDialog(QDialog):
     def __init__(self, member_data, existing_members, parent=None):
         super().__init__(parent)
         self.member_data = member_data.copy()
-        self.db = DatabaseSeeder()  #initialize the database seeder
+        self.db_seeder = DatabaseSeeder()  #initialize the database seeder
         self.existing_members = existing_members
-        self.original_contact = member_data["contact"]  # Store original contact for duplicate checking
+
+        self.original_contact = str(member_data["MemberContact"])  # Store original contact for duplicate checking
         self.setWindowTitle("Edit Member")
         self.setFixedSize(400, 500)
         self.setStyleSheet("""
@@ -313,29 +314,34 @@ class MemberEditDialog(QDialog):
         form_layout.setSpacing(15)
         
         # Parse the full name into first, middle, last
-        full_name = self.member_data["name"]
-        name_parts = full_name.split()
+        #full_name = self.member_data["name"]
+        #name_parts = full_name.split()
+
+        # Fix: Get name parts from database fields directly
+        first_name = self.member_data.get("MemberFN", "")
+        middle_name = self.member_data.get("MemberMI", "")
+        last_name = self.member_data.get("MemberLN", "")
         
         # First Name
         self.first_name_edit = QLineEdit()
-        self.first_name_edit.setText(name_parts[0] if len(name_parts) > 0 else "")
+        self.first_name_edit.setText(first_name)
         self.first_name_edit.setStyleSheet(self.get_input_style())
         
         # Middle Name
         self.middle_name_edit = QLineEdit()
-        self.middle_name_edit.setText(name_parts[1] if len(name_parts) > 2 else "")
+        self.middle_name_edit.setText(middle_name)
         self.middle_name_edit.setStyleSheet(self.get_input_style())
         
         # Last Name
         self.last_name_edit = QLineEdit()
-        self.last_name_edit.setText(name_parts[-1] if len(name_parts) > 1 else "")
+        self.last_name_edit.setText(last_name)
         self.last_name_edit.setStyleSheet(self.get_input_style())
         
-        # Contact Number - Use protected contact input
+        # Contact Number - Fix: Use correct database key
         self.contact_edit = ProtectedContactLineEdit()
-        self.contact_edit.setText(str(self.member_data["contact"]))
+        self.contact_edit.setText(str(self.member_data.get("MemberContact", "")))
         self.contact_edit.setStyleSheet(self.get_input_style())
-        
+            
         # Add fields to form
         form_layout.addRow(self.create_label("First Name:"), self.first_name_edit)
         form_layout.addRow(self.create_label("Middle Name:"), self.middle_name_edit)
@@ -458,7 +464,8 @@ class MemberEditDialog(QDialog):
         # Check for duplicate contact number (only if contact was changed)
         if contact != self.original_contact:
             for member in self.existing_members:
-                if member["contact"] == contact:
+                # Fix: Use correct database key for comparison
+                if str(member.get("MemberContact", "")) == contact:
                     QMessageBox.warning(self, "Validation Error", "This contact number is already registered!")
                     return
         
@@ -469,17 +476,25 @@ class MemberEditDialog(QDialog):
         full_name += f" {last_name}"
         
         # Update member data
-        self.member_data["name"] = full_name
-        self.member_data["contact"] = contact
-
-        # Extract MemberID from the passed data 
-        member_id = self.member_data["id"]
-
-        #call the update_member_full function in the seeder to update the entry to the database
-        self.db.update_member_full(member_id, last_name, first_name, middle_name, contact)
+        member_id = self.member_data["MemberID"]  # Fix: Use correct key
+    
+        updates = {
+            "MemberFN": first_name,
+            "MemberMI": middle_name,
+            "MemberLN": last_name,
+            "MemberContact": contact
+        }
         
-        QMessageBox.information(self, "Success", "Member information updated successfully!")
-        self.accept()
+        try:
+            self.db_seeder.update_table("Member", updates, "MemberID", member_id)
+            
+            # Update the local member_data for the parent window
+            self.member_data.update(updates)
+            
+            QMessageBox.information(self, "Success", "Member information updated successfully!")
+            self.accept()
+        except Exception as e:
+            QMessageBox.critical(self, "Database Error", f"Failed to update member: {str(e)}")
     
     def delete_member(self):
         reply = QMessageBox.question(
@@ -774,45 +789,19 @@ class MembersMainWindow(QWidget):
         result = dialog.exec()
 
         if result == QDialog.Accepted:
-            try:
-                # 🔽 Split full name into components
-                full_name = dialog.member_data["name"].split()
-                first_name = full_name[0]
-                middle_name = full_name[1] if len(full_name) == 3 else ""
-                last_name = full_name[-1]
-                contact = dialog.member_data["contact"]
-
-                # 🔽 Update in the database
-                self.db_seeder.update_member_full(
-                    dialog.member_data["id"],
-                    last_name,
-                    first_name,
-                    middle_name,
-                    contact
-                )
-
-                dialog.member_data["id"] = member["id"]  # keep same ID
-
-                # 🔽 Update in memory
-                self.members[index] = dialog.member_data
-                self.refresh_members_grid()
-
-                QMessageBox.information(self, "Success", "Member updated successfully")
-            except ValueError as e:
-                QMessageBox.warning(self, "Error", str(e))
-            except Exception as e:
-                QMessageBox.critical(self, "Database Error", f"Failed to update member: {str(e)}")
+            # The dialog already handles the database update
+            # Just refresh the display from the database
+            self.members = self.db_seeder.get_all_records(tableName="Member")
+            self.refresh_members_grid()
 
         elif result == 2:  # Delete
             try:
-                self.db_seeder.delete_member(member["id"])
+                # Remove the member from the local list
                 self.members.pop(index)
                 self.refresh_members_grid()
                 QMessageBox.information(self, "Success", "Member deleted successfully")
-            except ValueError as e:
-                QMessageBox.warning(self, "Error", str(e))
             except Exception as e:
-                QMessageBox.critical(self, "Database Error", f"Failed to delete")
+                QMessageBox.critical(self, "Database Error", f"Failed to delete member: {str(e)}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

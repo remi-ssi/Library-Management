@@ -30,7 +30,6 @@ def get_rounded_pixmap(pixmap, size):
     painter.setClipPath(path)
     painter.drawPixmap(0, 0, size, size, pixmap)
     painter.end()
-
     return rounded
 
 #PARA SA CONTACT LANG THIS SO WAG DIN PANSININ
@@ -53,16 +52,26 @@ class ProtectedContactLineEdit(QLineEdit):
         # Call parent implementation
         super().keyPressEvent(event)
     
+    # Ensure text always starts with "09"
     def on_text_changed(self, text):
-        # Ensure text always starts with "09"
         if not text.startswith("09"):
             self.blockSignals(True)
-            self.setText("09" + text.replace("09", ""))
-            self.setCursorPosition(2)
+            # Extract only the digits after "09"
+            digits_only = ''.join(filter(str.isdigit, text))
+            if digits_only.startswith("09"):
+                # Keep as is if already starts with 09
+                clean_text = digits_only[:11]
+            else:
+                # Add 09 prefix to remaining digits
+                remaining_digits = digits_only[2:] if digits_only.startswith("9") else digits_only
+                clean_text = "09" + remaining_digits[:9]  # 09 + 9 more digits = 11 total
+            
+            self.setText(clean_text)
+            self.setCursorPosition(len(clean_text))
             self.blockSignals(False)
         
-        # 11 NUMS LANG DAPAT
-        if len(text) > 11:
+        # Limit to 11 characters
+        elif len(text) > 11:
             self.blockSignals(True)
             self.setText(text[:11])
             self.blockSignals(False)
@@ -201,7 +210,6 @@ class AddMemberDialog(QDialog):
                 background-color: white;
             }
         """
-    
     def is_valid_contact(self, contact):
         return contact.isdigit() and contact.startswith("09") and len(contact) == 11
 
@@ -280,7 +288,7 @@ class MemberEditDialog(QDialog):
         self.db_seeder = DatabaseSeeder()  #initialize the database seeder
         self.existing_members = existing_members
 
-        self.original_contact = str(member_data["MemberContact"])  # Store original contact for duplicate checking
+        self.original_contact = str(member_data.get("MemberContact", ""))  # Use parentheses, not brackets        
         self.setWindowTitle("Edit Member")
         self.setFixedSize(400, 500)
         self.setStyleSheet("""
@@ -307,15 +315,10 @@ class MemberEditDialog(QDialog):
         """)
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
-
-        
+ 
         # Form layout
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
-        
-        # Parse the full name into first, middle, last
-        #full_name = self.member_data["name"]
-        #name_parts = full_name.split()
 
         # Fix: Get name parts from database fields directly
         first_name = self.member_data.get("MemberFN", "")
@@ -497,17 +500,30 @@ class MemberEditDialog(QDialog):
             QMessageBox.critical(self, "Database Error", f"Failed to update member: {str(e)}")
     
     def delete_member(self):
+         # Build the full name from database fields
+        first_name = self.member_data.get("MemberFN", "")
+        middle_initial = self.member_data.get("MemberMI", "")
+        last_name = self.member_data.get("MemberLN", "")
+        full_name = f"{first_name} {middle_initial} {last_name}".strip()
+
         reply = QMessageBox.question(
             self, 
             "Confirm Delete", 
-            f"Are you sure you want to delete member {self.member_data['name']}?",
+            f"Are you sure you want to delete member {full_name}?",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
         
         if reply == QMessageBox.Yes:
-            QMessageBox.information(self, "Deleted", "Member deleted successfully!")
-            self.done(2)  # Custom return value for delete
+            try:
+                # Delete from database using your existing function
+                member_id = self.member_data.get("MemberID")
+                self.db_seeder.delete_table("Member", "MemberID", member_id)
+                
+                QMessageBox.information(self, "Success", "Member deleted successfully!")
+                self.done(2)  # Custom return value for delete
+            except Exception as e:
+                QMessageBox.critical(self, "Database Error", f"Failed to delete member: {str(e)}")
 
 class MembersMainWindow(QWidget):
     def __init__(self):
@@ -664,7 +680,6 @@ class MembersMainWindow(QWidget):
                 height: 0px;
             }
         """)
-
         # Create and populate the members grid
         self.refresh_members_grid()
 
@@ -726,15 +741,11 @@ class MembersMainWindow(QWidget):
 
         image_label = QLabel()
         image_label.setStyleSheet("background: transparent; border: none;")
-
         pixmap = QPixmap("assets/default_cover.jpg")  
-
         pixmap = pixmap.scaled(80, 80, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
         rounded_pixmap = get_rounded_pixmap(pixmap, 80)
-
         image_label.setPixmap(rounded_pixmap)
         
-        # 🔽 CHANGE THESE THREE LINES:
         # Build the full name from database fields
         first_name = member.get("MemberFN", "")
         middle_initial = member.get("MemberMI", "")
@@ -789,8 +800,6 @@ class MembersMainWindow(QWidget):
         result = dialog.exec()
 
         if result == QDialog.Accepted:
-            # The dialog already handles the database update
-            # Just refresh the display from the database
             self.members = self.db_seeder.get_all_records(tableName="Member")
             self.refresh_members_grid()
 

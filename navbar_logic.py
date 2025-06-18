@@ -20,7 +20,7 @@ class NavigationManager(QObject):
         
         # Handle navigation based on clicked item
         if item_name == "Dashboard":
-            from Dashboard import LibraryDashboard
+            from Dashboard1 import LibraryDashboard
             self._current_window = LibraryDashboard()
             
         elif item_name == "Books":
@@ -28,7 +28,7 @@ class NavigationManager(QObject):
             self._current_window = CollapsibleSidebar()
             
         elif item_name == "Transactions":
-            from Transaction import LibraryTransactionSystem
+            from Transaction1 import LibraryTransactionSystem
             self._current_window = LibraryTransactionSystem()
             
         elif item_name == "Members":
@@ -36,8 +36,8 @@ class NavigationManager(QObject):
             self._current_window = MembersMainWindow()
            
         #elif item_name == "Settings":
-         #   from settings import SettingsWindow
-          #  self._current_window = SettingsWindow()
+        #    from settings import SettingsApp
+        #    self._current_window = SettingsApp()
             
         # Show the new window if one was created
         if self._current_window:

@@ -1,5 +1,7 @@
 import sys
 import requests
+import navigation_sidebar
+
 from datetime import datetime, timedelta
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer, QRect, QEasingCurve
 from PySide6.QtGui import QFont, QIcon, QPixmap, QPainter, QColor

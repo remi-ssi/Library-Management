@@ -1,7 +1,7 @@
 import sys
 import sqlite3
 import bcrypt #for password hashing
-import books
+import books1
 
 from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont, QMovie
@@ -275,7 +275,7 @@ class Authentication(QWidget):
         # Proceed with login validation
         if self.db_seeder.verify_librarian_login(username, password):
             print("Log in successful")
-            self.books_window = books.CollapsibleSidebar()  # use correct variable and class
+            self.books_window = books1.CollapsibleSidebar()  # use correct variable and class
             self.books_window.show()
             self.close()
 

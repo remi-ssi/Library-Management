@@ -13,6 +13,10 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QDate
 from functools import partial
 from AddTransactionForm import AddTransactionForm  # PARA MA-IMPORT UNG TRANSACTION FORM 
+from PreviewTransactionForm import PreviewTransactionForm
+from HistoryPreviewForm import HistoryTransactionPreviewForm
+
+
 
 class TransactionCard(QFrame):
     def __init__(self, transaction, parent_system):
@@ -258,6 +262,7 @@ class LibraryTransactionSystem(QMainWindow):
         self.trans_table.setShowGrid(True)
         layout.addWidget(self.trans_table, stretch=1)
         self.setup_table_style(self.trans_table)
+        self.trans_table.cellDoubleClicked.connect(self.on_transaction_double_click)  # Connect double-click signal
         self.content_stack.addWidget(self.transactions_page)
 
     def create_history_page(self):
@@ -301,7 +306,10 @@ class LibraryTransactionSystem(QMainWindow):
         self.hist_table.setShowGrid(True)
         layout.addWidget(self.hist_table, stretch=1)
         self.setup_table_style(self.hist_table)
+        self.hist_table.cellDoubleClicked.connect(self.on_history_double_click)
         self.content_stack.addWidget(self.history_page)
+
+        
 
     def show_transactions_page(self):
         self.content_stack.setCurrentWidget(self.transactions_page)
@@ -604,9 +612,30 @@ class LibraryTransactionSystem(QMainWindow):
             }
         """)
 
+    def on_transaction_double_click(self, row, column):
+        # Get the transaction for the clicked row
+        transaction = self.transactions[row]  # Adjust if you use a filtered list
+        dialog = PreviewTransactionForm(transaction, self)
+        if dialog.exec():
+            updated_transaction = dialog.get_transaction()
+            # update your data and refresh
+            self.transactions[row] = updated_transaction
+            self.display_transactions()  # Refresh your table
+
+    def on_history_double_click(self, row, column):
+        print("History row double-clicked:", row, column)
+        # Use the same data as display_history
+        sorted_transactions = sorted(self.transactions, key=lambda x: x['date'], reverse=True)
+        transaction = sorted_transactions[row]
+        dialog = HistoryTransactionPreviewForm(transaction, self)
+        dialog.exec()
+
 # To run the app
 if __name__ == "__main__":
+    import sys
+    from PySide6.QtWidgets import QApplication
+
     app = QApplication(sys.argv)
-    window = LibraryTransactionSystem()
+    window = LibraryTransactionSystem()  # Replace with your main class
     window.show()
     sys.exit(app.exec())

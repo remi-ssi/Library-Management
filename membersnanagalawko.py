@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 # Import the reusable navigation sidebar
 from navigation_sidebar import NavigationSidebar
+from navbar_logic import nav_manager
 
 #connect to database seeder 
 from tryDatabase import DatabaseSeeder
@@ -530,6 +531,7 @@ class MembersMainWindow(QWidget):
         super().__init__()
         self.setWindowTitle("Library Management System - Members")
         self.setGeometry(100, 100, 1200, 800)
+        self.showMaximized()
 
         # Initialize members data
         self.db_seeder = DatabaseSeeder()
@@ -552,6 +554,8 @@ class MembersMainWindow(QWidget):
         
         # Create navigation sidebar
         self.navbar = NavigationSidebar()
+        self.navbar.on_navigation_clicked = nav_manager.handle_navigation
+
         
         # Main content area
         self.content_area = QWidget()
@@ -694,12 +698,7 @@ class MembersMainWindow(QWidget):
         result = dialog.exec()
         
         if result == QDialog.Accepted:
-            # Generate new member ID
-            new_id = f"M{len(self.members):03d}"
-            dialog.member_data["id"] = new_id
-            # Add the new member to the list
-            self.members.append(dialog.member_data)
-            # Refresh the display
+            self.members = self.db_seeder.get_all_records(tableName="Member")
             self.refresh_members_grid()
     
     def refresh_members_grid(self):
@@ -816,5 +815,6 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setFont(QFont("Times New Roman", 10))
     window = MembersMainWindow()
+    nav_manager._current_window = window
     window.show()
     sys.exit(app.exec())

@@ -5,6 +5,8 @@ from PySide6.QtWidgets import (
     QSizePolicy, QSpacerItem
 )
 
+
+
 class HoverButton(QPushButton):
     """Custom button that triggers sidebar expansion on hover"""
     def __init__(self, parent_sidebar):
@@ -44,10 +46,12 @@ class NavigationSidebar(QWidget):
             navigation_items = [
                 ("assets/dashboard.png", "    Dashboard"),
                 ("assets/books.png", "    Books"),
+                ("assets/transactions.png", "    Transactions"),
                 ("assets/members.png", "    Members"),
                 ("assets/settings.png", "    Settings")
             ]
         
+        self.on_navigation_clicked = None  # Callback for navigation events
         self.navigation_items = navigation_items
         self.init_sidebar()
         
@@ -55,14 +59,10 @@ class NavigationSidebar(QWidget):
         """Initialize the sidebar UI"""
         # Set fixed width for collapsed state
         self.setFixedWidth(60)
-        self.setStyleSheet(
-            """
-            NavigationSidebar {
-                background-color: #5c4033;
-                border-radius: 10px;
-            }
-            """
-        )
+        self.setStyleSheet("""
+            background-color: #dbcfc1;
+            border-radius: 10px;
+        """)
         
         # Main sidebar layout
         self.main_layout = QVBoxLayout(self)
@@ -139,11 +139,15 @@ class NavigationSidebar(QWidget):
             btn.setLayoutDirection(Qt.LeftToRight)
             
             # Connect button click to callback
-            btn.clicked.connect(lambda checked, text=label.strip(): self.on_navigation_clicked(text))
+            btn.clicked.connect(lambda checked, text=label.strip(): self._emit_navigation(text))
             
             self.nav_layout.addWidget(btn)
             self.buttons.append(btn)
-    
+
+    def _emit_navigation(self, item_name):
+        if self.on_navigation_clicked:
+            self.on_navigation_clicked(item_name)
+
     def setup_animations(self):
         """Setup animation properties and timers"""
         # Animation state variables
@@ -213,12 +217,6 @@ class NavigationSidebar(QWidget):
                 btn.setText("")
             self.animation.start()
     
-    def on_navigation_clicked(self, item_name):
-        """Handle navigation button clicks - override this method"""
-        print(f"Navigation clicked: {item_name}")
-        # Override this method in your main application to handle navigation
-        pass
-    
     def set_navigation_items(self, navigation_items):
         """Update navigation items dynamically"""
         # Clear existing buttons
@@ -262,9 +260,9 @@ if __name__ == "__main__":
             custom_nav_items = [
                 ("assets/dashboard.png", "    Dashboard"),
                 ("assets/books.png", "    Books"),
+                ("assets/transactions.png", "    Transactions"),
                 ("assets/members.png", "    Members"),
                 ("assets/settings.png", "    Settings"),
-                ("assets/reports.png", "    Reports")
             ]
             
             self.sidebar = NavigationSidebar(custom_nav_items)
@@ -293,8 +291,29 @@ if __name__ == "__main__":
         
         def handle_navigation(self, item_name):
             """Handle navigation clicks"""
-            self.content_label.setText(f"Selected: {item_name}\n\nSidebar working correctly!")
-            print(f"Navigation clicked: {item_name}")
+            if item_name == "Dashboard":
+                self.content_label.setText("Dashboard View")
+                print("Redirected to Dashboard")
+
+            elif item_name == "Books":
+                 self.books_window = books1.CollapsibleSidebar()  
+                 self.books_window.show()
+                 self.close()
+
+            elif item_name == "Transactions":
+                self.content_label.setText("Transactions View")
+
+                print("Redirected to Transactions")
+            elif item_name == "Members":
+                self.content_label.setText("Members View")
+                print("Redirected to Members")
+
+            elif item_name == "Settings":
+                self.content_label.setText("Settings View")
+                print("Redirected to Settings")
+            else:
+                self.content_label.setText(f"Selected: {item_name}\n\nSidebar working correctly!")
+                print(f"Navigation clicked: {item_name}")
     
     app = QApplication(sys.argv)
     app.setFont(QFont("Times New Roman", 10))

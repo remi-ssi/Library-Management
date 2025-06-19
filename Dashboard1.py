@@ -20,28 +20,43 @@ class LibraryDashboard(QMainWindow):
     def init_ui(self):
         self.setWindowTitle("BJRS Library")
         self.setGeometry(100, 100, 1400, 900)
-        self.setMinimumSize(1200, 800)
+        self.showMaximized()
         
-        # Main widget and layout (no sidebar)
+        # Main widget and layout WITH sidebar
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
-        main_layout = QVBoxLayout(main_widget)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(20)
+        
+        # Use QHBoxLayout for sidebar + content layout
+        main_layout = QHBoxLayout(main_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
 
+        # Add sidebar
         self.sidebar = NavigationSidebar()
         self.sidebar.on_navigation_clicked = nav_manager.handle_navigation
+        main_layout.addWidget(self.sidebar)
+        
+        # Create content area
+        content_area = QWidget()
+        content_area.setStyleSheet("background-color: #f1efe3;")
+        content_layout = QVBoxLayout(content_area)
+        content_layout.setContentsMargins(20, 20, 20, 20)
+        content_layout.setSpacing(20)
+        
         # Header
         header = self.create_header()
-        main_layout.addWidget(header)
+        content_layout.addWidget(header)
         
         # Stats section
         stats = self.create_stats_section()
-        main_layout.addWidget(stats)
+        content_layout.addWidget(stats)
         
         # Available books section only
         available_books = self.create_available_books_section()
-        main_layout.addWidget(available_books)
+        content_layout.addWidget(available_books)
+        
+        # Add content area to main layout
+        main_layout.addWidget(content_area)
         
     def create_header(self):
         header = QFrame()
@@ -353,12 +368,15 @@ class LibraryDashboard(QMainWindow):
 
 def main():
     app = QApplication(sys.argv)
-    app.setStyle('Fusion')  # Use Fusion style for better cross-platform appearance
     
+    # Initialize navigation manager
+    nav_manager.initialize(app)
     window = LibraryDashboard()
+    nav_manager._current_window = window
     window.show()
     
     sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()
+     

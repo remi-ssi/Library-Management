@@ -40,6 +40,7 @@ class TransactionCard(QFrame):
                 background-color: #5e3e1f;
             }
         """)
+        self.showMaximized()
 
         layout = QVBoxLayout(self)
         layout.setSpacing(6)
@@ -141,6 +142,7 @@ class LibraryTransactionSystem(QMainWindow):
         super().__init__()
         self.setGeometry(100, 100, 1400, 800)
         self.setStyleSheet("background-color: white;")
+        self.showMaximized()
         self.transactions = [
             {"id": 1, "book_title": "1984", "borrower": "John Doe", "action": "Borrowed", "date": "2025-06-06", "due_date": "2025-06-20"},
             {"id": 2, "book_title": "The Catcher in the Rye", "borrower": "Jane Smith", "action": "Borrowed", "date": "2025-06-04", "due_date": "2025-06-18"},

@@ -47,7 +47,8 @@ class DatabaseSeeder:
                     shelfNo VARCHAR(6) NOT NULL,
                     ISBN INTEGER NOT NULL,
                     BookTotalCopies INTEGER NOT NULL,
-                    BookAvailableCopies INTEGER, 
+                    BookAvailableCopies INTEGER,
+                    BookCover BLOB, 
                     LibrarianID INTEGER, 
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID))"""
             Author = """CREATE TABLE IF NOT EXISTS BookAuthor(
@@ -81,11 +82,19 @@ class DatabaseSeeder:
         conn.execute("PRAGMA foreign_keys = ON;")
 
         try:
-            create = self.query(tableName)
-            cursor.execute(create)
-            conn.commit()
-            print("Table created")
-            return True
+            if tableName == "Book":
+                bookCreate, authorCreate, genreCreate = self.query(tableName)
+                cursor.execute(bookCreate)
+                cursor.execute(authorCreate)
+                cursor.execute(genreCreate)
+                conn.commit()
+                print("Book table created")
+            else:
+                create = self.query(tableName)
+                cursor.execute(create)
+                conn.commit()
+                print("Table created")
+                return True
         except Exception as e: 
             print(f"Error creating table: {e}")
             return False

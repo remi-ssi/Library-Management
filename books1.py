@@ -780,6 +780,64 @@ class AddBookDialog(QDialog):
             print(f"Adding book to books_data: {standardized_book}")
             self.parent.books_data.append(standardized_book) #create parent wqindow for book list
             self.parent.refresh_books_display() #refresh display
+            
+            # 1. Prepare data for Book table
+        book_data = {
+            'BookTitle': standardized_book['title'],
+            'Publisher': 'Unknown Publisher',  # or from dialog if available
+            'BookDescription': standardized_book['description'],
+            'shelfNo': standardized_book['shelf'],
+            'ISBN': standardized_book['isbn'],
+            'BookTotalCopies': standardized_book['copies'],
+            'BookAvailableCopies': standardized_book['available_copies'],
+            'BookCover': standardized_book['image'],
+            'LibrarianID': 1  # replace with actual logged-in librarian ID
+        }
+
+        book_columns = list(book_data.keys())
+
+        # 2. Insert into Book table and get BookCode
+        conn, cursor = self.db_seeder.get_connection_and_cursor()
+        conn.execute("PRAGMA foreign_keys = ON;")
+
+        try:
+            # Use seed_data to insert into Book table
+            self.db_seeder.seed_data(
+                tableName="Book",
+                data=[book_data],
+                columnOrder=book_columns
+            )
+
+            book_code = cursor.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+            # 3. Use seed_data for BookAuthor
+            author_data = {
+                'BookCode': book_code,
+                'bookAuthor': standardized_book['author']
+            }
+            self.db_seeder.seed_data(
+                tableName="BookAuthor",
+                data=[author_data],
+                columnOrder=['BookCode', 'bookAuthor']
+            )
+
+            # 4. Use seed_data for Book_Genre
+            genre_data = {
+                'BookCode': book_code,
+                'Genre': standardized_book['genre']
+            }
+            self.db_seeder.seed_data(
+                tableName="Book_Genre",
+                data=[genre_data],
+                columnOrder=['BookCode', 'Genre']
+            )
+
+            conn.commit()
+            print(f"✓ Book and related data seeded successfully with BookCode: {book_code}")
+        except Exception as e:
+            print(f"❌ Error using seed_data for book: {e}")
+        finally:
+            conn.close()
             self.accept()
 
 class BookDetailsDialog(QDialog):
@@ -1262,6 +1320,7 @@ class BookDetailsDialog(QDialog):
 class CollapsibleSidebar(QWidget):
     def __init__(self):
         super().__init__()
+        self.db_seeder = DatabaseSeeder()
         self.setWindowTitle("Library Management System")
         self.showMaximized()
         
@@ -1270,7 +1329,6 @@ class CollapsibleSidebar(QWidget):
         self.books_data = []
         self.original_books_data = []
         
-
         # Main content area
         self.content_area = QWidget()
         self.content_area.setStyleSheet("background-color: #f1efe3;")
@@ -1283,16 +1341,104 @@ class CollapsibleSidebar(QWidget):
         self.content_layout.addWidget(self.main_books_view)
         
         # Keep track of current view
-        #self.current_view = "books"
+        self.current_view = "books"
         self.sidebar = NavigationSidebar()
         self.sidebar.on_navigation_clicked = nav_manager.handle_navigation
 
+        # Load initial data from database
+        self.load_books_from_database()
         
         # Combine sidebar and content area
         main_layout = QHBoxLayout(self)
         main_layout.addWidget(self.sidebar)
         main_layout.addWidget(self.content_area)
 
+    def load_books_from_database(self):
+        """Load books data from database seeder"""
+        try:
+            print("Loading books from database...")
+            
+            # Get data from all three tables
+            books = self.db_seeder.get_all_records("Book")
+            book_authors = self.db_seeder.get_all_records("BookAuthor")
+            book_genres = self.db_seeder.get_all_records("Book_Genre")
+            
+            print(f"Found {len(books)} books, {len(book_authors)} authors, {len(book_genres)} genres")
+            
+            # Debug: Print first few records to understand structure
+            if books:
+                print("Sample book record:", books[0])
+            if book_authors:
+                print("Sample author record:", book_authors[0])
+            if book_genres:
+                print("Sample genre record:", book_genres[0])
+            
+            # Clear existing data
+            self.books_data = []
+            
+            # Process each book
+            for book in books:
+                try:
+                    book_code = book.get("BookCode")
+                    if not book_code:
+                        print(f"Warning: Book missing BookCode: {book}")
+                        continue
+                    
+                    # Find all authors for this book
+                    book_authors_list = [
+                        author["bookAuthor"] for author in book_authors 
+                        if author.get("BookCode") == book_code and author.get("bookAuthor")
+                    ]
+                    
+                    # Find all genres for this book
+                    book_genres_list = [
+                        genre["Genre"] for genre in book_genres 
+                        if genre.get("BookCode") == book_code and genre.get("Genre")
+                    ]
+                    
+                    # Use "Unknown" if no authors/genres found
+                    if not book_authors_list:
+                        book_authors_list = ["Unknown Author"]
+                    if not book_genres_list:
+                        book_genres_list = ["Unknown Genre"]
+                    
+                    # Create book data dictionary
+                    book_data = {
+                        "book_code": book_code,
+                        "title": book.get("BookTitle", "Unknown Title"),
+                        "author": book_authors_list,  # Keep as list for multiple authors
+                        "genre": book_genres_list,    # Keep as list for multiple genres
+                        "isbn": book.get("ISBN", ""),
+                        "description": book.get("BookDescription", ""),
+                        "shelf": book.get("shelfNo", ""),
+                        "copies": book.get("BookTotalCopies", 0),
+                        "available_copies": book.get("BookAvailableCopies", 0),
+                        "image": book.get("BookCover", "")
+                    }
+                    
+                    self.books_data.append(book_data)
+                    print(f"Processed book: {book_data['title']} by {book_data['author']}")
+                    
+                except Exception as e:
+                    print(f"Error processing book {book}: {e}")
+                    continue
+            
+            # Store original data for search functionality
+            self.original_books_data = self.books_data.copy()
+            
+            print(f"Successfully loaded {len(self.books_data)} books")
+            
+            # Populate the display
+            if hasattr(self, 'grid_layout'):
+                self.populate_books()
+                
+        except Exception as e:
+            print(f"Error loading books from database: {e}")
+            import traceback
+            traceback.print_exc()
+            # Initialize with empty data if there's an error
+            self.books_data = []
+            self.original_books_data = []
 
     def create_main_books_view(self):
         """Create the main books view with search and grid"""
@@ -1404,17 +1550,41 @@ class CollapsibleSidebar(QWidget):
         """Perform search with the text from search bar"""
         search_text = self.search_bar.text().strip().lower()
         if search_text:
-            print(f"Searching for: {search_text}")
-            filtered_books = [ #search item in the books
-                book for book in self.original_books_data
-                if search_text in book['title'].lower() or # for 1 author
-                search_text in ', '.join(book['author']).lower() # for searching author in a list
-            ]
-            self.books_data = filtered_books #display found books
-            self.populate_books()
+            print(f"Searching for: '{search_text}'")
+            filtered_books = []
+            
+            for book in self.original_books_data:
+                # Search in title
+                title_match = search_text in book['title'].lower()
+                
+                # Search in authors (handle list of authors)
+                author_match = False
+                if isinstance(book['author'], list):
+                    author_match = any(search_text in author.lower() for author in book['author'])
+                else:
+                    author_match = search_text in str(book['author']).lower()
+                
+                # Search in genres (handle list of genres)
+                genre_match = False
+                if isinstance(book['genre'], list):
+                    genre_match = any(search_text in genre.lower() for genre in book['genre'])
+                else:
+                    genre_match = search_text in str(book['genre']).lower()
+                
+                # Search in ISBN
+                isbn_match = search_text in str(book.get('isbn', '')).lower()
+                
+                if title_match or author_match or genre_match or isbn_match:
+                    filtered_books.append(book)
+            
+            self.books_data = filtered_books
+            print(f"Found {len(filtered_books)} matching books")
         else:
-            self.books_data = self.books_data #restore original list if needed
-            self.populate_books()
+            # Restore original list when search is cleared
+            self.books_data = self.original_books_data.copy()
+            print(f"Restored {len(self.books_data)} books")
+        
+        self.populate_books()
 
     def create_books_section(self):
         """Create the books display section with multiple columns and vertical scrolling"""
@@ -1481,7 +1651,7 @@ class CollapsibleSidebar(QWidget):
         self.grid_layout.setContentsMargins(15, 15, 15, 15)
         
         # Populate books
-        self.populate_books()
+        #self.populate_books()
         
         scroll_area.setWidget(self.scroll_content)
         books_layout.addWidget(scroll_area)
@@ -1490,6 +1660,7 @@ class CollapsibleSidebar(QWidget):
     
     def populate_books(self):
         """Populate the books grid"""
+        print(f"Populating {len(self.books_data)} books...")
         # Clear existing widgets
         for i in reversed(range(self.grid_layout.count())):
             self.grid_layout.itemAt(i).widget().setParent(None)
@@ -1540,7 +1711,6 @@ class CollapsibleSidebar(QWidget):
                 border: 2px solid #5C4033;
             }
         """)
-        
         # Try to load image
         image_path = book_data.get("image", "")
         print(f"Book: {book_data['title']}, Image path: {image_path}, Type: {type(image_path)}")
@@ -1575,21 +1745,26 @@ class CollapsibleSidebar(QWidget):
             }
                                   
         """)
-        # Book author
-        author = book_data["author"]
-        if isinstance(author, list):
-            author = ', '.join(author)
-        author_label = QLabel(author)
+        # Book author - handle list of authors
+        authors = book_data["author"]
+        if isinstance(authors, list):
+            author_text = ', '.join(authors[:2])  # Show max 2 authors
+            if len(authors) > 2:
+                author_text += f" +{len(authors)-2} more"
+        else:
+            author_text = str(authors)
+            
+        author_label = QLabel(author_text)
         author_label.setAlignment(Qt.AlignCenter)
         author_label.setWordWrap(True)
+        author_label.setMaximumHeight(30)
         author_label.setStyleSheet("""
             QLabel {
                 color: #8B4513;
-                font-size: 13px;
+                font-size: 11px;
                 background-color: transparent;
                 border: none;
-            }
-        """)
+            }  """)
         
         card_layout.addWidget(book_cover, alignment=Qt.AlignCenter)
         card_layout.addWidget(title_label)
@@ -1602,7 +1777,9 @@ class CollapsibleSidebar(QWidget):
         """Open the book edit view"""
         # Clear current content
         for i in reversed(range(self.content_layout.count())):
-            self.content_layout.itemAt(i).widget().setParent(None)
+            child = self.content_layout.itemAt(i).widget()
+            if child:
+                child.setParent(None)
         
         # Create and show edit view
         self.book_edit_view = BookEditView(book_data, self)
@@ -1613,27 +1790,29 @@ class CollapsibleSidebar(QWidget):
         """Show the main books view"""
         # Clear current content
         for i in reversed(range(self.content_layout.count())):
-            self.content_layout.itemAt(i).widget().setParent(None)
+            child = self.content_layout.itemAt(i).widget()
+            if child:
+                child.setParent(None)
         
         # Refresh books display and show main view
-        self.populate_books()
+        self.load_books_from_database()
         self.content_layout.addWidget(self.main_books_view)
         self.current_view = "books"
     
-    def close_tab(self, index):
-        """Close a tab"""
-        if index > 0:  # Don't close the main books tab
-            self.tab_widget.removeTab(index)
+   # def close_tab(self, index):
+   #     """Close a tab"""
+    #    if index > 0:  # Don't close the main books tab
+    #        self.tab_widget.removeTab(index)
 
     def refresh_books_display(self):
-        """Refresh the books display after changes"""
-        self.original_books_data = self.books_data.copy()
-        self.populate_books()
+        self.load_books_from_database()
 
     def show_add_book_dialog(self):
         """Show the book add dialog"""
         dialog = AddBookDialog(self)
-        dialog.exec()
+        if dialog.exec() == QDialog.Accepted:
+            # Refresh the display after adding a book
+            self.load_books_from_database()
 
 # Run app
 if __name__ == "__main__":

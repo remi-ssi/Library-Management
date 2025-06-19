@@ -3,6 +3,7 @@ import re
 import sys
 import requests
 import shutil
+from dotenv import load_dotenv
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer
 from PySide6.QtGui import QFont, QIcon, QFont, QPixmap
 from PySide6.QtWidgets import (
@@ -11,7 +12,7 @@ from PySide6.QtWidgets import (
     QTabWidget, QTextEdit, QMessageBox, QFormLayout, QDialog, QListWidget,
     QListWidgetItem, QGroupBox, QSpinBox, QFileDialog
 )
-
+load_dotenv()
 #for the navbar to automatically open
 class HoverButton(QPushButton):
     def __init__(self, parent_sidebar):
@@ -614,7 +615,8 @@ class AddBookDialog(QDialog):
             return
         try:
             self.reset_cover_preview() #clear preview book preview
-            API_KEY = os.getenv('GOOGLE_BOOKS_API_KEY', 'AIzaSyBk4UqlqwPwSQwhdLQfOG5-Z-S3L7oTtYY')
+            API_KEY = os.getenv('GOOGLE_BOOKS_API_KEY')
+            print(".ENV API:", load_dotenv())
             search_term = [f"isbn:{isbn}", f"{title}", f"{author}"] #builds search query from inputs
             query = " ".join(search_term) 
             url = f"https://www.googleapis.com/books/v1/volumes?q={query}&key={API_KEY}"

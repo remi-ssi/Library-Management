@@ -3,6 +3,7 @@ import re
 import sys
 import requests
 import shutil
+from dotenv import load_dotenv
 from navbar_logic import nav_manager
 from navigation_sidebar import NavigationSidebar
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer
@@ -14,6 +15,8 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QGroupBox, QSpinBox, QFileDialog
 )
 
+from tryDatabase import DatabaseSeeder  #to connect to databse seeder
+load_dotenv() #to fetch the api key from the env file
 #THERE ARE 4 CLASSES HERE:
 # 1. BookEditView: for editing book details
 # 2. AddBookDialog: for adding new book
@@ -297,6 +300,7 @@ class AddBookDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
+        self.db_seeder = DatabaseSeeder()
         self.setWindowTitle("Add New Book")
         self.setFixedSize(500, 700)
         self.setStyleSheet("""
@@ -596,7 +600,8 @@ class AddBookDialog(QDialog):
             return
         try:
             self.reset_cover_preview() #clear preview book preview
-            API_KEY = os.getenv('GOOGLE_BOOKS_API_KEY', 'AIzaSyBk4UqlqwPwSQwhdLQfOG5-Z-S3L7oTtYY')
+            API_KEY = os.getenv('GOOGLE_BOOKS_API_KEY')
+            print("ENV API:", load_dotenv())
             search_term = [f"isbn:{isbn}", f"{title}", f"{author}"] #builds search query from inputs
             query = " ".join(search_term) 
             url = f"https://www.googleapis.com/books/v1/volumes?q={query}&key={API_KEY}"

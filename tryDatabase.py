@@ -38,6 +38,29 @@ class DatabaseSeeder:
                     LibrarianID INTEGER,
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID)
                     )"""
+        elif tableName == "Book":
+            book =  """CREATE TABLE IF NOT EXISTS Book(
+                    BookCode INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    BookTitle VARCHAR NOT NULL,
+                    Publisher VARCHAR NOT NULL,
+                    BookDescription VARCHAR NOT NULL,
+                    shelfNo VARCHAR(6) NOT NULL,
+                    ISBN INTEGER NOT NULL,
+                    BookTotalCopies INTEGER NOT NULL,
+                    BookAvailableCopies INTEGER, 
+                    LibrarianID INTEGER, 
+                    FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID))"""
+            Author = """CREATE TABLE IF NOT EXISTS BookAuthor(
+                    BookCode INTEGER,
+                    bookAuthor VARCHAR NOT NULL,
+                    PRIMARY KEY (BookCode, bookAuthor),
+                    FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
+            Genre = """CREATE TABLE IF NOT EXISTS Book_Genre(
+                    BookCode INTEGER,
+                    Genre VARCHAR,
+                    PRIMARY KEY (BookCode, Genre), 
+                    FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
+            return book, Author, Genre
 
     #check if the table exists in the database
     def check_table(self, tableName):

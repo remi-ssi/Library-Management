@@ -408,7 +408,7 @@ class AddTransactionForm(QDialog):
 
         book_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 
-        # Update all widgets to show remove buttons if there's more than one
+        # Para sa delete buttons if maraming books 
         self.update_remove_button_visibility()
 
     def remove_book_widget(self, widget):

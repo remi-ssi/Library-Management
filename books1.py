@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QGroupBox, QSpinBox, QFileDialog
 )
 
+from tryDatabase import DatabaseSeeder  #to connect to databse seeder
+
 #THERE ARE 4 CLASSES HERE:
 # 1. BookEditView: for editing book details
 # 2. AddBookDialog: for adding new book
@@ -297,6 +299,7 @@ class AddBookDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
+        self.db_seeder = DatabaseSeeder()
         self.setWindowTitle("Add New Book")
         self.setFixedSize(500, 700)
         self.setStyleSheet("""

@@ -1,7 +1,7 @@
 import sys
 import requests
 import navigation_sidebar
-
+from navbar_logic import nav_manager
 from datetime import datetime, timedelta
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer, QRect, QEasingCurve
 from PySide6.QtGui import QFont, QIcon, QPixmap, QPainter, QColor
@@ -17,8 +17,8 @@ from functools import partial
 from AddTransactionForm import AddTransactionForm  # PARA MA-IMPORT UNG TRANSACTION FORM 
 from PreviewTransactionForm import PreviewTransactionForm
 from HistoryPreviewForm import HistoryTransactionPreviewForm
-
-
+from navigation_sidebar import NavigationSidebar
+from navbar_logic import nav_manager
 
 class TransactionCard(QFrame):
     def __init__(self, transaction, parent_system):
@@ -36,8 +36,7 @@ class TransactionCard(QFrame):
             QFrame {
                 background-color: #e8d8bd;
                 border-radius: 15px;
-               
-        
+                     
             }
             QFrame:hover {
                 border-color: #5e3e1f;
@@ -160,16 +159,28 @@ class LibraryTransactionSystem(QMainWindow):
 
     def setup_ui(self):
         central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        self.setCentralWidget(central_widget)      
+
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(0,0,0,0)
         main_layout.setSpacing(0)
+
+        self.sidebar = NavigationSidebar()
+        self.sidebar.on_navigation_clicked = nav_manager.handle_navigation
+        main_layout.addWidget(self.sidebar)
+
+        content_widget = QWidget()
+        content_widget.setStyleSheet("background-color: #f5f3ed;")
+        main_layout.addWidget(content_widget)
+
+        content_layout= QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(0,0,0,0)
+        content_layout.setSpacing(0)
 
         # Header
         header_widget = QWidget()
         header_widget.setFixedHeight(100)
         header_widget.setStyleSheet("background-color: #f5f3ed;")
-        main_layout.addWidget(header_widget)
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(40, 20, 40, 20)
         header_layout.setSpacing(20)
@@ -178,12 +189,12 @@ class LibraryTransactionSystem(QMainWindow):
         title_label.setStyleSheet("color: #5e3e1f; margin-right: 20px;")
         header_layout.addWidget(title_label)
         header_layout.addStretch()
+        content_layout.addWidget(header_widget)
 
         # Navigation
         nav_widget = QWidget()
         nav_widget.setFixedHeight(60)
         nav_widget.setStyleSheet("background-color: white; border-bottom: 1px solid #e8d8bd;")
-        main_layout.addWidget(nav_widget)
         nav_layout = QHBoxLayout(nav_widget)
         nav_layout.setContentsMargins(80, 10, 80, 10)
         nav_layout.setSpacing(10)
@@ -197,10 +208,11 @@ class LibraryTransactionSystem(QMainWindow):
         self.history_btn.setFixedSize(180, 40)
         self.history_btn.clicked.connect(self.show_history_page)
         nav_layout.addWidget(self.history_btn)
+        content_layout.addWidget(nav_widget)
 
         # Content area
         self.content_stack = QStackedWidget()
-        main_layout.addWidget(self.content_stack)
+        content_layout.addWidget(self.content_stack)
         self.create_transactions_page()
         self.create_history_page()
         self.show_transactions_page()
@@ -641,3 +653,5 @@ if __name__ == "__main__":
     window = LibraryTransactionSystem()  # Replace with your main class
     window.show()
     sys.exit(app.exec())
+
+    #transactionnnnnnnnnnnnnnnnnnnnnnnn 

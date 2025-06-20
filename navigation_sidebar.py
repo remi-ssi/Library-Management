@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (
 )
 
 
-
 class HoverButton(QPushButton):
     """Custom button that triggers sidebar expansion on hover"""
     def __init__(self, parent_sidebar):

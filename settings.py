@@ -1,6 +1,3 @@
-#WORKING NA TO PERO UHMM INDE KO KASI ALAM PAANO AYUSIN YUNG ITSURA 
-#PWEDE NIYO NAMAN NG IEDIT
-
 import sys
 from Authentication import Authentication
 from navigation_sidebar import NavigationSidebar
@@ -13,30 +10,25 @@ from PySide6.QtWidgets import (
     QFormLayout, QMessageBox, QScrollArea
 )
 
-#The Setting inherits the QMainWindow
 class Settings(QMainWindow): 
     def __init__(self):
-        super().__init__() #GIVEN NA TO EVERYTIME
+        super().__init__()
 
         self.setWindowTitle("Accounts and Settings")
-          # Store user data as instance variable
         self.user_data = {
             'first_name': 'Reymie',
             'middle_name': 'Lovete',
             'last_name': 'Gonzaga',
-            'email': 'reymiereymireyjfaidfnkauhdfkushfkds@gmail.com',
-            'password': 'badette'  # Default password 
+            'email': 'reymiereymireyjfaidfnkauhdfkushfkds@gmail.com',            'password': 'badette'
         }
         
         self.setup_ui()
         self.showMaximized()
 
     def setup_ui(self):
-        # Main widget and layout WITH sidebar
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         
-        # Use QHBoxLayout for sidebar + content layout 
         main_layout = QHBoxLayout(main_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)  
         main_layout.setSpacing(0)
@@ -46,7 +38,6 @@ class Settings(QMainWindow):
         self.sidebar.on_navigation_clicked = nav_manager.handle_navigation
         main_layout.addWidget(self.sidebar)        
         
-        # Create scroll area for content
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -68,52 +59,40 @@ class Settings(QMainWindow):
             }
             QScrollBar::handle:vertical:hover {
                 background-color: #e0ddd1;
-            }
-        """)
+            }        """)
         
-        # Create content widget for the scroll area
         content_widget = QWidget()
         content_widget.setStyleSheet("background-color: #f1efe3;")
         
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(40, 20, 40, 20) 
         content_layout.setSpacing(20)
-        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)  # Align everything to top
+        content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
-        # Header - just a label
         header = self.create_header()
-        content_layout.addWidget(header)        # Personal Info Section (title + container) - store reference for updates
+        content_layout.addWidget(header)
         self.personal_info_section = self.create_personal_info_section()
         content_layout.addWidget(self.personal_info_section)
-          # Change Password Section
         change_password_section = self.create_change_password_section()
         content_layout.addWidget(change_password_section)
-          # About Us Section
         about_us_section = self.create_about_us_section()
         content_layout.addWidget(about_us_section)
 
-          # Info Containers Section (Contact Number and App Version)
         info_containers_section = self.create_info_containers_section()
         content_layout.addWidget(info_containers_section)
         
-        # Logout Button Section
         logout_section = self.create_logout_section()
         content_layout.addWidget(logout_section)
         
-        # Store content layout reference for updates
         self.content_layout = content_layout
         
-        # Add stretch to push everything to the top
         content_layout.addStretch()
         
-        # Set the content widget to the scroll area
         scroll_area.setWidget(content_widget)
         
-        # Add scroll area to main layout
         main_layout.addWidget(scroll_area)
 
     def create_header(self):
-        # Just a label, no QFrame
         label = QLabel("Account and Settings")
         font = QFont("Times New Roman", 35, QFont.Bold)
         label.setFont(font)
@@ -124,7 +103,6 @@ class Settings(QMainWindow):
         return label
 
     def create_personal_info_section(self):
-        # Main section widget that contains both title and container
         section_widget = QWidget()
         section_widget.setStyleSheet("background-color: #f1efe3;")
         
@@ -132,21 +110,18 @@ class Settings(QMainWindow):
         section_layout.setContentsMargins(0, 0, 0, 0)
         section_layout.setSpacing(15)
         
-        # Title - OUTSIDE the container
         title_label = QLabel("PERSONAL INFO")
         title_label.setFont(QFont("Times New Roman", 18, QFont.Bold))
         title_label.setContentsMargins(40, 20, 0, 0)
         title_label.setStyleSheet("color: #5C4033; border: none; background-color: transparent;")
         section_layout.addWidget(title_label)
         
-        # Container for the actual personal info
         container = self.create_personal_info_container()
         section_layout.addWidget(container)
         
         return section_widget
 
     def create_personal_info_container(self):
-        # Main container widget
         container = QWidget()
         container.setFixedHeight(200)
         container.setStyleSheet("""
@@ -155,46 +130,36 @@ class Settings(QMainWindow):
                 border: 3px solid #714423;
                 border-radius: 25px;
                 margin: 0px 20px;
-            }
-        """)
+            }        """)
         
-        # Main layout for the container
         main_layout = QVBoxLayout(container)
         main_layout.setContentsMargins(25, 20, 25, 20)
         main_layout.setSpacing(0)
         
-        # Horizontal layout for content: Left (info) + Right (edit button)
         content_layout = QHBoxLayout()
         content_layout.setSpacing(20)
         content_layout.setContentsMargins(0, 0, 0, 0)  
         
-        # Left container - Personal information
         info_container = QWidget()
         info_container.setStyleSheet("background-color: transparent; border: none;")
         info_layout = QVBoxLayout(info_container)
         info_layout.setContentsMargins(0, 0, 0, 0)
         info_layout.setSpacing(8)
         
-        # Use instance user data
         user_data = self.user_data
         
-        # Field mapping for display (easy to modify labels without changing data structure)
         field_labels = {
             'first_name': 'First Name:',
             'middle_name': 'Middle Name:',
             'last_name': 'Last Name:',
-            'email': 'Email:'
-        }
+            'email': 'Email:'        }
         
-        # Create the display fields
         for field_key, field_label in field_labels.items():
-            field_value = user_data.get(field_key, 'N/A')  # Get value or default to 'N/A'
-            # Create horizontal layout for each field
+            field_value = user_data.get(field_key, 'N/A')
             field_layout = QHBoxLayout()
             field_layout.setContentsMargins(0, 0, 0, 0)
             field_layout.setSpacing(10)
             
-            # Field name label (e.g., "First Name:")
             field_name_label = QLabel(field_label)
             field_name_label.setFont(QFont("Times New Roman", 14, QFont.Bold))
             field_name_label.setStyleSheet("""
@@ -208,7 +173,6 @@ class Settings(QMainWindow):
             field_name_label.setFixedWidth(160)
             field_name_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             
-            # Field value label (e.g., "John")
             value_label = QLabel(field_value)
             value_label.setFont(QFont("Times New Roman", 14))
             value_label.setStyleSheet("""
@@ -229,7 +193,6 @@ class Settings(QMainWindow):
             
             info_layout.addLayout(field_layout)
         
-        # Right container - Edit button
         button_container = QWidget()
         button_container.setStyleSheet("background-color: transparent; border: none;")
         button_container.setFixedWidth(180) 
@@ -237,7 +200,6 @@ class Settings(QMainWindow):
         button_layout.setContentsMargins(0, 0, 0, 0)
         button_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # Edit button (maroon/red with pen emoji)
         edit_btn = QPushButton("✏️ Edit")
         edit_btn.setStyleSheet("""
             QPushButton {
@@ -254,34 +216,28 @@ class Settings(QMainWindow):
                 background-color: #ff0606;
             }
             QPushButton:pressed {
-                background-color: #ff0606;
-            }        """)
+                background-color: #ff0606;            }
+        """)
         edit_btn.setFixedSize(150, 45)
-        edit_btn.clicked.connect(self.open_edit_dialog)  # Connect to edit dialog method
+        edit_btn.clicked.connect(self.open_edit_dialog)
         button_layout.addWidget(edit_btn)
         
-        # Add both containers to horizontal layout
         content_layout.addWidget(info_container)
         content_layout.addWidget(button_container)
         
-        # Add content layout to main layout
         main_layout.addLayout(content_layout)
         
         return container
 
     def open_edit_dialog(self):
         """Open the edit personal information dialog"""
-        # Open the dialog with current user data
         dialog = EditPersonalInfoDialog(self.user_data, self)
         
         if dialog.exec() == QDialog.Accepted:
-            # Get the updated data
             updated_data = dialog.get_updated_data()
             
-            # Update the display (refresh the personal info container)
             self.update_personal_info_display(updated_data)
             
-            # Show success message
             QMessageBox.information(self, "Success", 
                                   f"Personal information updated successfully!\n\n"
                                   f"Name: {updated_data['first_name']} {updated_data['middle_name']} {updated_data['last_name']}\n"
@@ -289,16 +245,13 @@ class Settings(QMainWindow):
 
     def update_personal_info_display(self, updated_data):
         """Update the personal info display with new data"""
-        # Update the instance data
         self.user_data = updated_data
         
-        # Remove the old personal info section
         self.content_layout.removeWidget(self.personal_info_section)
         self.personal_info_section.deleteLater()
         
-        # Create and add the new personal info section with updated data
         self.personal_info_section = self.create_personal_info_section()
-        self.content_layout.insertWidget(1, self.personal_info_section)  # Insert after header (index 1)
+        self.content_layout.insertWidget(1, self.personal_info_section)
         
         print(f"Updated user data: {updated_data}")
         

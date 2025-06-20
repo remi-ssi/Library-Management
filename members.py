@@ -2,7 +2,7 @@
 import sys
 import sqlite3
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QPixmap, QPainter, QBrush, QColor, QPainterPath
+from PySide6.QtGui import QFont, QPixmap, QPainter, QBrush, QColor, QPainterPath, QFontMetrics
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QScrollArea, QGridLayout,
@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 # Import the reusable navigation sidebar
 from navigation_sidebar import NavigationSidebar
+from navbar_logic import nav_manager
 
 #connect to database seeder 
 from tryDatabase import DatabaseSeeder
@@ -37,40 +38,32 @@ class ProtectedContactLineEdit(QLineEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setText("09")
-        self.setCursorPosition(2)  # Place cursor after "09"
+        self.setCursorPosition(2)
         self.textChanged.connect(self.on_text_changed)
     
     def keyPressEvent(self, event):
-        # Get current cursor position
         cursor_pos = self.cursorPosition()
         
-        # Prevent deletion of "09" prefix
         if event.key() in [Qt.Key_Backspace, Qt.Key_Delete]:
             if cursor_pos <= 2:
-                return  # Don't allow deletion of "09"
+                return
         
-        # Call parent implementation
         super().keyPressEvent(event)
     
-    # Ensure text always starts with "09"
     def on_text_changed(self, text):
         if not text.startswith("09"):
             self.blockSignals(True)
-            # Extract only the digits after "09"
             digits_only = ''.join(filter(str.isdigit, text))
             if digits_only.startswith("09"):
-                # Keep as is if already starts with 09
                 clean_text = digits_only[:11]
             else:
-                # Add 09 prefix to remaining digits
                 remaining_digits = digits_only[2:] if digits_only.startswith("9") else digits_only
-                clean_text = "09" + remaining_digits[:9]  # 09 + 9 more digits = 11 total
+                clean_text = "09" + remaining_digits[:9]
             
             self.setText(clean_text)
             self.setCursorPosition(len(clean_text))
             self.blockSignals(False)
         
-        # Limit to 11 characters
         elif len(text) > 11:
             self.blockSignals(True)
             self.setText(text[:11])
@@ -288,7 +281,7 @@ class MemberEditDialog(QDialog):
         self.db_seeder = DatabaseSeeder()  #initialize the database seeder
         self.existing_members = existing_members
 
-        self.original_contact = str(member_data.get("MemberContact", ""))  # Use parentheses, not brackets        
+        self.original_contact = str(member_data.get("MemberContact", ""))        
         self.setWindowTitle("Edit Member")
         self.setFixedSize(400, 500)
         self.setStyleSheet("""
@@ -319,8 +312,7 @@ class MemberEditDialog(QDialog):
         # Form layout
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
-
-        # Fix: Get name parts from database fields directly
+        
         first_name = self.member_data.get("MemberFN", "")
         middle_name = self.member_data.get("MemberMI", "")
         last_name = self.member_data.get("MemberLN", "")
@@ -340,7 +332,6 @@ class MemberEditDialog(QDialog):
         self.last_name_edit.setText(last_name)
         self.last_name_edit.setStyleSheet(self.get_input_style())
         
-        # Contact Number - Fix: Use correct database key
         self.contact_edit = ProtectedContactLineEdit()
         self.contact_edit.setText(str(self.member_data.get("MemberContact", "")))
         self.contact_edit.setStyleSheet(self.get_input_style())
@@ -467,7 +458,6 @@ class MemberEditDialog(QDialog):
         # Check for duplicate contact number (only if contact was changed)
         if contact != self.original_contact:
             for member in self.existing_members:
-                # Fix: Use correct database key for comparison
                 if str(member.get("MemberContact", "")) == contact:
                     QMessageBox.warning(self, "Validation Error", "This contact number is already registered!")
                     return
@@ -479,7 +469,7 @@ class MemberEditDialog(QDialog):
         full_name += f" {last_name}"
         
         # Update member data
-        member_id = self.member_data["MemberID"]  # Fix: Use correct key
+        member_id = self.member_data["MemberID"]
     
         updates = {
             "MemberFN": first_name,
@@ -530,6 +520,7 @@ class MembersMainWindow(QWidget):
         super().__init__()
         self.setWindowTitle("Library Management System - Members")
         self.setGeometry(100, 100, 1200, 800)
+        self.showMaximized()
 
         # Initialize members data
         self.db_seeder = DatabaseSeeder()
@@ -552,6 +543,8 @@ class MembersMainWindow(QWidget):
         
         # Create navigation sidebar
         self.navbar = NavigationSidebar()
+        self.navbar.on_navigation_clicked = nav_manager.handle_navigation
+
         
         # Main content area
         self.content_area = QWidget()
@@ -573,7 +566,7 @@ class MembersMainWindow(QWidget):
         view_widget = QWidget()
         view_layout = QVBoxLayout(view_widget)
         #FOR THE HEADER AND SEARCH LAYOUT -
-        view_layout.setContentsMargins(40, 80, 40, 20) #left, top, right, bottom
+        view_layout.setContentsMargins(40, 80, 40, 20)
         
         # Header section
         header_layout = QHBoxLayout()
@@ -661,7 +654,6 @@ class MembersMainWindow(QWidget):
         header_layout.addWidget(search_container, alignment=Qt.AlignTop)
         
         view_layout.addLayout(header_layout, stretch=0)
-        # Reduced spacing between header and members grid
         view_layout.addSpacing(20)
 
         # Create scroll area for members
@@ -694,12 +686,7 @@ class MembersMainWindow(QWidget):
         result = dialog.exec()
         
         if result == QDialog.Accepted:
-            # Generate new member ID
-            new_id = f"M{len(self.members):03d}"
-            dialog.member_data["id"] = new_id
-            # Add the new member to the list
-            self.members.append(dialog.member_data)
-            # Refresh the display
+            self.members = self.db_seeder.get_all_records(tableName="Member")
             self.refresh_members_grid()
     
     def refresh_members_grid(self):
@@ -707,10 +694,10 @@ class MembersMainWindow(QWidget):
         # Container inside scroll area
         scroll_widget = QWidget()
         grid_layout = QGridLayout(scroll_widget)
-        # Increased vertical spacing between rows from 100 to 30
         grid_layout.setVerticalSpacing(30)
         grid_layout.setHorizontalSpacing(20)
         grid_layout.setContentsMargins(20, 60, 29, 30)
+        grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
 
         # Create rounded containers dynamically
         for i, member in enumerate(self.members):
@@ -724,7 +711,7 @@ class MembersMainWindow(QWidget):
     def create_member_container(self, member, index):
         """Create a clickable member container"""
         container = QWidget()
-        container.setFixedSize(280, 220) #width, height
+        container.setFixedSize(280, 240)
         container.setStyleSheet("""
             QWidget {
                 background-color: #FFFEEF;
@@ -752,6 +739,50 @@ class MembersMainWindow(QWidget):
         last_name = member.get("MemberLN", "")
         full_name = f"{first_name} {middle_initial} {last_name}".strip()
         
+        # Truncate text to fit in 2 lines maximum
+        def truncate_to_two_lines(text, max_width=220, font_size=16):
+            font = QFont("Times New Roman", font_size)
+            font.setBold(True)
+            metrics = QFontMetrics(font)
+            
+            # Calculate how many characters fit in one line
+            single_line_width = max_width + 20
+            
+            if metrics.horizontalAdvance(text) <= single_line_width:
+                return text
+            
+            words = text.split()
+            line1 = ""
+            line2 = ""
+            
+            for word in words:
+                test_line = f"{line1} {word}".strip()
+                if metrics.horizontalAdvance(test_line) <= single_line_width:
+                    line1 = test_line
+                else:
+                    remaining_words = words[len(line1.split()):]
+                    line2 = " ".join(remaining_words)
+                    break
+            
+            if line2 and metrics.horizontalAdvance(line2) > single_line_width:
+                while line2 and metrics.horizontalAdvance(line2 + "...") > single_line_width:
+                    words_in_line2 = line2.split()
+                    if len(words_in_line2) > 1:
+                        words_in_line2.pop()
+                        line2 = " ".join(words_in_line2)
+                    else:
+                        while line2 and metrics.horizontalAdvance(line2 + "...") > single_line_width:
+                            line2 = line2[:-1]
+                        break
+                line2 += "..."
+            
+            if line2:
+                return f"{line1}\n{line2}"
+            else:
+                return line1
+        
+        display_name = truncate_to_two_lines(full_name)
+        
         memberid_label = QLabel(f'<span style="color:#5C4033;">Member ID:</span> <span style="color:#8b4513;">{member.get("MemberID", "N/A")}</span>')
         memberid_label.setStyleSheet("""
             font-size: 16px;
@@ -762,7 +793,7 @@ class MembersMainWindow(QWidget):
         """)
         memberid_label.setAlignment(Qt.AlignLeft)
 
-        name_label = QLabel(f'<span style="color:#5C4033;">Name:</span> <span style="color:#8b4513;">{full_name}</span>')
+        name_label = QLabel(f'<span style="color:#5C4033;">Name:</span> <span style="color:#8b4513;">{display_name}</span>')
         name_label.setStyleSheet("""
             font-size: 16px;
             font: bold;
@@ -771,6 +802,9 @@ class MembersMainWindow(QWidget):
             outline: none;
         """)
         name_label.setAlignment(Qt.AlignLeft)
+        name_label.setWordWrap(True)
+        name_label.setMaximumWidth(220)
+        name_label.setFixedHeight(40)
 
         contact_label = QLabel(f'<span style="color:#5C4033;">Contact Number:</span> <span style="color:#8b4513;">{member.get("MemberContact", "N/A")}</span>')
         contact_label.setStyleSheet("""
@@ -805,7 +839,6 @@ class MembersMainWindow(QWidget):
 
         elif result == 2:  # Delete
             try:
-                # Remove the member from the local list
                 self.members.pop(index)
                 self.refresh_members_grid()
                 QMessageBox.information(self, "Success", "Member deleted successfully")
@@ -816,5 +849,6 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setFont(QFont("Times New Roman", 10))
     window = MembersMainWindow()
+    nav_manager._current_window = window
     window.show()
     sys.exit(app.exec())

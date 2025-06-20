@@ -4,6 +4,8 @@ import sys
 import requests
 import shutil
 from dotenv import load_dotenv
+from navbar_logic import nav_manager
+from navigation_sidebar import NavigationSidebar
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer
 from PySide6.QtGui import QFont, QIcon, QFont, QPixmap
 from PySide6.QtWidgets import (
@@ -12,33 +14,10 @@ from PySide6.QtWidgets import (
     QTabWidget, QTextEdit, QMessageBox, QFormLayout, QDialog, QListWidget,
     QListWidgetItem, QGroupBox, QSpinBox, QFileDialog
 )
-load_dotenv()
-#for the navbar to automatically open
-class HoverButton(QPushButton):
-    def __init__(self, parent_sidebar):
-        super().__init__()
-        self.parent_sidebar = parent_sidebar
-    
-    def enterEvent(self, event):
-        """Called when mouse enters the button"""
-        self.parent_sidebar.expand_sidebar() #to trigger sidebar
-        super().enterEvent(event) #call the event
 
-class NavigationArea(QWidget):
-    def __init__(self, parent_sidebar):
-        super().__init__()
-        self.parent_sidebar = parent_sidebar
-        self.setMouseTracking(True)  # Enable mouse tracking
-    
-    def enterEvent(self, event):
-        """Called when mouse enters the navigation area"""
-        self.parent_sidebar.expand_sidebar()
-        super().enterEvent(event)
-    
-    def leaveEvent(self, event):
-        """Called when mouse leaves the navigation area"""
-        self.parent_sidebar.start_collapse_timer()
-        super().leaveEvent(event)
+from tryDatabase import DatabaseSeeder
+load_dotenv()
+
 
 class BookEditView(QWidget):
     def __init__(self, book_data, parent_window):
@@ -51,11 +30,8 @@ class BookEditView(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(40, 40, 40, 40)
         layout.setSpacing(20)
-        
-        # Back button and title section
         header_layout = QHBoxLayout()
         
-        # Back button
         back_btn = QPushButton("← Back to Books")
         back_btn.setFixedSize(150, 40)
         back_btn.clicked.connect(self.go_back)
@@ -74,10 +50,8 @@ class BookEditView(QWidget):
         """)
         header_layout.addWidget(back_btn)
         header_layout.addStretch()
-        
         layout.addLayout(header_layout)
         
-        # Title
         title = QLabel(f"Edit Book: {self.book_data['title']}")
         title.setStyleSheet("""
             QLabel {
@@ -89,7 +63,6 @@ class BookEditView(QWidget):
         """)
         layout.addWidget(title)
         
-        # Create form layout
         form_widget = QWidget()
         form_widget.setStyleSheet("""
             QWidget {
@@ -102,7 +75,6 @@ class BookEditView(QWidget):
         form_layout.setContentsMargins(30, 30, 30, 30)
         form_layout.setSpacing(15)
         
-        # Book details form - Read-only fields
         self.title_input = QLineEdit(self.book_data['title'])
         self.title_input.setReadOnly(True)
         self.title_input.setStyleSheet(self.get_readonly_input_style())
@@ -124,8 +96,6 @@ class BookEditView(QWidget):
         self.isbn_input = QLineEdit(self.book_data.get('isbn', ''))
         self.isbn_input.setReadOnly(True)
         self.isbn_input.setStyleSheet(self.get_readonly_input_style())
-       
-        # Editable fields
         self.copies_input = QLineEdit(str(self.book_data.get('copies', '1')))
         self.copies_input.setStyleSheet(self.get_editable_input_style())
         
@@ -144,11 +114,9 @@ class BookEditView(QWidget):
                 border-radius: 16px;
             }
             QTextEdit:focus {
-                border-color: #5C4033;
-            }
+                border-color: #5C4033;            }
         """)
         
-        # Add fields to form
         form_layout.addRow(self.create_label("Title:"), self.title_input)
         form_layout.addRow(self.create_label("Author:"), self.author_input)
         form_layout.addRow(self.create_label("Genre:"), self.genre_input)
@@ -156,14 +124,11 @@ class BookEditView(QWidget):
         form_layout.addRow(self.create_label("Available copy of books:"), self.copies_input)
         form_layout.addRow(self.create_label("Shelf No.:"), self.shelf_input)
         form_layout.addRow(self.create_label("Description:"), self.description_input)
-        
         layout.addWidget(form_widget)
         
-        # Buttons
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         
-        # Save button
         save_btn = QPushButton("Save Changes")
         save_btn.setFixedSize(150, 50)
         save_btn.clicked.connect(self.save_changes)
@@ -262,8 +227,8 @@ class BookEditView(QWidget):
             }
         """
     
-    def save_changes(self): #saves book
-        if not self.copies_input.text().isdigit() or int(self.copies_input.text()) < 1: #check if copies if positive number
+    def save_changes(self):
+        if not self.copies_input.text().isdigit() or int(self.copies_input.text()) < 1:
             QMessageBox.warning(self, "Validation Error", "Copies must be a positive integer")
             return
         try:
@@ -279,10 +244,11 @@ class BookEditView(QWidget):
             msg.setText(f"Book '{self.book_data['title']}' has been updated successfully!")
             msg.setIcon(QMessageBox.Information)
             msg.exec()
-            self.parent_window.show_books_view() # Go back to main books view
+            self.parent_window.show_books_view()
         except:
             QMessageBox.warning(self, "Error", "Error updating books: {e}")
-            print(f"Error updating books: {e}")    
+            print(f"Error updating books: {e}")  
+              
     def delete_book(self):
         # Confirm deletion
         reply = QMessageBox.question(
@@ -308,14 +274,13 @@ class BookEditView(QWidget):
             # Go back to main books view
             self.parent_window.show_books_view()
     
-    def go_back(self):
-        # Go back to main books view without saving
-        self.parent_window.show_books_view()
+    def go_back(self):        self.parent_window.show_books_view()
 
 class AddBookDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent = parent
+        self.db_seeder = DatabaseSeeder()
         self.setWindowTitle("Add New Book")
         self.setFixedSize(500, 700)
         self.setStyleSheet("""
@@ -349,7 +314,6 @@ class AddBookDialog(QDialog):
         info_layout.setContentsMargins(20, 20, 20, 20)
         info_layout.setSpacing(15)
 
-        # Section Title
         section_title = QLabel("Book Information")
         section_title.setStyleSheet("""
             QLabel {
@@ -538,30 +502,29 @@ class AddBookDialog(QDialog):
         
         layout.addWidget(button_container)
     
-    def validate_isbn(self, isbn): # check isbn len
-        isbn_clean = re.sub(r'[^0-9X]', '', isbn.upper()) #remove  special characters, allows X
+    def validate_isbn(self, isbn):
+        isbn_clean = re.sub(r'[^0-9X]', '', isbn.upper())
 
-        if len(isbn_clean) not in [10, 13]: #check length if its 10 or 13
+        if len(isbn_clean) not in [10, 13]:
             return False
-        if len(isbn_clean) == 10:
-            return self.validate_isbn10(isbn_clean) #pass isbn10 to validate 
-        return self.validate_isbn13(isbn_clean) #pass isbn13 to validate
+        if len(isbn_clean) == 10:            return self.validate_isbn10(isbn_clean)
+        return self.validate_isbn13(isbn_clean)
     
     def validate_isbn10(self, isbn):
         if len(isbn)!= 10:
             return False
         total = 0 
-        for i in range(9): #calculate checksum (each digit multipled by its position)
+        for i in range(9):
             if not isbn[i].isdigit():
                 return False
             total += int(isbn[i]) * (10 - i) 
-        if isbn[9] == 'X': # X represents 10, so add 10 to total
+        if isbn[9] == 'X':
             total += 10
         elif isbn[9].isdigit():
             total += int(isbn[9])
         else:
             return False
-        return total % 11 == 0 #valid if totals is divisible by 11
+        return total % 11 == 0
     
     def validate_isbn13(self, isbn):
         if len(isbn) != 13:
@@ -569,18 +532,18 @@ class AddBookDialog(QDialog):
         if not isbn.isdigit():
             return False 
         total = 0 
-        for i in range(12): #calculate checksum (alternate bewteen 1 and 3 multipliers)
+        for i in range(12):
             if i % 2 == 0:
                 total += int(isbn[i])
             else:
                 total += int(isbn[i]) *3
         check_digit = (10 - (total % 10)) % 10
-        return check_digit == int(isbn[12]) #valid f last digit is matched with the check digit
+        return check_digit == int(isbn[12])
     
     def reset_cover_preview(self):
-        self.book_preview.setPixmap(QPixmap()) #clear book cover image
+        self.book_preview.setPixmap(QPixmap())
         self.book_preview.setText("Book Cover Preview")   
-        self.book_preview.setStyleSheet(""" #preview box layout
+        self.book_preview.setStyleSheet("""
             QLabel {
                 background-color: #f5f5f5;
                 border: 2px dashed #dbcfc1;
@@ -616,7 +579,7 @@ class AddBookDialog(QDialog):
         try:
             self.reset_cover_preview() #clear preview book preview
             API_KEY = os.getenv('GOOGLE_BOOKS_API_KEY')
-            print(".ENV API:", load_dotenv())
+            print("ENV API:", load_dotenv())
             search_term = [f"isbn:{isbn}", f"{title}", f"{author}"] #builds search query from inputs
             query = " ".join(search_term) 
             url = f"https://www.googleapis.com/books/v1/volumes?q={query}&key={API_KEY}"
@@ -795,6 +758,64 @@ class AddBookDialog(QDialog):
             print(f"Adding book to books_data: {standardized_book}")
             self.parent.books_data.append(standardized_book) #create parent wqindow for book list
             self.parent.refresh_books_display() #refresh display
+            
+            # 1. Prepare data for Book table
+        book_data = {
+            'BookTitle': standardized_book['title'],
+            'Publisher': 'Unknown Publisher',  # or from dialog if available
+            'BookDescription': standardized_book['description'],
+            'shelfNo': standardized_book['shelf'],
+            'ISBN': standardized_book['isbn'],
+            'BookTotalCopies': standardized_book['copies'],
+            'BookAvailableCopies': standardized_book['available_copies'],
+            'BookCover': standardized_book['image'],
+            'LibrarianID': 1  # replace with actual logged-in librarian ID
+        }
+
+        book_columns = list(book_data.keys())
+
+        # 2. Insert into Book table and get BookCode
+        conn, cursor = self.db_seeder.get_connection_and_cursor()
+        conn.execute("PRAGMA foreign_keys = ON;")
+
+        try:
+            # Use seed_data to insert into Book table
+            self.db_seeder.seed_data(
+                tableName="Book",
+                data=[book_data],
+                columnOrder=book_columns
+            )
+
+            book_code = cursor.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+            # 3. Use seed_data for BookAuthor
+            author_data = {
+                'BookCode': book_code,
+                'bookAuthor': standardized_book['author']
+            }
+            self.db_seeder.seed_data(
+                tableName="BookAuthor",
+                data=[author_data],
+                columnOrder=['BookCode', 'bookAuthor']
+            )
+
+            # 4. Use seed_data for Book_Genre
+            genre_data = {
+                'BookCode': book_code,
+                'Genre': standardized_book['genre']
+            }
+            self.db_seeder.seed_data(
+                tableName="Book_Genre",
+                data=[genre_data],
+                columnOrder=['BookCode', 'Genre']
+            )
+
+            conn.commit()
+            print(f"✓ Book and related data seeded successfully with BookCode: {book_code}")
+        except Exception as e:
+            print(f"❌ Error using seed_data for book: {e}")
+        finally:
+            conn.close()
             self.accept()
 
 class BookDetailsDialog(QDialog):
@@ -1273,93 +1294,19 @@ class BookDetailsDialog(QDialog):
             QMessageBox.warning(self, "Error", "Unexpected Error: {e}")
             print(f"Unexpected Error: {e}")
 
+#MAIN WINDOW
 class CollapsibleSidebar(QWidget):
     def __init__(self):
         super().__init__()
+        self.db_seeder = DatabaseSeeder()
         self.setWindowTitle("Library Management System")
-        self.setFixedSize(1300, 700)
+        self.showMaximized()
         
+        #ASK: TATANGGALIN KO NA BA TO GUYS?
         # Initialize books data PYTHON LIST!
         self.books_data = []
         self.original_books_data = []
         
-        # Main layout
-        main_layout = QHBoxLayout(self)
-
-        # Sidebar
-        self.sidebar_widget = QWidget()
-        self.sidebar_widget.setFixedWidth(60)
-        self.sidebar_widget.setStyleSheet(
-            """
-            background-color: #dbcfc1;
-            border-radius: 10px;
-            """
-        )
-        
-        # Sidebar full layout
-        full_sidebar_layout = QVBoxLayout(self.sidebar_widget)
-        full_sidebar_layout.setContentsMargins(0, 0, 0, 0)
-
-        # Toggle button at the top
-        self.toggle_button = QPushButton("< >")
-        self.toggle_button.clicked.connect(self.toggle_sidebar)
-        self.toggle_button.setFixedHeight(40)
-        full_sidebar_layout.addWidget(self.toggle_button, alignment=Qt.AlignTop)
-
-        # Spacer above icons (top empty space)
-        full_sidebar_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding))
-
-        # Create navigation area widget that will detect mouse enter/leave
-        self.nav_area = NavigationArea(self)
-        self.nav_area.setStyleSheet("background-color: transparent;")
-        
-        # Navigation buttons layout (centered) - now inside nav_area
-        self.sidebar_layout = QVBoxLayout(self.nav_area)
-        self.sidebar_layout.setAlignment(Qt.AlignTop)
-        self.sidebar_layout.setContentsMargins(5, 10, 5, 10)  # Add some padding
-
-        self.buttons = []
-
-        # Navigation items: (icon, label)
-        nav_items = [
-            ("assets/dashboard.png", "    Dashboard"),
-            ("assets/books.png", "    Books"),
-            ("assets/members.png", "    Members"),
-            ("assets/settings.png", "    Settings")
-        ]
-
-        for icon_path, label in nav_items:
-            btn = HoverButton(self)  # Use custom HoverButton
-            btn.setIcon(QIcon(icon_path))
-            btn.setIconSize(QSize(30, 30))
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-            btn.setMinimumHeight(40)
-            btn.label_text = label
-            btn.setText("")  # Start with no text
-
-            btn.setStyleSheet("""
-                QPushButton {
-                    text-align: left;
-                    padding-left: 10px;
-                    color: #5C4033;
-                    border: none;
-                    font-size: 18px;
-                }
-                QPushButton:hover {
-                    background-color: #E0E0E0;
-                }
-            """)
-
-            btn.setLayoutDirection(Qt.LeftToRight)
-            self.sidebar_layout.addWidget(btn)
-            self.buttons.append(btn)
-
-        # Add the navigation area to the main sidebar layout
-        full_sidebar_layout.addWidget(self.nav_area)
-
-        # Spacer below icons (bottom empty space)
-        full_sidebar_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Minimum, QSizePolicy.Expanding))
-
         # Main content area
         self.content_area = QWidget()
         self.content_area.setStyleSheet("background-color: #f1efe3;")
@@ -1373,21 +1320,103 @@ class CollapsibleSidebar(QWidget):
         
         # Keep track of current view
         self.current_view = "books"
+        self.sidebar = NavigationSidebar()
+        self.sidebar.on_navigation_clicked = nav_manager.handle_navigation
 
+        # Load initial data from database
+        self.load_books_from_database()
+        
         # Combine sidebar and content area
-        main_layout.addWidget(self.sidebar_widget)
+        main_layout = QHBoxLayout(self)
+        main_layout.addWidget(self.sidebar)
         main_layout.addWidget(self.content_area)
 
-        # Animation setup
-        self.expanded = False
-        self.manually_expanded = False  # Track if expanded by toggle button
-        self.animation = QPropertyAnimation(self.sidebar_widget, b"minimumWidth")
-        self.animation.setDuration(250)
-        
-        # Timer for delayed collapse (prevents flickering when moving mouse quickly)
-        self.collapse_timer = QTimer()
-        self.collapse_timer.setSingleShot(True)
-        self.collapse_timer.timeout.connect(self.collapse_sidebar_hover)
+    def load_books_from_database(self):
+        """Load books data from database seeder"""
+        try:
+            print("Loading books from database...")
+            
+            # Get data from all three tables
+            books = self.db_seeder.get_all_records("Book")
+            book_authors = self.db_seeder.get_all_records("BookAuthor")
+            book_genres = self.db_seeder.get_all_records("Book_Genre")
+            
+            print(f"Found {len(books)} books, {len(book_authors)} authors, {len(book_genres)} genres")
+            
+            # Debug: Print first few records to understand structure
+            if books:
+                print("Sample book record:", books[0])
+            if book_authors:
+                print("Sample author record:", book_authors[0])
+            if book_genres:
+                print("Sample genre record:", book_genres[0])
+            
+            # Clear existing data
+            self.books_data = []
+            
+            # Process each book
+            for book in books:
+                try:
+                    book_code = book.get("BookCode")
+                    if not book_code:
+                        print(f"Warning: Book missing BookCode: {book}")
+                        continue
+                    
+                    # Find all authors for this book
+                    book_authors_list = [
+                        author["bookAuthor"] for author in book_authors 
+                        if author.get("BookCode") == book_code and author.get("bookAuthor")
+                    ]
+                    
+                    # Find all genres for this book
+                    book_genres_list = [
+                        genre["Genre"] for genre in book_genres 
+                        if genre.get("BookCode") == book_code and genre.get("Genre")
+                    ]
+                    
+                    # Use "Unknown" if no authors/genres found
+                    if not book_authors_list:
+                        book_authors_list = ["Unknown Author"]
+                    if not book_genres_list:
+                        book_genres_list = ["Unknown Genre"]
+                    
+                    # Create book data dictionary
+                    book_data = {
+                        "book_code": book_code,
+                        "title": book.get("BookTitle", "Unknown Title"),
+                        "author": book_authors_list,  # Keep as list for multiple authors
+                        "genre": book_genres_list,    # Keep as list for multiple genres
+                        "isbn": book.get("ISBN", ""),
+                        "description": book.get("BookDescription", ""),
+                        "shelf": book.get("shelfNo", ""),
+                        "copies": book.get("BookTotalCopies", 0),
+                        "available_copies": book.get("BookAvailableCopies", 0),
+                        "image": book.get("BookCover", "")
+                    }
+                    
+                    self.books_data.append(book_data)
+                    print(f"Processed book: {book_data['title']} by {book_data['author']}")
+                    
+                except Exception as e:
+                    print(f"Error processing book {book}: {e}")
+                    continue
+            
+            # Store original data for search functionality
+            self.original_books_data = self.books_data.copy()
+            
+            print(f"Successfully loaded {len(self.books_data)} books")
+            
+            # Populate the display
+            if hasattr(self, 'grid_layout'):
+                self.populate_books()
+                
+        except Exception as e:
+            print(f"Error loading books from database: {e}")
+            import traceback
+            traceback.print_exc()
+            # Initialize with empty data if there's an error
+            self.books_data = []
+            self.original_books_data = []
 
     def create_main_books_view(self):
         """Create the main books view with search and grid"""
@@ -1499,17 +1528,41 @@ class CollapsibleSidebar(QWidget):
         """Perform search with the text from search bar"""
         search_text = self.search_bar.text().strip().lower()
         if search_text:
-            print(f"Searching for: {search_text}")
-            filtered_books = [ #search item in the books
-                book for book in self.original_books_data
-                if search_text in book['title'].lower() or # for 1 author
-                search_text in ', '.join(book['author']).lower() # for searching author in a list
-            ]
-            self.books_data = filtered_books #display found books
-            self.populate_books()
+            print(f"Searching for: '{search_text}'")
+            filtered_books = []
+            
+            for book in self.original_books_data:
+                # Search in title
+                title_match = search_text in book['title'].lower()
+                
+                # Search in authors (handle list of authors)
+                author_match = False
+                if isinstance(book['author'], list):
+                    author_match = any(search_text in author.lower() for author in book['author'])
+                else:
+                    author_match = search_text in str(book['author']).lower()
+                
+                # Search in genres (handle list of genres)
+                genre_match = False
+                if isinstance(book['genre'], list):
+                    genre_match = any(search_text in genre.lower() for genre in book['genre'])
+                else:
+                    genre_match = search_text in str(book['genre']).lower()
+                
+                # Search in ISBN
+                isbn_match = search_text in str(book.get('isbn', '')).lower()
+                
+                if title_match or author_match or genre_match or isbn_match:
+                    filtered_books.append(book)
+            
+            self.books_data = filtered_books
+            print(f"Found {len(filtered_books)} matching books")
         else:
-            self.books_data = self.books_data #restore original list if needed
-            self.populate_books()
+            # Restore original list when search is cleared
+            self.books_data = self.original_books_data.copy()
+            print(f"Restored {len(self.books_data)} books")
+        
+        self.populate_books()
 
     def create_books_section(self):
         """Create the books display section with multiple columns and vertical scrolling"""
@@ -1527,7 +1580,6 @@ class CollapsibleSidebar(QWidget):
         books_layout.setContentsMargins(20, 20, 20, 20)
         books_layout.setSpacing(15)
         
-        # Section title
         books_title = QLabel("Available Books")
         books_title.setStyleSheet("""
             QLabel {
@@ -1574,9 +1626,10 @@ class CollapsibleSidebar(QWidget):
         self.grid_layout = QGridLayout(self.scroll_content)
         self.grid_layout.setSpacing(25)
         self.grid_layout.setContentsMargins(15, 15, 15, 15)
+        self.grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         
         # Populate books
-        self.populate_books()
+        #self.populate_books()
         
         scroll_area.setWidget(self.scroll_content)
         books_layout.addWidget(scroll_area)
@@ -1585,6 +1638,7 @@ class CollapsibleSidebar(QWidget):
     
     def populate_books(self):
         """Populate the books grid"""
+        print(f"Populating {len(self.books_data)} books...")
         # Clear existing widgets
         for i in reversed(range(self.grid_layout.count())):
             self.grid_layout.itemAt(i).widget().setParent(None)
@@ -1635,7 +1689,6 @@ class CollapsibleSidebar(QWidget):
                 border: 2px solid #5C4033;
             }
         """)
-        
         # Try to load image
         image_path = book_data.get("image", "")
         print(f"Book: {book_data['title']}, Image path: {image_path}, Type: {type(image_path)}")
@@ -1670,21 +1723,26 @@ class CollapsibleSidebar(QWidget):
             }
                                   
         """)
-        # Book author
-        author = book_data["author"]
-        if isinstance(author, list):
-            author = ', '.join(author)
-        author_label = QLabel(author)
+        # Book author - handle list of authors
+        authors = book_data["author"]
+        if isinstance(authors, list):
+            author_text = ', '.join(authors[:2])  # Show max 2 authors
+            if len(authors) > 2:
+                author_text += f" +{len(authors)-2} more"
+        else:
+            author_text = str(authors)
+            
+        author_label = QLabel(author_text)
         author_label.setAlignment(Qt.AlignCenter)
         author_label.setWordWrap(True)
+        author_label.setMaximumHeight(30)
         author_label.setStyleSheet("""
             QLabel {
                 color: #8B4513;
-                font-size: 13px;
+                font-size: 11px;
                 background-color: transparent;
                 border: none;
-            }
-        """)
+            }  """)
         
         card_layout.addWidget(book_cover, alignment=Qt.AlignCenter)
         card_layout.addWidget(title_label)
@@ -1697,7 +1755,9 @@ class CollapsibleSidebar(QWidget):
         """Open the book edit view"""
         # Clear current content
         for i in reversed(range(self.content_layout.count())):
-            self.content_layout.itemAt(i).widget().setParent(None)
+            child = self.content_layout.itemAt(i).widget()
+            if child:
+                child.setParent(None)
         
         # Create and show edit view
         self.book_edit_view = BookEditView(book_data, self)
@@ -1708,86 +1768,35 @@ class CollapsibleSidebar(QWidget):
         """Show the main books view"""
         # Clear current content
         for i in reversed(range(self.content_layout.count())):
-            self.content_layout.itemAt(i).widget().setParent(None)
+            child = self.content_layout.itemAt(i).widget()
+            if child:
+                child.setParent(None)
         
         # Refresh books display and show main view
-        self.populate_books()
+        self.load_books_from_database()
         self.content_layout.addWidget(self.main_books_view)
         self.current_view = "books"
     
-    def close_tab(self, index):
-        """Close a tab"""
-        if index > 0:  # Don't close the main books tab
-            self.tab_widget.removeTab(index)
-    
+   # def close_tab(self, index):
+   #     """Close a tab"""
+    #    if index > 0:  # Don't close the main books tab
+    #        self.tab_widget.removeTab(index)
+
     def refresh_books_display(self):
-        """Refresh the books display after changes"""
-        self.original_books_data = self.books_data.copy()
-        self.populate_books()
-
-    def toggle_sidebar(self):
-        """Manual toggle function using the <> button"""
-        self.manually_expanded = not self.manually_expanded
-        self.collapse_timer.stop()
-        
-        if self.manually_expanded:
-            self.expand_sidebar_manual()
-        else:
-            self.collapse_sidebar_manual()
-
-    def expand_sidebar_manual(self):
-        """Expand the sidebar manually (via toggle button)"""
-        self.expanded = True
-        self.animation.setStartValue(self.sidebar_widget.width())
-        self.animation.setEndValue(180)
-        for btn in self.buttons:
-            btn.setText(f"  {btn.label_text}")
-        self.animation.start()
-
-    def collapse_sidebar_manual(self):
-        """Collapse the sidebar manually (via toggle button)"""
-        self.expanded = False
-        self.animation.setStartValue(self.sidebar_widget.width())
-        self.animation.setEndValue(60)
-        for btn in self.buttons:
-            btn.setText("")
-        self.animation.start()
-
-    def expand_sidebar(self):
-        """Expand the sidebar on hover (only if not manually expanded)"""
-        if not self.manually_expanded and not self.expanded:
-            self.expanded = True
-            self.collapse_timer.stop()
-            self.animation.setStartValue(self.sidebar_widget.width())
-            self.animation.setEndValue(180)
-            for btn in self.buttons:
-                btn.setText(f"  {btn.label_text}")
-            self.animation.start()
-
-    def start_collapse_timer(self):
-        """Start the collapse timer (only if not manually expanded)"""
-        if not self.manually_expanded:
-            self.collapse_timer.start(200)
-
-    def collapse_sidebar_hover(self):
-        """Collapse the sidebar on hover timeout (only if not manually expanded)"""
-        if not self.manually_expanded and self.expanded:
-            self.expanded = False
-            self.animation.setStartValue(self.sidebar_widget.width())
-            self.animation.setEndValue(60)
-            for btn in self.buttons:
-                btn.setText("")
-            self.animation.start()
+        self.load_books_from_database()
 
     def show_add_book_dialog(self):
         """Show the book add dialog"""
         dialog = AddBookDialog(self)
-        dialog.exec()
+        if dialog.exec() == QDialog.Accepted:
+            # Refresh the display after adding a book
+            self.load_books_from_database()
 
 # Run app
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setFont(QFont("Times New Roman", 10))
     window = CollapsibleSidebar()
+    nav_manager._current_window = window  # Set as current window
     window.show()
     app.exec()

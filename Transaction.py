@@ -143,6 +143,7 @@ class LibraryTransactionSystem(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setGeometry(100, 100, 1400, 800)
+        self.showMaximized()
         self.setStyleSheet("background-color: white;")
         self.transactions = [
             {"id": 1, "book_title": "1984", "borrower": "John Doe", "action": "Borrowed", "date": "2025-06-06", "due_date": "2025-06-20"},
@@ -649,8 +650,10 @@ if __name__ == "__main__":
     import sys
     from PySide6.QtWidgets import QApplication
 
+
     app = QApplication(sys.argv)
-    window = LibraryTransactionSystem()  # Replace with your main class
+    window = LibraryTransactionSystem()  #
+    nav_manager._current_window = window
     window.show()
     sys.exit(app.exec())
 

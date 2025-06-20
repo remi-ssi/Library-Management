@@ -20,19 +20,19 @@ class NavigationManager(QObject):
         
         # Handle navigation based on clicked item
         if item_name == "Dashboard":
-            from Dashboard1 import LibraryDashboard
+            from Dashboard import LibraryDashboard
             self._current_window = LibraryDashboard()
             
         elif item_name == "Books":
-            from books1 import CollapsibleSidebar
+            from books import CollapsibleSidebar
             self._current_window = CollapsibleSidebar()
             
         elif item_name == "Transactions":
-            from Transaction1 import LibraryTransactionSystem
+            from Transaction import LibraryTransactionSystem
             self._current_window = LibraryTransactionSystem()
             
         elif item_name == "Members":
-            from membersnanagalawko import MembersMainWindow
+            from members import MembersMainWindow
             self._current_window = MembersMainWindow()
            
         elif item_name == "Settings":

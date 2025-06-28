@@ -1,6 +1,7 @@
 #labyu rems wala pa ko maisip na picture
 import sys
 import sqlite3
+from datetime import datetime
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QPixmap, QPainter, QBrush, QColor, QPainterPath, QFontMetrics
 from PySide6.QtWidgets import (
@@ -266,10 +267,11 @@ class AddMemberDialog(QDialog):
                                          "MemberLN" : last_name,
                                          "MemberFN" : first_name,
                                          "MemberMI": middle_name,
-                                         "MemberContact": contact
+                                         "MemberContact": contact,
+                                         "AccDeleted": None
                                      }
                                  ], 
-                                 columnOrder=["MemberLN", "MemberFN", "MemberMI", "MemberContact"])
+                                 columnOrder=["MemberLN", "MemberFN", "MemberMI", "MemberContact", "AccDeleted"])
         
         QMessageBox.information(self, "Success", f"Member {full_name} added successfully!")
         self.accept()
@@ -475,7 +477,8 @@ class MemberEditDialog(QDialog):
             "MemberFN": first_name,
             "MemberMI": middle_name,
             "MemberLN": last_name,
-            "MemberContact": contact
+            "MemberContact": contact,
+            "AccDeleted": None
         }
         
         try:
@@ -487,8 +490,8 @@ class MemberEditDialog(QDialog):
             QMessageBox.information(self, "Success", "Member information updated successfully!")
             self.accept()
         except Exception as e:
-            QMessageBox.critical(self, "Database Error", f"Failed to update member: {str(e)}")
-    
+            QMessageBox.critical(self, "Database Error", f"Failed to update member: {str(e)}")  
+
     def delete_member(self):
          # Build the full name from database fields
         first_name = self.member_data.get("MemberFN", "")
@@ -508,7 +511,10 @@ class MemberEditDialog(QDialog):
             try:
                 # Delete from database using your existing function
                 member_id = self.member_data.get("MemberID")
-                self.db_seeder.delete_table("Member", "MemberID", member_id)
+                timestamp_delete = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                updates = {"AccDeleted": timestamp_delete}
+                self.db_seeder.update_table("Member", updates, "MemberID", member_id)
                 
                 QMessageBox.information(self, "Success", "Member deleted successfully!")
                 self.done(2)  # Custom return value for delete
@@ -688,6 +694,17 @@ class MembersMainWindow(QWidget):
         if result == QDialog.Accepted:
             self.members = self.db_seeder.get_all_records(tableName="Member")
             self.refresh_members_grid()
+        
+    def get_active_members(self):
+        """Get only active member accounts"""
+
+        if not self.members:
+            return[]
+        active_members = []
+        for member in self.members:
+            if member.get("AccDeleted") is None or member.get("AccDeleted")=="":
+                active_members.append(member)
+        return active_members
     
     def refresh_members_grid(self):
         """Refresh the members grid display"""
@@ -699,9 +716,11 @@ class MembersMainWindow(QWidget):
         grid_layout.setContentsMargins(20, 60, 29, 30)
         grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
 
+        active_members = self.get_active_members()
+
         # Create rounded containers dynamically
-        for i, member in enumerate(self.members):
-            container = self.create_member_container(member, i)
+        for i, member in enumerate(active_members):
+            container = self.create_member_container(member, i) 
             row = i // 4
             col = i % 4
             grid_layout.addWidget(container, row, col)
@@ -837,11 +856,12 @@ class MembersMainWindow(QWidget):
             self.members = self.db_seeder.get_all_records(tableName="Member")
             self.refresh_members_grid()
 
-        elif result == 2:  # Delete
+        elif result == QDialog.Accepted or result ==2 :  # Delete
             try:
-                self.members.pop(index)
+                self.members = self.db_seeder.get_all_records(tableName="Member")
                 self.refresh_members_grid()
-                QMessageBox.information(self, "Success", "Member deleted successfully")
+                if result == 2:
+                    QMessageBox.information(self, "Success", "Member deleted successfully")
             except Exception as e:
                 QMessageBox.critical(self, "Database Error", f"Failed to delete member: {str(e)}")
 

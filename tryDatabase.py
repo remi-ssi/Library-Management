@@ -36,6 +36,7 @@ class DatabaseSeeder:
                     MemberContact INTEGER(11) NOT NULL,
                     CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
                     LibrarianID INTEGER,
+                    AccDeleted TIMESTAMP,
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID)
                     )"""
         elif tableName == "Book":

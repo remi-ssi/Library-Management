@@ -29,8 +29,8 @@ class NavigationManager(QObject):
             self._current_window = LibraryDashboard(librarian_id = self._librarian_id)
             
         elif item_name == "Books":
-            from books import CollapsibleSidebar
-            self._current_window = CollapsibleSidebar(librarian_id= self._librarian_id)
+            from books1 import CollapsibleSidebar
+            self._current_window = CollapsibleSidebar(librarian_id=self._librarian_id)
             
         elif item_name == "Transactions":
             from Transaction import LibraryTransactionSystem

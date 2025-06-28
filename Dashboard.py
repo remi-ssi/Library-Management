@@ -10,8 +10,9 @@ from navigation_sidebar import NavigationSidebar
 from navbar_logic import nav_manager
 
 class LibraryDashboard(QMainWindow):
-    def __init__(self):
+    def __init__(self, librarian_id=None):
         super().__init__()
+        self.librarian_id = librarian_id
         self.dark_mode = False
         self.init_ui()
         self.setup_timer()
@@ -351,4 +352,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-     

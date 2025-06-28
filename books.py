@@ -245,7 +245,7 @@ class BookEditView(QWidget):
             msg.setIcon(QMessageBox.Information)
             msg.exec()
             self.parent_window.show_books_view()
-        except:
+        except Exception as e:
             QMessageBox.warning(self, "Error", "Error updating books: {e}")
             print(f"Error updating books: {e}")  
               
@@ -738,13 +738,13 @@ class AddBookDialog(QDialog):
             'published_date': '',
             'image': ''
         }
-        details_dialog = BookDetailsDialog( # for futher inputs
+        details_dialog = BookDetailsDialog(
             parent=self,
             book_data=book_data,
             is_found_book=bool(self.found_book_data)
         )
         if details_dialog.exec() == QDialog.Accepted:
-            standardized_book = { #book format and details
+            standardized_book = {
                 'title': details_dialog.book_data['title'],
                 'author': details_dialog.book_data['author'],
                 'isbn': details_dialog.book_data['isbn'],
@@ -756,8 +756,8 @@ class AddBookDialog(QDialog):
                 'available_copies': details_dialog.book_data['available_copies']
             }
             print(f"Adding book to books_data: {standardized_book}")
-            self.parent.books_data.append(standardized_book) #create parent wqindow for book list
-            self.parent.refresh_books_display() #refresh display
+            self.parent.books_data.append(standardized_book)
+            self.parent.refresh_books_display()
             
             # 1. Prepare data for Book table
         book_data = {
@@ -769,7 +769,7 @@ class AddBookDialog(QDialog):
             'BookTotalCopies': standardized_book['copies'],
             'BookAvailableCopies': standardized_book['available_copies'],
             'BookCover': standardized_book['image'],
-            'LibrarianID': 1  # replace with actual logged-in librarian ID
+            'LibrarianID': self.parent.librarian_id if hasattr(self.parent, 'librarian_id') and self.parent.librarian_id is not None else None
         }
 
         book_columns = list(book_data.keys())
@@ -1296,8 +1296,9 @@ class BookDetailsDialog(QDialog):
 
 #MAIN WINDOW
 class CollapsibleSidebar(QWidget):
-    def __init__(self):
+    def __init__(self, librarian_id=None):
         super().__init__()
+        self.librarian_id = librarian_id  # Store the logged-in librarian ID
         self.db_seeder = DatabaseSeeder()
         self.setWindowTitle("Library Management System")
         self.showMaximized()

@@ -297,7 +297,7 @@ class Authentication(QWidget):
                 self.set_current_librarian_id(librarian_id)
                 nav_manager.set_librarian_id(librarian_id)
                 print("Log in successful: ", librarian_id)
-                self.books_window = books.CollapsibleSidebar()  # use correct variable and class
+                self.books_window = books.CollapsibleSidebar(librarian_id=librarian_id)  # pass librarian_id
                 nav_manager._current_window = self.books_window
                 self.books_window.show()
                 self.close()

@@ -140,8 +140,9 @@ class TransactionCard(QFrame):
         layout.addWidget(status_label)
 
 class LibraryTransactionSystem(QMainWindow):
-    def __init__(self):
+    def __init__(self, librarian_id=None):
         super().__init__()
+        self.librarian_id = librarian_id
         self.setGeometry(100, 100, 1400, 800)
         self.showMaximized()
         self.setStyleSheet("background-color: white;")
@@ -657,4 +658,4 @@ if __name__ == "__main__":
     window.show()
     sys.exit(app.exec())
 
-    #transactionnnnnnnnnnnnnnnnnnnnnnnn 
+    #transactionnnnnnnnnnnnnnnnnnnnnnnn

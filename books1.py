@@ -1113,7 +1113,7 @@ class AddBookDialog(QDialog):
                 'BookTotalCopies': standardized_book['copies'],
                 'BookAvailableCopies': standardized_book['available_copies'],
                 'BookCover': standardized_book['image'],
-                'LibrarianID': 1  # replace with actual logged-in librarian ID
+                'LibrarianID': self.parent.librarian_id if hasattr(self.parent, 'librarian_id') and self.parent.librarian_id is not None else None
             }
 
             # 2. Use seed_data to insert into Book table
@@ -1672,8 +1672,9 @@ class BookDetailsDialog(QDialog):
 
 #MAIN WINDOW
 class CollapsibleSidebar(QWidget):
-    def __init__(self):
+    def __init__(self, librarian_id=None):
         super().__init__()
+        self.librarian_id = librarian_id
         self.db_seeder = DatabaseSeeder()
         self.setWindowTitle("Library Management System")
         self.showMaximized()

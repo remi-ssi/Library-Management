@@ -1,7 +1,7 @@
 import sys
 import sqlite3
 import bcrypt #for password hashing
-import books
+import Dashboard
 
 from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont, QMovie
@@ -297,9 +297,9 @@ class Authentication(QWidget):
                 self.set_current_librarian_id(librarian_id)
                 nav_manager.set_librarian_id(librarian_id)
                 print("Log in successful: ", librarian_id)
-                self.books_window = books.CollapsibleSidebar(librarian_id=librarian_id)  # pass librarian_id
-                nav_manager._current_window = self.books_window
-                self.books_window.show()
+                self.dashboard_window = Dashboard.LibraryDashboard(librarian_id=librarian_id)  # Open Dashboard instead
+                nav_manager._current_window = self.dashboard_window
+                self.dashboard_window.show()
                 self.close()
             else:
                 self.general_error_label.setText("Librarian Not Found...")

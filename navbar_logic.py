@@ -29,19 +29,19 @@ class NavigationManager(QObject):
             self._current_window = LibraryDashboard(librarian_id = self._librarian_id)
             
         elif item_name == "Books":
-            from books1 import CollapsibleSidebar
+            from books.books1 import CollapsibleSidebar
             self._current_window = CollapsibleSidebar(librarian_id=self._librarian_id)
             
         elif item_name == "Transactions":
-            from Transaction import LibraryTransactionSystem
+            from transaction.Transaction1 import LibraryTransactionSystem
             self._current_window = LibraryTransactionSystem(librarian_id= self._librarian_id)
             
         elif item_name == "Members":
-            from members import MembersMainWindow
+            from members.members import MembersMainWindow
             self._current_window = MembersMainWindow(librarian_id=self._librarian_id)
            
         elif item_name == "Settings":
-            from settings import Settings
+            from librarian.settings import Settings
             self._current_window = Settings(librarian_id = self._librarian_id)
             
         # Show the new window if one was created

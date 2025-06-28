@@ -1,4 +1,3 @@
-#labyu rems wala pa ko maisip na picture
 import sys
 import sqlite3
 from datetime import datetime
@@ -10,17 +9,13 @@ from PySide6.QtWidgets import (
     QDialog, QFormLayout, QMessageBox
 )
 
-#4px - size of border
-#10px - radius
-
 # Import the reusable navigation sidebar
 from navigation_sidebar import NavigationSidebar
 from navbar_logic import nav_manager
 
-#connect to database seeder 
+# Connect to database seeder 
 from tryDatabase import DatabaseSeeder
 
-#WALA TO WAG NIYONG PANSININ TO PARA LANG MAGING ROUND ANG PIC
 def get_rounded_pixmap(pixmap, size):
     rounded = QPixmap(size, size)
     rounded.fill(Qt.transparent)
@@ -34,7 +29,6 @@ def get_rounded_pixmap(pixmap, size):
     painter.end()
     return rounded
 
-#PARA SA CONTACT LANG THIS SO WAG DIN PANSININ
 class ProtectedContactLineEdit(QLineEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -71,10 +65,11 @@ class ProtectedContactLineEdit(QLineEdit):
             self.blockSignals(False)
 
 class AddMemberDialog(QDialog):
-    def __init__(self, existing_members, db_seeder, parent=None):
+    def __init__(self, existing_members, db_seeder, librarian_id, parent=None):
         super().__init__(parent)
         self.existing_members = existing_members
-        self.db_seeder = DatabaseSeeder()
+        self.db_seeder = db_seeder
+        self.librarian_id = librarian_id  # Store librarian_id
         self.setWindowTitle("Add New Member")
         self.setFixedSize(400, 500)
         self.setStyleSheet("""
@@ -259,19 +254,21 @@ class AddMemberDialog(QDialog):
             "contact": contact
         }
 
-        #to insert the entry to the database
-        cursor, conn = self.db_seeder.get_connection_and_cursor()
-        self.db_seeder.seed_data(tableName="Member",
-                                 data=[
-                                     {
-                                         "MemberLN" : last_name,
-                                         "MemberFN" : first_name,
-                                         "MemberMI": middle_name,
-                                         "MemberContact": contact,
-                                         "AccDeleted": None
-                                     }
-                                 ], 
-                                 columnOrder=["MemberLN", "MemberFN", "MemberMI", "MemberContact", "AccDeleted"])
+        # Insert into database
+        self.db_seeder.seed_data(
+            tableName="Member",
+            data=[
+                {
+                    "MemberLN": last_name,
+                    "MemberFN": first_name,
+                    "MemberMI": middle_name,
+                    "MemberContact": contact,
+                    "LibrarianID": self.librarian_id,  # Include LibrarianID
+                    "AccDeleted": None
+                }
+            ], 
+            columnOrder=["MemberLN", "MemberFN", "MemberMI", "MemberContact", "LibrarianID", "AccDeleted"]
+        )
         
         QMessageBox.information(self, "Success", f"Member {full_name} added successfully!")
         self.accept()
@@ -280,7 +277,7 @@ class MemberEditDialog(QDialog):
     def __init__(self, member_data, existing_members, parent=None):
         super().__init__(parent)
         self.member_data = member_data.copy()
-        self.db_seeder = DatabaseSeeder()  #initialize the database seeder
+        self.db_seeder = DatabaseSeeder()
         self.existing_members = existing_members
 
         self.original_contact = str(member_data.get("MemberContact", ""))        
@@ -425,13 +422,11 @@ class MemberEditDialog(QDialog):
         return contact.isdigit() and contact.startswith("09") and len(contact) == 11
 
     def save_changes(self):
-        # Fixed variable names here
         first_name = self.first_name_edit.text().strip()
         middle_name = self.middle_name_edit.text().strip()
         last_name = self.last_name_edit.text().strip()
         contact = self.contact_edit.text().strip()
         
-        # Validate name fields (only check non-empty names)
         if first_name and not self.is_valid_name(first_name):
             QMessageBox.warning(self, "Invalid Input", "First name should contain letters only.")
             return
@@ -452,25 +447,21 @@ class MemberEditDialog(QDialog):
             QMessageBox.warning(self, "Validation Error", "Please complete the contact number!")
             return
         
-        # Added contact validation
         if not self.is_valid_contact(contact):
             QMessageBox.warning(self, "Validation Error", "Contact number must start with 09 and be exactly 11 digits.")
             return
         
-        # Check for duplicate contact number (only if contact was changed)
         if contact != self.original_contact:
             for member in self.existing_members:
                 if str(member.get("MemberContact", "")) == contact:
                     QMessageBox.warning(self, "Validation Error", "This contact number is already registered!")
                     return
         
-        # Construct full name
         full_name = first_name
         if middle_name:
             full_name += f" {middle_name}"
         full_name += f" {last_name}"
         
-        # Update member data
         member_id = self.member_data["MemberID"]
     
         updates = {
@@ -483,17 +474,13 @@ class MemberEditDialog(QDialog):
         
         try:
             self.db_seeder.update_table("Member", updates, "MemberID", member_id)
-            
-            # Update the local member_data for the parent window
             self.member_data.update(updates)
-            
             QMessageBox.information(self, "Success", "Member information updated successfully!")
             self.accept()
         except Exception as e:
             QMessageBox.critical(self, "Database Error", f"Failed to update member: {str(e)}")  
 
     def delete_member(self):
-         # Build the full name from database fields
         first_name = self.member_data.get("MemberFN", "")
         middle_initial = self.member_data.get("MemberMI", "")
         last_name = self.member_data.get("MemberLN", "")
@@ -509,21 +496,19 @@ class MemberEditDialog(QDialog):
         
         if reply == QMessageBox.Yes:
             try:
-                # Delete from database using your existing function
                 member_id = self.member_data.get("MemberID")
                 timestamp_delete = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
                 updates = {"AccDeleted": timestamp_delete}
                 self.db_seeder.update_table("Member", updates, "MemberID", member_id)
-                
                 QMessageBox.information(self, "Success", "Member deleted successfully!")
-                self.done(2)  # Custom return value for delete
+                self.done(2)
             except Exception as e:
                 QMessageBox.critical(self, "Database Error", f"Failed to delete member: {str(e)}")
 
 class MembersMainWindow(QWidget):
-    def __init__(self):
+    def __init__(self, librarian_id=1):  # Default librarian_id for testing
         super().__init__()
+        self.librarian_id = librarian_id  # Store librarian_id
         self.setWindowTitle("Library Management System - Members")
         self.setGeometry(100, 100, 1200, 800)
         self.showMaximized()
@@ -532,7 +517,7 @@ class MembersMainWindow(QWidget):
         self.db_seeder = DatabaseSeeder()
         self.members = self.db_seeder.get_all_records(tableName="Member")
         
-         # DEBUG: Check what we got
+        # DEBUG: Check what we got
         print("Fetched members:", self.members)
         print("Type of members:", type(self.members))
         print("Number of members:", len(self.members) if self.members else 0)
@@ -550,7 +535,6 @@ class MembersMainWindow(QWidget):
         # Create navigation sidebar
         self.navbar = NavigationSidebar()
         self.navbar.on_navigation_clicked = nav_manager.handle_navigation
-
         
         # Main content area
         self.content_area = QWidget()
@@ -571,7 +555,6 @@ class MembersMainWindow(QWidget):
         """Create the main members view with title and search bar/buttons"""
         view_widget = QWidget()
         view_layout = QVBoxLayout(view_widget)
-        #FOR THE HEADER AND SEARCH LAYOUT -
         view_layout.setContentsMargins(40, 80, 40, 20)
         
         # Header section
@@ -648,7 +631,6 @@ class MembersMainWindow(QWidget):
                 color: white;
             }
         """)
-        # Connect the add button to the add member function
         add_btn.clicked.connect(self.add_new_member)
         
         search_layout.addWidget(self.search_bar)
@@ -665,7 +647,6 @@ class MembersMainWindow(QWidget):
         # Create scroll area for members
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        # Hide scroll bars and make background transparent
         self.scroll_area.setStyleSheet("""
             QScrollArea {
                 background-color: transparent; 
@@ -678,17 +659,15 @@ class MembersMainWindow(QWidget):
                 height: 0px;
             }
         """)
-        # Create and populate the members grid
         self.refresh_members_grid()
 
-        # Add scroll area to main view layout
         view_layout.addWidget(self.scroll_area)
 
         return view_widget
     
     def add_new_member(self):
         """Open the add member dialog"""
-        dialog = AddMemberDialog(self.members, self.db_seeder)
+        dialog = AddMemberDialog(self.members, self.db_seeder, self.librarian_id, self)
         result = dialog.exec()
         
         if result == QDialog.Accepted:
@@ -697,18 +676,16 @@ class MembersMainWindow(QWidget):
         
     def get_active_members(self):
         """Get only active member accounts"""
-
         if not self.members:
-            return[]
+            return []
         active_members = []
         for member in self.members:
-            if member.get("AccDeleted") is None or member.get("AccDeleted")=="":
+            if member.get("AccDeleted") is None or member.get("AccDeleted") == "" and member.get("LibrarianID") == self.librarian_id:
                 active_members.append(member)
         return active_members
     
     def refresh_members_grid(self):
         """Refresh the members grid display"""
-        # Container inside scroll area
         scroll_widget = QWidget()
         grid_layout = QGridLayout(scroll_widget)
         grid_layout.setVerticalSpacing(30)
@@ -718,7 +695,6 @@ class MembersMainWindow(QWidget):
 
         active_members = self.get_active_members()
 
-        # Create rounded containers dynamically
         for i, member in enumerate(active_members):
             container = self.create_member_container(member, i) 
             row = i // 4
@@ -742,7 +718,6 @@ class MembersMainWindow(QWidget):
             }
         """)
         
-        # Make container clickable
         container.mousePressEvent = lambda event, m=member, idx=index: self.on_member_click(m, idx)
 
         image_label = QLabel()
@@ -752,19 +727,16 @@ class MembersMainWindow(QWidget):
         rounded_pixmap = get_rounded_pixmap(pixmap, 80)
         image_label.setPixmap(rounded_pixmap)
         
-        # Build the full name from database fields
         first_name = member.get("MemberFN", "")
         middle_initial = member.get("MemberMI", "")
         last_name = member.get("MemberLN", "")
         full_name = f"{first_name} {middle_initial} {last_name}".strip()
         
-        # Truncate text to fit in 2 lines maximum
         def truncate_to_two_lines(text, max_width=220, font_size=16):
             font = QFont("Times New Roman", font_size)
             font.setBold(True)
             metrics = QFontMetrics(font)
             
-            # Calculate how many characters fit in one line
             single_line_width = max_width + 20
             
             if metrics.horizontalAdvance(text) <= single_line_width:
@@ -852,23 +824,21 @@ class MembersMainWindow(QWidget):
         dialog = MemberEditDialog(member, self.members, self)
         result = dialog.exec()
 
-        if result == QDialog.Accepted:
-            self.members = self.db_seeder.get_all_records(tableName="Member")
-            self.refresh_members_grid()
-
-        elif result == QDialog.Accepted or result ==2 :  # Delete
+        if result == QDialog.Accepted or result == 2:  # Accepted or Delete
             try:
                 self.members = self.db_seeder.get_all_records(tableName="Member")
                 self.refresh_members_grid()
                 if result == 2:
                     QMessageBox.information(self, "Success", "Member deleted successfully")
             except Exception as e:
-                QMessageBox.critical(self, "Database Error", f"Failed to delete member: {str(e)}")
+                QMessageBox.critical(self, "Database Error", f"Failed to refresh members: {str(e)}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setFont(QFont("Times New Roman", 10))
-    window = MembersMainWindow()
+    from Authentication import Authentication
+    window = Authentication()
+    nav_manager.initialize(app)
     nav_manager._current_window = window
     window.show()
     sys.exit(app.exec())

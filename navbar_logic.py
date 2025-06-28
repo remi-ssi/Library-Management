@@ -5,14 +5,19 @@ class NavigationManager(QObject):
     def __init__(self):
         super().__init__()
         self._current_window = None
+        self._librarian_id = None
     
     def initialize(self, app):
         """Initialize with QApplication instance"""
         self._app = app
     
+    def set_librarian_id (self, librarian_id):
+        self._librarian_id = librarian_id
 
-    def handle_navigation(self, item_name):
+    def handle_navigation(self, item_name, librarian_id=None):
         """Central navigation logic for all forms"""
+        if librarian_id is not None:
+            self._librarian_id = librarian_id
         # Hide current window if it exists
         if self._current_window:
             self._current_window.close()
@@ -21,23 +26,23 @@ class NavigationManager(QObject):
         # Handle navigation based on clicked item
         if item_name == "Dashboard":
             from Dashboard import LibraryDashboard
-            self._current_window = LibraryDashboard()
+            self._current_window = LibraryDashboard(librarian_id = self._librarian_id)
             
         elif item_name == "Books":
             from books import CollapsibleSidebar
-            self._current_window = CollapsibleSidebar()
+            self._current_window = CollapsibleSidebar(librarian_id= self._librarian_id)
             
         elif item_name == "Transactions":
             from Transaction import LibraryTransactionSystem
-            self._current_window = LibraryTransactionSystem()
+            self._current_window = LibraryTransactionSystem(librarian_id= self._librarian_id)
             
         elif item_name == "Members":
             from members import MembersMainWindow
-            self._current_window = MembersMainWindow()
+            self._current_window = MembersMainWindow(librarian_id=self._librarian_id)
            
         elif item_name == "Settings":
             from settings import Settings
-            self._current_window = Settings()
+            self._current_window = Settings(librarian_id = self._librarian_id)
             
         # Show the new window if one was created
         if self._current_window:

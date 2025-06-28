@@ -242,5 +242,17 @@ class DatabaseSeeder:
         finally:
             conn.close()
     
+    def get_librarian_by_id(self, librarian_id):
+        conn, cursor = self.get_connection_and_cursor()
+        try: 
+            query = "SELECT COUNT (*) FROM Librarian WHERE LibrarianID = ?"
+            result = cursor.execute(query, (librarian_id,)).fetchone()
+            return result[0] > 0
+        except Exception as e:
+            print(f"Error finding Librarian: {e}")
+            return False
+        finally: 
+            conn.close()
+    
 if __name__ == "__main__":
     seeder = DatabaseSeeder()

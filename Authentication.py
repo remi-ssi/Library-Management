@@ -11,9 +11,24 @@ from PySide6.QtWidgets import (
 )
 #initialize database from the seeder
 from tryDatabase import DatabaseSeeder
-
+from navbar_logic import nav_manager
+    
 #The authentication inherits the QWidget
 class Authentication(QWidget): 
+    _current_librarian_id = None
+
+    @classmethod
+    def set_current_librarian_id(cls, librarian_id):
+        """Set the current librarian ID after login."""
+        cls._current_librarian_id = librarian_id
+
+    @classmethod
+    def get_current_librarian_id(cls):
+        """Get the current librarian ID."""
+        if cls._current_librarian_id is None:
+            raise ValueError("No librarian is currently logged in.")
+        return cls._current_librarian_id
+    
     def __init__(self):
         super().__init__() #GIVEN NA TO EVERYTIME
         self.db_seeder = DatabaseSeeder()
@@ -274,13 +289,23 @@ class Authentication(QWidget):
         
         # Proceed with login validation
         if self.db_seeder.verify_librarian_login(username, password):
-            print("Log in successful")
-            self.books_window = books.CollapsibleSidebar()  # use correct variable and class
-            self.books_window.show()
-            self.close()
 
+            librarians = self.db_seeder.get_all_records("Librarian")
+            librarian = next((lib for lib in librarians if lib ['LibUsername'] == username), None)
+            if librarian:
+                librarian_id = librarian["LibrarianID"]
+                self.set_current_librarian_id(librarian_id)
+                nav_manager.set_librarian_id(librarian_id)
+                print("Log in successful: ", librarian_id)
+                self.books_window = books.CollapsibleSidebar()  # use correct variable and class
+                nav_manager._current_window = self.books_window
+                self.books_window.show()
+                self.close()
+            else:
+                self.general_error_label.setText("Librarian Not Found...")
+                self.general_error_label.show()
         else:
-            self.general_error_label.setText("Invalid email or password.")
+            self.general_error_label.setText("Invalid email or password")
             self.general_error_label.show()
 
     def open_signUp(self):
@@ -578,6 +603,7 @@ if __name__ == "__main__":
     """)
 
     window = Authentication()
+    nav_manager.initialize(app)
     #window.showFullScreen()
     window.show() 
     app.exec()

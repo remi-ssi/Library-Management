@@ -925,6 +925,97 @@ class AddBookDialog(QDialog):
             print(f"Adding book to book-data: {standardized_book}")
             self.parent.books_data.append(standardized_book)
             self.parent.refresh_books_display()
+            
+            # Save to database using the same logic as add_book method
+            # 1. Prepare data for Book table
+            book_data = {
+                'BookTitle': standardized_book['title'],
+                'Publisher': 'Unknown Publisher',  # or from dialog if available
+                'BookDescription': standardized_book['description'],
+                'shelfNo': standardized_book['shelf'],
+                'ISBN': standardized_book['isbn'],
+                'BookTotalCopies': standardized_book['copies'],
+                'BookAvailableCopies': standardized_book['available_copies'],
+                'BookCover': standardized_book['image'],
+                'LibrarianID': 1  # replace with actual logged-in librarian ID
+            }
+
+            # 2. Use seed_data to insert into Book table
+            book_columns = ['BookTitle', 'Publisher', 'BookDescription', 'shelfNo', 'ISBN', 
+                           'BookTotalCopies', 'BookAvailableCopies', 'BookCover', 'LibrarianID']
+            
+            try:
+                # Insert book using seed_data
+                self.db_seeder.seed_data(
+                    tableName="Book",
+                    data=[book_data],
+                    columnOrder=book_columns
+                )
+
+                # 3. Get the BookCode of the inserted book
+                # Query to find the book we just inserted
+                conn, cursor = self.db_seeder.get_connection_and_cursor()
+                try:
+                    cursor.execute("""
+                        SELECT BookCode FROM Book 
+                        WHERE BookTitle = ? AND ISBN = ? AND shelfNo = ?
+                        ORDER BY BookCode DESC LIMIT 1
+                    """, (standardized_book['title'], standardized_book['isbn'], standardized_book['shelf']))
+                    
+                    result = cursor.fetchone()
+                    if not result:
+                        print("❌ Error: Could not find the inserted book")
+                        return
+                    
+                    book_code = result[0]
+                    print(f"✓ Found BookCode: {book_code}")
+                finally:
+                    conn.close()
+
+                # 4. Use seed_data for BookAuthor - handle multiple authors
+                authors = standardized_book['author']
+                if isinstance(authors, str):
+                    authors = [authors]  # Convert string to list if needed
+                
+                author_data_list = []
+                for author in authors:
+                    author_data_list.append({
+                        'BookCode': book_code,
+                        'bookAuthor': author.strip()
+                    })
+                
+                if author_data_list:
+                    self.db_seeder.seed_data(
+                        tableName="BookAuthor",
+                        data=author_data_list,
+                        columnOrder=['BookCode', 'bookAuthor']
+                    )
+
+                # 5. Use seed_data for Book_Genre - handle multiple genres
+                genres = standardized_book['genre']
+                if isinstance(genres, str):
+                    genres = [genres]  # Convert string to list if needed
+                
+                genre_data_list = []
+                for genre in genres:
+                    genre_data_list.append({
+                        'BookCode': book_code,
+                        'Genre': genre.strip()
+                    })
+                
+                if genre_data_list:
+                    self.db_seeder.seed_data(
+                        tableName="Book_Genre",
+                        data=genre_data_list,
+                        columnOrder=['BookCode', 'Genre']
+                    )
+
+                print(f"✓ Manual entry book with {len(author_data_list)} authors and {len(genre_data_list)} genres saved successfully with BookCode: {book_code}")
+            except Exception as e:
+                print(f"❌ Error saving manual entry book to database: {e}")
+                import traceback
+                traceback.print_exc()
+            
             self.accept()
             
     def load_cover(self, image_url):

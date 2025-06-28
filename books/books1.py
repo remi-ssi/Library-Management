@@ -532,6 +532,9 @@ class AddBookDialog(QDialog):
         super().__init__(parent)
         self.parent = parent
         self.db_seeder = DatabaseSeeder()
+        # Get librarian_id from parent (CollapsibleSidebar)
+        self.librarian_id = getattr(parent, 'librarian_id', None) if parent else None
+        print(f"📚 AddBookDialog initialized with librarian_id: {self.librarian_id}")
         self.setWindowTitle("Add New Book")
         self.setFixedSize(500, 700)
         self.setStyleSheet("""
@@ -894,6 +897,7 @@ class AddBookDialog(QDialog):
             self.reset_cover_preview()
 
     def open_manual_entry(self, title, author, isbn): #manual entry if no book is found
+        print(f"📝 Opening manual entry with LibrarianID: {self.librarian_id}")
         book_data = {
             'title': title,
             'author': author if author else "Unknown Author",
@@ -938,7 +942,7 @@ class AddBookDialog(QDialog):
                 'BookTotalCopies': standardized_book['copies'],
                 'BookAvailableCopies': standardized_book['available_copies'],
                 'BookCover': standardized_book['image'],
-                'LibrarianID': 1  # replace with actual logged-in librarian ID
+                'LibrarianID': self.librarian_id  # Use the actual logged-in librarian ID
             }
 
             # 2. Use seed_data to insert into Book table
@@ -947,6 +951,7 @@ class AddBookDialog(QDialog):
             
             try:
                 # Insert book using seed_data
+                print(f"📝 Saving manual entry book with LibrarianID: {self.librarian_id}")
                 self.db_seeder.seed_data(
                     tableName="Book",
                     data=[book_data],
@@ -1059,6 +1064,7 @@ class AddBookDialog(QDialog):
             self.found_book_data['image'] = ''
     
     def add_book(self):
+        print(f"📚 Adding book with LibrarianID: {self.librarian_id}")
         title = self.title_input.text().strip() #get input values
         author = self.author_input.text().strip()
         isbn = re.sub(r'[^0-9X]', '', self.isbn_input.text().strip().upper())
@@ -1113,7 +1119,7 @@ class AddBookDialog(QDialog):
                 'BookTotalCopies': standardized_book['copies'],
                 'BookAvailableCopies': standardized_book['available_copies'],
                 'BookCover': standardized_book['image'],
-                'LibrarianID': self.parent.librarian_id if hasattr(self.parent, 'librarian_id') and self.parent.librarian_id is not None else None
+                'LibrarianID': self.librarian_id  # Use the actual logged-in librarian ID
             }
 
             # 2. Use seed_data to insert into Book table
@@ -1122,6 +1128,7 @@ class AddBookDialog(QDialog):
             
             try:
                 # Insert book using seed_data
+                print(f"📚 Saving API book with LibrarianID: {self.librarian_id}")
                 self.db_seeder.seed_data(
                     tableName="Book",
                     data=[book_data],

@@ -218,10 +218,6 @@ Temporary Items
 *.log
 logs/
 
-# Database files
-*.db
-*.sqlite
-*.sqlite3
 
 # Configuration files (if they contain sensitive information)
 config.ini

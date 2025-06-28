@@ -235,3 +235,4 @@ settings.ini
 assets/temp/
 temp/
 cache/
+__pycache__/tryDatabase.cpython-313.pyc

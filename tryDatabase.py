@@ -36,7 +36,6 @@ class DatabaseSeeder:
                     MemberContact INTEGER(11) NOT NULL,
                     CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
                     LibrarianID INTEGER,
-                    AccDeleted TIMESTAMP,
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID)
                     )"""
         elif tableName == "Book":
@@ -171,15 +170,32 @@ class DatabaseSeeder:
     def update_table(self, tableName, updates: dict, column, value):
         conn, cursor = self.get_connection_and_cursor()
         try:
+            # Enable foreign keys
+            conn.execute("PRAGMA foreign_keys = ON;")
+            
             set_clause = ', '.join([f"{col} = ?" for col in updates])
             values = list(updates.values()) + [value]
             #update statement
             query = f"UPDATE {tableName} SET {set_clause} WHERE {column} = ?"
+            
+            print(f"🔄 Executing update query: {query}")
+            print(f"   Values: {values}")
+            
             cursor.execute(query, values)
+            rows_affected = cursor.rowcount
             conn.commit()
-            print(f"✓ Row in '{tableName}' where {column} = {value} updated successfully.")
+            
+            if rows_affected > 0:
+                print(f"✓ Row in '{tableName}' where {column} = {value} updated successfully. ({rows_affected} row(s) affected)")
+                return True
+            else:
+                print(f"⚠️ No rows were updated in '{tableName}' where {column} = {value}")
+                return False
+                
         except Exception as e:
             print(f"✗ Error updating row in '{tableName}': {e}")
+            conn.rollback()
+            return False
         finally:
             conn.close()
 
@@ -240,18 +256,6 @@ class DatabaseSeeder:
             print(f"Error finding member contact: {e}")
             return False
         finally:
-            conn.close()
-    
-    def get_librarian_by_id(self, librarian_id):
-        conn, cursor = self.get_connection_and_cursor()
-        try: 
-            query = "SELECT COUNT (*) FROM Librarian WHERE LibrarianID = ?"
-            result = cursor.execute(query, (librarian_id,)).fetchone()
-            return result[0] > 0
-        except Exception as e:
-            print(f"Error finding Librarian: {e}")
-            return False
-        finally: 
             conn.close()
     
 if __name__ == "__main__":

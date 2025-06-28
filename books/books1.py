@@ -480,49 +480,183 @@ class BookEditView(QWidget):
         """
     
     def save_changes(self):
-        if not self.copies_input.text().isdigit() or int(self.copies_input.text()) < 1:
+        print(f"🔄 Save changes requested for book: {self.book_data.get('title')}")
+        
+        # Validate copies input
+        copies_text = self.copies_input.text().strip()
+        if not copies_text.isdigit() or int(copies_text) < 1:
             QMessageBox.warning(self, "Validation Error", "Copies must be a positive integer")
+            print(f"❌ Validation failed: Invalid copies value '{copies_text}'")
             return
+        
+        # Validate shelf format
+        shelf = self.shelf_input.text().strip()
+        if not re.match(r'^[A-Z][0-9]{1,5}$', shelf):
+            QMessageBox.warning(self, "Validation Error", "Shelf number must be one letter (A-Z) followed by 1 to 5 digits. (e.g. A1, B12, C345)")
+            print(f"❌ Validation failed: Invalid shelf format '{shelf}'")
+            return
+        
+        print(f"✅ Validation passed - Copies: {copies_text}, Shelf: {shelf}")
+        print(f"✅ Validation passed - Copies: {copies_text}, Shelf: {shelf}")
+            
         try:
-            # Update book data
-            self.book_data['copies'] = int(self.copies_input.text())
-            self.book_data['available_copies'] = int(self.copies_input.text())
-            self.book_data['shelf'] = self.shelf_input.text()
-            self.book_data['description'] = self.description_input.toPlainText()
-              # Show confirmation
+            print(f"📝 Starting update process...")
+            
+            # Update book data in memory
+            old_copies = self.book_data.get('copies', 0)
+            old_available = self.book_data.get('available_copies', 0)
+            new_copies = int(copies_text)
+            
+            # Calculate new available copies (maintain the difference)
+            copies_difference = new_copies - old_copies
+            new_available_copies = max(0, old_available + copies_difference)
+            
+            print(f"📊 Copies calculation:")
+            print(f"   Old: {old_copies} total, {old_available} available")
+            print(f"   New: {new_copies} total, {new_available_copies} available")
+            
+            # Get current description from UI
+            new_description = self.description_input.toPlainText().strip()
+            
+            # Update book data in memory
+            self.book_data['copies'] = new_copies
+            self.book_data['available_copies'] = new_available_copies
+            self.book_data['shelf'] = shelf
+            self.book_data['description'] = new_description
+            
+            # Update in database using tryDatabase.py update_table method
+            book_code = self.book_data.get('book_code')
+            if not book_code:
+                QMessageBox.warning(self, "Error", "Cannot update: Book code not found")
+                print(f"❌ Error: Book code not found in book_data")
+                return
+            
+            print(f"📝 Updating book with BookCode: {book_code}")
+            print(f"   Title: {self.book_data.get('title')}")
+            
+            # Prepare updates for Book table
+            book_updates = {
+                'BookDescription': new_description,
+                'shelfNo': shelf,
+                'BookTotalCopies': new_copies,
+                'BookAvailableCopies': new_available_copies
+            }
+            
+            print(f"📋 Updates to apply: {book_updates}")
+            
+            # Initialize database seeder
+            from tryDatabase import DatabaseSeeder
+            db_seeder = DatabaseSeeder()
+            
+            # Update the Book table
+            print(f"🔄 Executing database update...")
+            try:
+                update_success = db_seeder.update_table("Book", book_updates, "BookCode", book_code)
+                print(f"📊 Update result: {update_success} (type: {type(update_success)})")
+                
+                if update_success is False:
+                    QMessageBox.warning(self, "Error", "Failed to update book in database. Please try again.")
+                    print(f"❌ Database update returned False")
+                    return
+                elif update_success is None:
+                    print(f"⚠️ Warning: Database update returned None, but proceeding...")
+                else:
+                    print(f"✅ Database update completed successfully!")
+            except Exception as update_error:
+                QMessageBox.warning(self, "Error", f"Database update failed: {str(update_error)}")
+                print(f"❌ Database update exception: {update_error}")
+                return
+            
+            # Verify the update worked by checking the database
+            updated_books = db_seeder.get_all_records("Book")
+            updated_book = next((b for b in updated_books if b.get('BookCode') == book_code), None)
+            
+            if updated_book:
+                print(f"✅ Verification successful:")
+                print(f"   Description: {updated_book.get('BookDescription')}")
+                print(f"   Shelf: {updated_book.get('shelfNo')}")
+                print(f"   Total Copies: {updated_book.get('BookTotalCopies')}")
+                print(f"   Available Copies: {updated_book.get('BookAvailableCopies')}")
+            else:
+                print(f"⚠️ Warning: Could not verify update in database")
+            
+            # Show success message
             msg = QMessageBox()
             msg.setWindowTitle("Success")
-            msg.setText(f"Book '{self.book_data['title']}' has been updated successfully!")
+            msg.setText(f"Book '{self.book_data['title']}' has been updated successfully!\n\nUpdated fields:\n• Description: {new_description[:50]}{'...' if len(new_description) > 50 else ''}\n• Shelf: {shelf}\n• Total Copies: {new_copies}\n• Available Copies: {new_available_copies}")
             msg.setIcon(QMessageBox.Information)
             msg.exec()
-            self.parent_window.show_books_view()
+            
+            print(f"🔄 Refreshing parent window display...")
+            # Refresh the parent window display
+            if hasattr(self.parent_window, 'load_books_from_database'):
+                self.parent_window.load_books_from_database()
+                print(f"✅ Books data reloaded from database")
+            else:
+                print(f"⚠️ Warning: parent_window doesn't have load_books_from_database method")
+                
+            if hasattr(self.parent_window, 'show_books_view'):
+                self.parent_window.show_books_view()
+                print(f"✅ Books view refreshed")
+            else:
+                print(f"⚠️ Warning: parent_window doesn't have show_books_view method")
+            
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Error updating books: {e}")
-            print(f"Error updating books: {e}")
+            error_msg = f"Error updating book: {str(e)}"
+            QMessageBox.warning(self, "Error", error_msg)
+            print(f"❌ {error_msg}")
+            import traceback
+            traceback.print_exc()
               
     def delete_book(self):
         # Confirm deletion
         reply = QMessageBox.question(
             self, 
             'Confirm Deletion', 
-            f"Are you sure you want to delete '{self.book_data['title']}'?",
+            f"Are you sure you want to delete '{self.book_data['title']}'?\n\nThis will permanently remove the book and all related author and genre information.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
         
         if reply == QMessageBox.Yes:
-            # Remove from books data
-            if self.book_data in self.parent_window.books_data:
-                self.parent_window.books_data.remove(self.book_data)
-            
-            # Show confirmation
-            msg = QMessageBox()
-            msg.setWindowTitle("Deleted")
-            msg.setText(f"Book '{self.book_data['title']}' has been deleted successfully!")
-            msg.setIcon(QMessageBox.Information)
-            msg.exec()
-              # Go back to main books view
-            self.parent_window.show_books_view()
+            try:
+                book_code = self.book_data.get('book_code')
+                if not book_code:
+                    QMessageBox.warning(self, "Error", "Cannot delete: Book code not found")
+                    return
+                
+                print(f"🗑️ Deleting book with BookCode: {book_code}")
+                
+                # Initialize database seeder
+                from tryDatabase import DatabaseSeeder
+                db_seeder = DatabaseSeeder()
+                
+                # Delete from related tables first (due to foreign key constraints)
+                # Delete from Book_Genre table
+                db_seeder.delete_table("Book_Genre", "BookCode", book_code)
+                
+                # Delete from BookAuthor table
+                db_seeder.delete_table("BookAuthor", "BookCode", book_code)
+                
+                # Finally delete from Book table
+                db_seeder.delete_table("Book", "BookCode", book_code)
+                
+                # Show confirmation
+                msg = QMessageBox()
+                msg.setWindowTitle("Deleted")
+                msg.setText(f"Book '{self.book_data['title']}' has been deleted successfully!")
+                msg.setIcon(QMessageBox.Information)
+                msg.exec()
+                
+                # Refresh the parent window display
+                self.parent_window.load_books_from_database()
+                self.parent_window.show_books_view()
+                
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"Error deleting book: {e}")
+                print(f"❌ Error deleting book: {e}")
+                import traceback
+                traceback.print_exc()
     
     def go_back(self):
         self.parent_window.show_books_view()

@@ -915,6 +915,7 @@ class AddBookDialog(QDialog):
                 'title': details_dialog.book_data['title'],
                 'author': details_dialog.book_data['author'],
                 'isbn': details_dialog.book_data['isbn'],
+                'publisher': details_dialog.book_data['publisher'], 
                 'genre': details_dialog.book_data['genre'],
                 'description': details_dialog.book_data['description'],
                 'shelf': details_dialog.book_data['shelf'],
@@ -930,7 +931,7 @@ class AddBookDialog(QDialog):
             # 1. Prepare data for Book table
             book_data = {
                 'BookTitle': standardized_book['title'],
-                'Publisher': 'Unknown Publisher',  # or from dialog if available
+                'Publisher': standardized_book.get('publisher', 'Unknown Publisher'),  
                 'BookDescription': standardized_book['description'],
                 'shelfNo': standardized_book['shelf'],
                 'ISBN': standardized_book['isbn'],
@@ -1090,6 +1091,7 @@ class AddBookDialog(QDialog):
                 'title': details_dialog.book_data['title'],
                 'author': details_dialog.book_data['author'],
                 'isbn': details_dialog.book_data['isbn'],
+                'publisher': details_dialog.book_data['publisher'], 
                 'genre': details_dialog.book_data['genre'],
                 'description': details_dialog.book_data['description'],
                 'shelf': details_dialog.book_data['shelf'],
@@ -1104,7 +1106,7 @@ class AddBookDialog(QDialog):
             # 1. Prepare data for Book table
             book_data = {
                 'BookTitle': standardized_book['title'],
-                'Publisher': 'Unknown Publisher',  # or from dialog if available
+                'Publisher': standardized_book.get('publisher', 'Unknown Publisher'), 
                 'BookDescription': standardized_book['description'],
                 'shelfNo': standardized_book['shelf'],
                 'ISBN': standardized_book['isbn'],
@@ -1761,6 +1763,7 @@ class CollapsibleSidebar(QWidget):
                         "author": book_authors_list,  # Keep as list for multiple authors
                         "genre": book_genres_list,    # Keep as list for multiple genres
                         "isbn": book.get("ISBN", ""),
+                        "publisher": book.get("Publisher", "Unknown Publisher"), 
                         "description": book.get("BookDescription", ""),
                         "shelf": book.get("shelfNo", ""),
                         "copies": book.get("BookTotalCopies", 0),

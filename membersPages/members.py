@@ -264,10 +264,10 @@ class AddMemberDialog(QDialog):
                     "MemberMI": middle_name,
                     "MemberContact": contact,
                     "LibrarianID": self.librarian_id,  # Include LibrarianID
-                    "AccDeleted": None
+                    "isDeleted": None
                 }
             ], 
-            columnOrder=["MemberLN", "MemberFN", "MemberMI", "MemberContact", "LibrarianID", "AccDeleted"]
+            columnOrder=["MemberLN", "MemberFN", "MemberMI", "MemberContact", "LibrarianID", "isDeleted"]
         )
         
         QMessageBox.information(self, "Success", f"Member {full_name} added successfully!")
@@ -469,7 +469,7 @@ class MemberEditDialog(QDialog):
             "MemberMI": middle_name,
             "MemberLN": last_name,
             "MemberContact": contact,
-            "AccDeleted": None
+            "isDeleted": None
         }
         
         try:
@@ -498,7 +498,7 @@ class MemberEditDialog(QDialog):
             try:
                 member_id = self.member_data.get("MemberID")
                 timestamp_delete = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                updates = {"AccDeleted": timestamp_delete}
+                updates = {"isDeleted": timestamp_delete}
                 self.db_seeder.update_table("Member", updates, "MemberID", member_id)
                 QMessageBox.information(self, "Success", "Member deleted successfully!")
                 self.done(2)
@@ -680,7 +680,7 @@ class MembersMainWindow(QWidget):
             return []
         active_members = []
         for member in self.members:
-            if member.get("AccDeleted") is None or member.get("AccDeleted") == "" and member.get("LibrarianID") == self.librarian_id:
+            if member.get("isDeleted") is None or member.get("isDeleted") == "" and member.get("LibrarianID") == self.librarian_id:
                 active_members.append(member)
         return active_members
     

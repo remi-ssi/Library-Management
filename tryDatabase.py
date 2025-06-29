@@ -147,10 +147,15 @@ class DatabaseSeeder:
             conn.close()
 
     #to get all the records/rows inside the certain table
-    def get_all_records(self, tableName):
+    def get_all_records(self, tableName, columnId, id):
         conn, cursor = self.get_connection_and_cursor()
         try:
-            cursor.execute(f"SELECT * FROM {tableName}")
+            if tableName == "Librarian":
+                cursor.execute(f"SELECT * FROM {tableName}")
+            else:
+                query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND {columnId} = ?"
+                cursor.execute(query, (id,))
+            
             rows = cursor.fetchall()
 
             # Get column names from the cursor description
@@ -159,7 +164,7 @@ class DatabaseSeeder:
             # Convert rows to list of dictionaries
             records = [dict(zip(columns, row)) for row in rows]
 
-            return records #return the list to display in the UI
+            return records  # Return the list to display in the UI
         except Exception as e:
             print(f"✗ Error fetching records from {tableName}: {e}")
             return []

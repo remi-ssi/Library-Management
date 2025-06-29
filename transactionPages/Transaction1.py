@@ -2,6 +2,7 @@ import sys
 import requests
 import navigation_sidebar
 from navbar_logic import nav_manager
+from .transaction_logic import BorrowBooks
 
 from datetime import datetime, timedelta
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer, QRect, QEasingCurve
@@ -141,20 +142,12 @@ class LibraryTransactionSystem(QMainWindow):
     def __init__(self, librarian_id=None):
         super().__init__()
         self.librarian_id = librarian_id
+        self.borrow_books = BorrowBooks() # Initialize BorrowBooks instance
         self.setGeometry(100, 100, 1400, 800)
         self.setStyleSheet("background-color: white;")
         self.showMaximized()
-        self.transactions = [
-            {"id": 1, "book_title": "1984", "borrower": "John Doe", "action": "Borrowed", "date": "2025-06-06", "due_date": "2025-06-20"},
-            {"id": 2, "book_title": "The Catcher in the Rye", "borrower": "Jane Smith", "action": "Borrowed", "date": "2025-06-04", "due_date": "2025-06-18"},
-            {"id": 3, "book_title": "Animal Farm", "borrower": "Bob Johnson", "action": "Returned", "date": "2025-06-05", "due_date": "2025-05-22"},
-            {"id": 4, "book_title": "Pride and Prejudice", "borrower": "Alice Brown", "action": "Borrowed", "date": "2025-06-01", "due_date": "2025-06-15"},
-            {"id": 5, "book_title": "The Great Gatsby", "borrower": "Charlie Wilson", "action": "Returned", "date": "2025-05-28", "due_date": "2025-05-14"},
-            {"id": 6, "book_title": "To Kill a Mockingbird", "borrower": "Diana Prince", "action": "Borrowed", "date": "2025-06-08", "due_date": "2025-06-22"},
-            {"id": 7, "book_title": "Lord of the Flies", "borrower": "Eve Adams", "action": "Returned", "date": "2025-06-03", "due_date": "2025-05-20"},
-            {"id": 8, "book_title": "Brave New World", "borrower": "Frank Miller", "action": "Borrowed", "date": "2025-06-09", "due_date": "2025-06-23"},
-        ]
-        self.next_transaction_id = 9
+        self.transactions = []
+        self.next_transaction_id = 1
         self.setup_ui()
 
     def setup_ui(self):

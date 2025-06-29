@@ -1,9 +1,11 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox,
-    QDateEdit, QPushButton, QWidget, QSizePolicy, QSpinBox, QScrollArea, QFrame
+    QDateEdit, QPushButton, QWidget, QSizePolicy, QSpinBox, QScrollArea, QFrame, QMessageBox
 )
 from PySide6.QtCore import Qt, QDate, Signal
 from PySide6.QtGui import QFont
+from .transaction_logic import BorrowBooks
+from tryDatabase import DatabaseSeeder
 
 class BookSelectionWidget(QWidget):
     """Widget for selecting a book and its quantity"""
@@ -150,6 +152,7 @@ class BookSelectionWidget(QWidget):
                 min-width: 40px;
             }
         """)
+
         
         # Qty label
         qty_label = QLabel("Qty:")
@@ -184,10 +187,12 @@ class BookSelectionWidget(QWidget):
         return self.quantity_spin.value()
 
 class AddTransactionForm(QDialog):
-    def __init__(self, books_list, parent=None):
+    def __init__(self, books_list, librarian_id, parent=None):
         super().__init__(parent)
         self.books_list = books_list
+        self.librarian_id = librarian_id
         self.book_widgets = []
+        self.borrow_books = BorrowBooks()
         
         self.setWindowTitle("Add New Transaction")
         self.setStyleSheet("background-color: #f5f1e6;")
@@ -443,6 +448,27 @@ class AddTransactionForm(QDialog):
                 'quantity': widget.get_quantity()
             })
         return books_data
+    
+    def accept(self):
+        borrower_name = self.borrower_edit.text.strip()
+        if not borrower_name:
+            QMessageBox.warning(self, "Input Error", "Please enter the borrower's name.")
+            return
+        books_data = self.get_books_data()
+        if not books_data:
+            QMessageBox.warning(self, "Input Error", "Please add at least one book.")
+            return
+        
+        success = self.borrow_books.add_transaction(
+            borrower_name = borrower_name,
+            books_data = books_data,
+            borrow_date = self.borrow_date_edit.date(),
+            due_date = self.due_date_edit.date(),
+            status = self.status_combo.currentText(),
+            librarian_id = self.librarian_id
+        )
+        if success: 
+            super().accept()
 
 if __name__ == "__main__":
     import sys

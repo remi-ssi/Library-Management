@@ -66,6 +66,28 @@ class DatabaseSeeder:
                     PRIMARY KEY (BookCode, Genre), 
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
             return book, Author, Genre
+        elif tableName == "Transaction":
+            return """CREATE TABLE IF NOT EXISTS Transaction (
+                    TransactionID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    TransactionType VARCHAR(20) NOT NULL,
+                    TransactionDate TIMESTAMP NOT NULL,
+                    Status VARCHAR(20) NOT NULL,
+                    Remarks DEFAULT NULL,
+                    isDeleted TIMESTAMP DEFAULT NULL,
+                    LibrarianID INTEGER,
+                    MemberID INTEGER, 
+                    BookCode INTEGER,
+                    FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID),
+                    FOREIGN KEY (MemberID) REFERENCES Member (MemberID),
+                    FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
+        elif tableName == "TransactionDetails":
+            return """CREATE TABLE IF NOT EXISTS TransactionDetails (
+                    DetailsID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    Quantity INTEGER NOT NULL,
+                    TransactionID INTEGER,
+                    BookCode INTEGER,
+                    FOREIGN KEY (TransactionID) REFERENCES Transaction (TransactionID),
+                    FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
 
     #check if the table exists in the database
     def check_table(self, tableName):
@@ -185,6 +207,38 @@ class DatabaseSeeder:
             return []
         finally:
             conn.close()
+
+    def get_transaction_with_details(self, member_id=None, librarian_id=None):
+        try:
+            conn, cursor = self.get_connection_and_cursor()
+            query = """
+                SELECT t.TransactionID, t.BookCode, b.BookTitle, m.MemberFN || '' || m.MemberLN AS borrower,
+                  t.TransactionType, t.TransactionDate, t.Status, td.Quantity, t.Remarks
+                  FROM Transaction t
+                  JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
+                  JOIN Member m ON t.MemberID = m.MemberID
+                  JOIN Book b ON t.BookCode = b.BookCode
+                  """
+            parameters = []
+            if member_id:
+                query += " WHERE t.MemberID = ?"
+                parameters.append(member_id)
+            if librarian_id:
+                query += " AND t.LibrarianID = ?"
+                parameters.append(librarian_id)
+            query += " ORDER BY t.TransactionDate DESC"
+
+            cursor.execute(query, parameters)
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            records = [dict(zip(columns, row)) for row in rows]
+            return records
+        except sqlite3.Error as e:
+            print(f"✗ Error fetching transactions with details: {e}")
+            return []
+        finally:
+            conn.close()
+    
 
     #update the row of a specific table
     def update_table(self, tableName, updates: dict, column, value):

@@ -128,9 +128,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
-env/
 venv/
 ENV/
 env.bak/
@@ -227,9 +225,6 @@ logs/
 # Configuration files (if they contain sensitive information)
 config.ini
 settings.ini
-.env
-.env.local
-.env.*.local
 
 # Application-specific ignores
 # Add your specific application files here
@@ -253,5 +248,9 @@ bin/*
 bin/**/*
 
 # Environment files
-.env
 set_env.ps1
+
+# Environment configuration folder (all patterns to handle spaces)
+for environment config/
+for environment config/*
+for environment config/**/*

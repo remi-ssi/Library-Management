@@ -633,10 +633,10 @@ class BookEditView(QWidget):
                 
                 # Delete from related tables first (due to foreign key constraints)
                 # Delete from Book_Genre table
-                db_seeder.delete_table("Book_Genre", "BookCode", book_code)
+                #db_seeder.delete_table("Book_Genre", "BookCode", book_code)
                 
                 # Delete from BookAuthor table
-                db_seeder.delete_table("BookAuthor", "BookCode", book_code)
+               # db_seeder.delete_table("BookAuthor", "BookCode", book_code)
                 
                 # Finally delete from Book table
                 db_seeder.delete_table("Book", "BookCode", book_code)

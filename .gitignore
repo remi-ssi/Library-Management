@@ -6,6 +6,11 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Bin folder for cache and compiled files
+bin/
+bin/*
+bin/**/*
+
 # C extensions
 *.so
 

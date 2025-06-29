@@ -26,36 +26,41 @@ class Settings(QMainWindow):
     def load_user_data(self):
         """Load user data from the database for the given librarian_id."""
         try:
-            # Check if librarian exists using get_librarian_by_id (returns boolean)
-            if not self.db_seeder.get_librarian_by_id(self.librarian_id):
-                QMessageBox.critical(self, "Error", "Librarian not found in database.")
-                return {
-                    'first_name': 'N/A',
-                    'middle_name': '',
-                    'last_name': 'N/A',
-                    'email': 'N/A'
-                }
+            print(f"🔍 Loading user data for librarian_id: {self.librarian_id}")
             
-            # Fetch all librarian records and find the one with matching LibrarianID
+            # Use existing get_all_records method to get all librarians
             librarians = self.db_seeder.get_all_records("Librarian")
-            librarian = next((lib for lib in librarians if lib['LibrarianID'] == self.librarian_id), None)
+            
+            # Find the librarian with matching LibrarianID
+            librarian = None
+            for lib in librarians:
+                if lib.get('LibrarianID') == self.librarian_id:
+                    librarian = lib
+                    break
             
             if librarian:
+                print(f"✅ Found librarian: {librarian.get('LibUsername')}")
                 return {
-                    'first_name': librarian['FName'],
-                    'middle_name': librarian['MName'] or '',
-                    'last_name': librarian['LName'],
-                    'email': librarian['LibUsername']
+                    'first_name': librarian.get('FName', 'N/A'),
+                    'middle_name': librarian.get('MName', '') or '',
+                    'last_name': librarian.get('LName', 'N/A'),
+                    'email': librarian.get('LibUsername', 'N/A')
                 }
             else:
-                QMessageBox.critical(self, "Error", "Librarian not found in database.")
+                print(f"❌ Librarian not found with ID: {self.librarian_id}")
+                print(f"📊 Available librarian IDs: {[lib.get('LibrarianID') for lib in librarians]}")
+                QMessageBox.critical(self, "Error", f"Librarian not found in database (ID: {self.librarian_id}).")
                 return {
                     'first_name': 'N/A',
                     'middle_name': '',
                     'last_name': 'N/A',
                     'email': 'N/A'
                 }
+                
         except Exception as e:
+            print(f"❌ Error loading user data: {e}")
+            import traceback
+            traceback.print_exc()
             QMessageBox.critical(self, "Database Error", f"Failed to load user data: {str(e)}")
             return {
                 'first_name': 'N/A',

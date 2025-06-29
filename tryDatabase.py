@@ -56,11 +56,13 @@ class DatabaseSeeder:
             Author = """CREATE TABLE IF NOT EXISTS BookAuthor(
                     BookCode INTEGER,
                     bookAuthor VARCHAR NOT NULL,
+                    isDeleted TIMESTAMP DEFAULT NULL,
                     PRIMARY KEY (BookCode, bookAuthor),
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
             Genre = """CREATE TABLE IF NOT EXISTS Book_Genre(
                     BookCode INTEGER,
                     Genre VARCHAR,
+                    isDeleted TIMESTAMP DEFAULT NULL,
                     PRIMARY KEY (BookCode, Genre), 
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
             return book, Author, Genre
@@ -221,7 +223,7 @@ class DatabaseSeeder:
     def delete_table(self, tableName, column, value):
         conn, cursor = self.get_connection_and_cursor()
         try:
-            query = f"DELETE FROM {tableName} WHERE {column} = ?"
+            query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ?"
             cursor.execute(query, (value,))
             conn.commit()
             print(f"✓ Deleted from {tableName} where {column} = {value}")

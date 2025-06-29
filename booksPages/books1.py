@@ -568,7 +568,7 @@ class BookEditView(QWidget):
                 return
             
             # Verify the update worked by checking the database
-            updated_books = db_seeder.get_all_records("Book")
+            updated_books = db_seeder.get_all_records("Book", self.parent_window.librarian_id if hasattr(self.parent_window, 'librarian_id') else 1)
             updated_book = next((b for b in updated_books if b.get('BookCode') == book_code), None)
             
             if updated_book:
@@ -1854,10 +1854,10 @@ class CollapsibleSidebar(QWidget):
         try:
             print("Loading books from database...")
             
-            # Get data from all three tables
-            books = self.db_seeder.get_all_records("Book")
-            book_authors = self.db_seeder.get_all_records("BookAuthor")
-            book_genres = self.db_seeder.get_all_records("Book_Genre")
+            # Get data from all three tables, passing librarian_id for filtering
+            books = self.db_seeder.get_all_records("Book", self.librarian_id or 1)
+            book_authors = self.db_seeder.get_all_records("BookAuthor", self.librarian_id or 1)
+            book_genres = self.db_seeder.get_all_records("Book_Genre", self.librarian_id or 1)
             
             print(f"Found {len(books)} books, {len(book_authors)} authors, {len(book_genres)} genres")
             
@@ -2345,7 +2345,7 @@ class CollapsibleSidebar(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setFont(QFont("Times New Roman", 10))
-    window = CollapsibleSidebar()
+    window = CollapsibleSidebar(librarian_id=1)  # Default librarian_id for testing
     nav_manager._current_window = window  # Set as current window
     window.show()
     app.exec()

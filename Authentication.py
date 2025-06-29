@@ -290,7 +290,7 @@ class Authentication(QWidget):
         # Proceed with login validation
         if self.db_seeder.verify_librarian_login(username, password):
 
-            librarians = self.db_seeder.get_all_records(tableName="Librarian", columnId="LibUsername", id=username)
+            librarians = self.db_seeder.get_all_records(tableName="Librarian", id="")
             librarian = next((lib for lib in librarians if lib ['LibUsername'] == username), None)
             if librarian:
                 librarian_id = librarian["LibrarianID"]

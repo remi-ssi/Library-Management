@@ -5,6 +5,12 @@ from PySide6.QtWidgets import (
     QSizePolicy, QSpacerItem
 )
 
+# Import books module for navigation
+try:
+    from booksPages import books1
+except ImportError:
+    books1 = None
+
 
 class HoverButton(QPushButton):
     """Custom button that triggers sidebar expansion on hover"""
@@ -295,9 +301,19 @@ if __name__ == "__main__":
                 print("Redirected to Dashboard")
 
             elif item_name == "Books":
-                 self.books_window = books1.CollapsibleSidebar()  
-                 self.books_window.show()
-                 self.close()
+                # Get librarian_id from nav_manager if available
+                try:
+                    from navbar_logic import nav_manager
+                    librarian_id = getattr(nav_manager, '_librarian_id', 1)
+                except:
+                    librarian_id = 1  # fallback to default
+                
+                if books1:
+                    self.books_window = books1.CollapsibleSidebar(librarian_id=librarian_id)  
+                    self.books_window.show()
+                    self.close()
+                else:
+                    print("Books module not available")
 
             elif item_name == "Transactions":
                 self.content_label.setText("Transactions View")

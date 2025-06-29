@@ -35,6 +35,7 @@ class DatabaseSeeder:
                     MemberFN VARCHAR (20) NOT NULL,
                     MemberContact INTEGER(11) NOT NULL,
                     CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
+                    isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER,
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID)
                     )"""
@@ -48,7 +49,8 @@ class DatabaseSeeder:
                     ISBN INTEGER NOT NULL,
                     BookTotalCopies INTEGER NOT NULL,
                     BookAvailableCopies INTEGER,
-                    BookCover BLOB, 
+                    BookCover BLOB,
+                    isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER, 
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID))"""
             Author = """CREATE TABLE IF NOT EXISTS BookAuthor(
@@ -147,13 +149,24 @@ class DatabaseSeeder:
             conn.close()
 
     #to get all the records/rows inside the certain table
-    def get_all_records(self, tableName, columnId, id):
+    def get_all_records(self, tableName, id):
         conn, cursor = self.get_connection_and_cursor()
         try:
             if tableName == "Librarian":
                 cursor.execute(f"SELECT * FROM {tableName}")
+            elif tableName in ["BookAuthor", "Book_Genre"]:
+                # For author and genre tables, join with Book table to filter by LibrarianID and isDeleted
+                if tableName == "BookAuthor":
+                    query = """SELECT ba.* FROM BookAuthor ba 
+                              JOIN Book b ON ba.BookCode = b.BookCode 
+                              WHERE b.isDeleted IS NULL AND b.LibrarianID = ?"""
+                else:  # Book_Genre
+                    query = """SELECT bg.* FROM Book_Genre bg 
+                              JOIN Book b ON bg.BookCode = b.BookCode 
+                              WHERE b.isDeleted IS NULL AND b.LibrarianID = ?"""
+                cursor.execute(query, (id,))
             else:
-                query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND {columnId} = ?"
+                query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
                 cursor.execute(query, (id,))
             
             rows = cursor.fetchall()

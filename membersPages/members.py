@@ -496,12 +496,10 @@ class MemberEditDialog(QDialog):
         
         if reply == QMessageBox.Yes:
             try:
-                member_id = self.member_data.get("MemberID")
-                timestamp_delete = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                updates = {"isDeleted": timestamp_delete}
-                self.db_seeder.update_table("Member", updates, "MemberID", member_id)
-                QMessageBox.information(self, "Success", "Member deleted successfully!")
-                self.done(2)
+                self.db_seeder.delete_table(tableName="Member", column="MemberID", value=self.member_data["MemberID"] )
+                QMessageBox.information(self, "Success", f"Member {full_name} deleted successfully!")
+                self.accept()  # Close the dialog after deletion
+                
             except Exception as e:
                 QMessageBox.critical(self, "Database Error", f"Failed to delete member: {str(e)}")
 
@@ -515,7 +513,7 @@ class MembersMainWindow(QWidget):
 
         # Initialize members data
         self.db_seeder = DatabaseSeeder()
-        self.members = self.db_seeder.get_all_records(tableName="Member")
+        self.members = self.db_seeder.get_all_records(tableName="Member", id= self.librarian_id)
         
         # DEBUG: Check what we got
         print("Fetched members:", self.members)
@@ -671,7 +669,7 @@ class MembersMainWindow(QWidget):
         result = dialog.exec()
         
         if result == QDialog.Accepted:
-            self.members = self.db_seeder.get_all_records(tableName="Member")
+            self.members = self.db_seeder.get_all_records(tableName="Member", id= self.librarian_id)
             self.refresh_members_grid()
         
     def get_active_members(self):
@@ -826,7 +824,7 @@ class MembersMainWindow(QWidget):
 
         if result == QDialog.Accepted or result == 2:  # Accepted or Delete
             try:
-                self.members = self.db_seeder.get_all_records(tableName="Member")
+                self.members = self.db_seeder.get_all_records(tableName="Member", id= self.librarian_id)
                 self.refresh_members_grid()
                 if result == 2:
                     QMessageBox.information(self, "Success", "Member deleted successfully")

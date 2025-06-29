@@ -237,3 +237,21 @@ assets/temp/
 temp/
 cache/
 __pycache__/tryDatabase.cpython-313.pyc
+
+# Cache redirection entries
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# Bin folder for cache and compiled files
+bin/
+bin/*
+bin/**/*
+
+# Environment files
+.env
+set_env.ps1

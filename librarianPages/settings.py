@@ -29,7 +29,7 @@ class Settings(QMainWindow):
             print(f"🔍 Loading user data for librarian_id: {self.librarian_id}")
             
             # Use existing get_all_records method to get all librarians
-            librarians = self.db_seeder.get_all_records("Librarian")
+            librarians = self.db_seeder.get_all_records(tableName="Librarian", id= self.librarian_id)
             
             # Find the librarian with matching LibrarianID
             librarian = None

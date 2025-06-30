@@ -483,16 +483,14 @@ class LibraryTransactionSystem(QMainWindow):
 
     def display_history(self, filtered_history=None):
         from PySide6.QtGui import QColor
-        self.transactions = self.borrow_books.fetch_transaction(self.librarian_id) or []
+        self.transactions = self.borrow_books.fetch_all_transactions(self.librarian_id) or []
         print("Transactions (History):", self.transactions)
         history_to_display = filtered_history if filtered_history is not None else [
-            t for t in self.transactions if t.get('transaction_type') == 'Returned'
+            t for t in self.transactions if t.get('action') == 'Returned'
         ]
 
         self.hist_table.setRowCount(len(history_to_display))
         for row, trans in enumerate(history_to_display):
-            quantity = str(trans.get('quantity', 'N/A'))
-
             values = [
                 trans.get('borrower', 'N/A'),
                 trans.get('book_title', 'N/A'),
@@ -500,7 +498,6 @@ class LibraryTransactionSystem(QMainWindow):
                 trans.get('returned_date', 'N/A'),
                 trans.get('due_date', 'N/A'),
                 trans.get('action', 'N/A'),
-                quantity
             ]
             # Set text columns
             for col, value in enumerate(values):
@@ -553,9 +550,10 @@ class LibraryTransactionSystem(QMainWindow):
         else:
             filtered_history = [
                 trans for trans in self.transactions
-                if search_term in trans['book_title'].lower()
-                or search_term in trans['borrower'].lower()
-                or search_term in trans['action'].lower()
+                if search_term in trans('book_title').lower()
+                or search_term in trans.get('borrower').lower()
+                or search_term in trans.get('returned_date', '').lower()
+                or search_term in trans.get('action').lower()
             ]
             self.display_history(filtered_history)
 
@@ -566,12 +564,7 @@ class LibraryTransactionSystem(QMainWindow):
 
         dialog = AddTransactionForm(librarian_id=self.librarian_id, parent=self)
         if dialog.exec():
-            borrower = dialog.borrower_edit.text()
-            book = dialog.book_combo.currentText()
-            borrow_date = dialog.borrow_date_edit.date().toString("yyyy-MM-dd")
-            due_date = dialog.due_date_edit.date().toString("yyyy-MM-dd")
-            status = dialog.status_combo.currentText()
-
+           
             books_data = dialog.get_books_data()
             success = self.borrow_books.add_transaction(
                 borrower_name=dialog.borrower_edit.text(),
@@ -630,9 +623,10 @@ class LibraryTransactionSystem(QMainWindow):
             QMessageBox.No)
         if reply == QMessageBox.Yes:
             try:
-                success = self.borrow_book.return_book (
+                success = self.borrow_books.return_book (
                     transaction_id = transaction['id'],
-                    librarian_id = self.librarian_id
+                    librarian_id = self.librarian_id,
+                    returned_date=datetime.now().strftime("%Y-%m-%d")
                 )
                 if success:
                     self.transactions= self.borrow_books.fetch_all_transactions(self.librarian_id)
@@ -654,9 +648,7 @@ class LibraryTransactionSystem(QMainWindow):
             try:
                 self.borrow_books.db_seeder.delete_table(tableName="BookTransaction", column="TransactionID", value=transaction['id'] )
                 QMessageBox.information(self, "Success", f"Transaction {transaction} deleted successfully!")
-                self.accept()  # Close the dialog after deletion\
-
-                self.transactions = self.borrow_books.fetch_transaction(self.librarian_id)
+                self.transactions = self.borrow_books.fetch_all_transactions(self.librarian_id)
                 self.display_transactions()
                 self.display_history()
                 

@@ -69,7 +69,8 @@ class DatabaseSeeder:
             return """CREATE TABLE IF NOT EXISTS BookTransaction(
                     TransactionID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     TransactionType VARCHAR(20) NOT NULL,
-                    TransactionDate TIMESTAMP NOT NULL,
+                    BorrowedDate TIMESTAMP NOT NULL,
+                    ReturnedDate TIMESTAMP NOT NULL
                     Status VARCHAR(20) NOT NULL,
                     Remarks DEFAULT NULL,
                     isDeleted TIMESTAMP DEFAULT NULL,
@@ -181,14 +182,14 @@ class DatabaseSeeder:
         try:
             conn, cursor = self.get_connection_and_cursor()
             query = """
-                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.Remarks,
+                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.ReturnedDate, t.Remarks,
                        m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                        b.BookCode, b.BookTitle, td.Quantity
                 FROM BookTransaction t
                 JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
                 JOIN Member m ON t.MemberID = m.MemberID
                 JOIN Book b ON td.BookCode = b.BookCode
-                WHERE t.TransactionType = 'Borrow'
+                WHERE t.Status = 'Borrowed'
                 AND t.isDeleted IS NULL
                 AND td.isDeleted IS NULL
                 AND b.isDeleted IS NULL
@@ -211,7 +212,7 @@ class DatabaseSeeder:
         try:
             conn, cursor = self.get_connection_and_cursor()
             query = """
-                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.Remarks,
+                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.ReturnedDate, t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                     b.BookCode, b.BookTitle, td.Quantity
                 FROM BookTransaction t
@@ -246,7 +247,7 @@ class DatabaseSeeder:
         try:
             conn, cursor = self.get_connection_and_cursor()
             query = """
-                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.Remarks,
+                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.ReturnedDate t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                     b.BookCode, b.BookTitle, td.Quantity
                 FROM BookTransaction t
@@ -269,7 +270,8 @@ class DatabaseSeeder:
                 rec['action'] = rec.get('TransactionType', '')
                 rec['transaction_type'] = rec.get('TransactionType', '')
                 rec['date'] = rec.get('TransactionDate', '')
-                rec['returned_date'] = rec.get('Remarks', '')  # or use the correct field
+                rec['returned_date'] = rec.get('ReturnedDate', '') 
+                rec['quantity'] = rec.get('Quantity', 1)
             return records
         except Exception as e:
             print(f"✗ Error fetching all transactions: {e}")

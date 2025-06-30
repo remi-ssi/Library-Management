@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtGui import QFont
 
-class HistoryPreviewTransaction(QDialog):
+class HistoryTransactionPreviewForm(QDialog):
     def __init__(self, transaction, parent=None):
         super().__init__(parent)
         self.setWindowTitle("History Preview Transaction")

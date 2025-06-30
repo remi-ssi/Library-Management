@@ -89,6 +89,7 @@ class Authentication(QWidget):
         }    
     """)
         
+        
         # Email error label
         self.email_error_label = QLabel("")
         self.email_error_label.setStyleSheet("color: red; font-weight: bold; font: 14px;")
@@ -172,6 +173,8 @@ class Authentication(QWidget):
         password_v_layout.addWidget(password_label)
         password_v_layout.addWidget(password_container)  
         password_v_layout.addWidget(self.password_error_label)
+
+        
         
         # PARA NASA RIGHT SIDE LANG YUNG YUNG USERNAME AT PASSWORD KASI ANG NASA LEFT IS SI GIF SO MAY MALAKING PARANG PADDING SIYA
         h_layout_user = QHBoxLayout()
@@ -183,7 +186,7 @@ class Authentication(QWidget):
         h_layout_password = QHBoxLayout()
         h_layout_password.addSpacerItem(QSpacerItem(40,20, QSizePolicy.Expanding, QSizePolicy.Minimum)) #width, height
         h_layout_password.addLayout(password_v_layout)
-        h_layout_password.setContentsMargins(0,0,20,15) #left, top, right, bottom
+        h_layout_password.setContentsMargins(0,0,20,40) #left, top, right, bottom
 
         #Login Button
         login_button = QPushButton("Log In")
@@ -202,6 +205,18 @@ class Authentication(QWidget):
             }
         """)
         login_button.clicked.connect(self.handle_login) 
+
+        
+    #Forgot password?
+        forgot_password_label = QLabel('<a href="#">Forgot Password?</a>')
+        forgot_password_label.setContentsMargins(0,20,0,0)
+        forgot_password_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        forgot_password_label.setOpenExternalLinks(False)
+        forgot_password_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        forgot_password_label.setStyleSheet("color: #714423; font-weight: bold; text-decoration: none;")
+        forgot_password_label.linkActivated.connect(self.handle_forgot_password)
+
+        password_v_layout.addWidget(forgot_password_label)
 
         #FOR SIGNUP!!!!
         signup_label = QLabel()
@@ -353,6 +368,11 @@ class Authentication(QWidget):
         else:
             self.general_error_label.setText("Invalid email or password")
             self.general_error_label.show()
+            
+    def handle_forgot_password(self):
+        self.forgot_dialog = ForgotPasswordDialog(self)
+        self.forgot_dialog.show()
+
 
     def open_signUp(self):
         # Open the SignUp screen 
@@ -756,6 +776,119 @@ class OTPVerificationDialog(QWidget):
         else:
             self.error_label.setText("Invalid OTP. Please try again.")
             self.error_label.show()
+
+
+class ForgotPasswordDialog(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Forgot Password")
+        self.setFixedSize(500, 300)
+        self.setWindowFlags(Qt.Dialog | Qt.WindowCloseButtonHint)
+        self.setStyleSheet("background-color: #f1efe3; border-radius: 16px;")
+
+        self.email_input = QLineEdit()
+        self.email_input.setPlaceholderText("Enter your registered email")
+        self.email_input.setFixedSize(300, 40)
+        self.email_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.email_input.setStyleSheet("""
+            QLineEdit {
+                border: 2px solid #B7966B;
+                border-radius: 10px;
+                padding: 8px;
+                font-size: 16px;
+                background-color: #F0ECE9;
+                color: #4A4947;
+            }
+            QLineEdit:focus {
+                border: 3px solid #714423;
+            }
+        """)
+
+        self.error_label = QLabel("")
+        self.error_label.setStyleSheet("color: red; font-weight: bold; font-size: 14px;")
+        self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.error_label.hide()
+
+        self.send_button = QPushButton("Send Reset Code")
+        self.send_button.setFixedHeight(40)
+        self.send_button.setFixedWidth(160)
+        self.send_button.setStyleSheet("""
+            QPushButton {
+                background-color: #B7966B;
+                color: white;
+                border-radius: 10px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #A67B5B;
+            }
+        """)
+        self.send_button.clicked.connect(self.send_reset_email)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(40, 40, 40, 40)
+        layout.addWidget(QLabel("Forgot your password?"), alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addSpacing(20)
+        layout.addWidget(self.email_input, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.error_label)
+        layout.addSpacing(20)
+        layout.addWidget(self.send_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.setLayout(layout)
+
+    def send_reset_email(self):
+        email = self.email_input.text().strip()
+
+        # Validate email format
+        if not re.match(r'^[\w\.-]+@[\w\.-]+\.\w+$', email):
+            self.error_label.setText("Invalid email address.")
+            self.error_label.show()
+            return
+
+        # Simulate OTP
+        import random
+        otp = str(random.randint(100000, 999999))
+
+        # Send email
+        if self.send_real_email(email, otp):
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "Reset Code Sent", f"A reset code has been sent to {email}.")
+            self.close()
+        else:
+            self.error_label.setText("Failed to send reset email. Try again.")
+            self.error_label.show()
+
+    def send_real_email(self, recipient_email, otp):
+        try:
+            load_dotenv()
+            sender_email = os.getenv("EMAIL_ADDRESS")
+            sender_password = os.getenv("EMAIL_PASSWORD")
+
+            if not sender_email or not sender_password:
+                return False
+
+            message = MIMEMultipart()
+            message["From"] = sender_email
+            message["To"] = recipient_email
+            message["Subject"] = "BJRS Library - Password Reset Code"
+
+            body = f"""
+            <html><body>
+            <p>Hello,</p>
+            <p>Your password reset code is:</p>
+            <h2 style='color:#714423'>{otp}</h2>
+            <p>If you did not request this, please ignore this email.</p>
+            </body></html>
+            """
+            message.attach(MIMEText(body, "html"))
+
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                server.login(sender_email, sender_password)
+                server.send_message(message)
+            return True
+        except Exception as e:
+            print(f"Error sending email: {e}")
+            return False
+
 class SignUp(QWidget):
     def __init__(self):
         super().__init__()

@@ -15,11 +15,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import QDate
 from functools import partial
 from AddTransactionForm import AddTransactionForm  # PARA MA-IMPORT UNG TRANSACTION FORM 
-from PreviewCurrentTransaction import PreviewCurrentTransaction # PARA MA-IMPORT UNG PREVIEW NG TRANSACTION
-from HistoryPreviewTransaction import HistoryPreviewTransaction # PARA MA-IMPORT UNG PREVIEW NG HISTORY 
 from navigation_sidebar import NavigationSidebar # PARA SA SIDE BAR 
-from navbar_logic import nav_manager
-
+from PreviewTransactionForm import PreviewCurrentTransaction
+from HistoryPreviewForm import HistoryPreviewTransaction
 class TransactionCard(QFrame):
     def __init__(self, transaction, parent_system):
         super().__init__()
@@ -317,6 +315,7 @@ class LibraryTransactionSystem(QMainWindow):
         self.hist_table.setShowGrid(True)
         layout.addWidget(self.hist_table, stretch=1)
         self.setup_table_style(self.hist_table)
+       
         self.hist_table.cellDoubleClicked.connect(self.on_history_double_click)
         self.content_stack.addWidget(self.history_page)
 
@@ -433,7 +432,7 @@ class LibraryTransactionSystem(QMainWindow):
             delete_btn.setToolTip("Delete Transaction")
             delete_btn.setFont(QFont("Segoe UI Emoji", 10, QFont.Bold))
             delete_btn.setStyleSheet("""
-                QPushButton {
+              QPushButton {
                     border-radius: 12px;
                     font-size: 10px;
                     color: #c0392b;
@@ -441,10 +440,11 @@ class LibraryTransactionSystem(QMainWindow):
                     font-family: "Segoe UI Emoji", "Times New Roman";
                     font-weight: bold;
                     border: 2px solid #c0392b;
-                    padding: 5px 10px;
+                    padding:5px 10px;
                 }
                 QPushButton:hover {
                     background-color: #c0392b;
+                    color: white;
                 }
             """)
             delete_btn.clicked.connect(partial(self.delete_transaction, trans))

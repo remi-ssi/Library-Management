@@ -12,8 +12,9 @@ from navigation_sidebar import NavigationSidebar
 from navbar_logic import nav_manager
 
 class LibraryDashboard(QMainWindow):
-    def __init__(self):
+    def __init__(self, librarian_id=None): 
         super().__init__()
+        self.librarian_id = librarian_id  
         self.init_sample_data()
         self.init_ui()
         self.setup_timer()
@@ -111,7 +112,32 @@ class LibraryDashboard(QMainWindow):
     def handle_navigation(self, page_name):
         """Handle navigation clicks from sidebar"""
         print(f"Navigating to: {page_name}")
-   
+        print(f"Current librarian_id: {self.librarian_id}")  # Debug: show librarian_id when navigating
+        
+        # You can add actual navigation logic here
+        # For example:
+        if page_name == "Books":
+            # Navigate to books page with librarian_id
+            try:
+                from booksPages import books1
+                if books1:
+                    self.books_window = books1.CollapsibleSidebar(librarian_id=self.librarian_id)  
+                    self.books_window.show()
+                    self.close()
+                else:
+                    print("Books module not available")
+            except ImportError:
+                print("Books module not found")
+        elif page_name == "Members":
+            # Navigate to members page
+            print("Navigate to Members page")
+        elif page_name == "Transactions":
+            # Navigate to transactions page
+            print("Navigate to Transactions page")
+        elif page_name == "Settings":
+            # Navigate to settings page
+            print("Navigate to Settings page")
+        # Dashboard is already showing, so no action needed for "Dashboard"
         
     def create_header(self):
         header = QFrame()
@@ -127,7 +153,13 @@ class LibraryDashboard(QMainWindow):
         welcome_layout.setContentsMargins(0, 0, 0, 0)
         welcome_layout.setSpacing(2)
         
-        self.welcome_label = QLabel("BJRS Library Management System")
+        # Show librarian info if available
+        if self.librarian_id:
+            title_text = f"BJRS Library Management System - Librarian {self.librarian_id}"
+        else:
+            title_text = "BJRS Library Management System"
+            
+        self.welcome_label = QLabel(title_text)
         self.welcome_label.setObjectName("welcomeTitle")
         
         self.datetime_label = QLabel()
@@ -473,16 +505,16 @@ class LibraryDashboard(QMainWindow):
         
         self.setStyleSheet(style)
 
-def main():
+def main(librarian_id=None):  
     app = QApplication(sys.argv)
-    app.setStyle('Fusion')  # Use Fusion style for better cross-platform appearance
+    app.setStyle('Fusion')  
     
     # Set global font to Times New Roman
     font = QFont("Times New Roman", 10)
     app.setFont(font)
   
     nav_manager.initialize(app)
-    window = LibraryDashboard()
+    window = LibraryDashboard(librarian_id=librarian_id)  
     nav_manager._current_window = window
     window.show()
     

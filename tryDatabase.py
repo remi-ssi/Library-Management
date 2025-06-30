@@ -7,10 +7,12 @@ class DatabaseSeeder:
     def __init__(self, db_path='bjrsLib.db'):
         self.db_path = db_path
 
+# This method returns a connection and cursor to the SQLite database.
     def get_connection_and_cursor(self):
         conn = sqlite3.connect(self.db_path)
         return conn, conn.cursor() 
     
+  # This method returns the SQL query to create a table based on the table name provided.  
     def query(self, tableName):
         conn, cursor = self.get_connection_and_cursor()
         conn.execute("PRAGMA foreign_keys = ON;")
@@ -88,7 +90,6 @@ class DatabaseSeeder:
                     FOREIGN KEY (TransactionID) REFERENCES BookTransaction (TransactionID),
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
        
-
     #check if the table exists in the database
     def check_table(self, tableName):
         conn, cursor = self.get_connection_and_cursor()
@@ -166,17 +167,6 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
-    def clear_table(self, tableName):
-        conn, cursor = self.get_connection_and_cursor()
-        conn.execute("PRAGMA foreign_keys = ON;")
-        try:
-            cursor.execute(f"DELETE FROM {tableName}")
-            conn.commit()
-            print(f"✓ Cleared all data from {tableName}")
-        except Exception as e:
-            print(f"Error clearing {tableName}: {e}")
-        finally:
-            conn.close()
     #get borrowed transaction from joined tables
     def get_borrowed_transactions(self, librarian_id):
         try:
@@ -279,7 +269,6 @@ class DatabaseSeeder:
         finally:
             conn.close()
     
-
     #to get all the records/rows inside the certain table
     def get_all_records(self, tableName, id):
         conn, cursor = self.get_connection_and_cursor()
@@ -377,6 +366,8 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+    # Verify librarian login credentials
+    # This method checks if the provided username and password match the stored credentials in the database.
     def verify_librarian_login(self, username, password):
         conn, cursor = self.get_connection_and_cursor()
         try:
@@ -399,6 +390,8 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+    # Find if a librarian username exists in the database. This ensures that the username is unique for each librarian.
+    # This method returns True if the username exists, otherwise False.
     def findUsername(self, username):
         conn, cursor = self.get_connection_and_cursor()
         try:
@@ -411,6 +404,8 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+    # Find if a member contact exists in the database. This ensures that the contact number is unique for each member.
+    # This method returns True if the contact exists, otherwise False.
     def findMemberContact(self, contact):
         conn, cursor = self.get_connection_and_cursor()
         try:
@@ -423,6 +418,50 @@ class DatabaseSeeder:
         finally:
             conn.close()
     
+    # Filter books based on shelf number or sort order
+    def filterBooks(self, filter):
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            if filter == "ascending": # sort by ascending order
+                query = "SELECT * FROM Book WHERE isDeleted IS NULL ORDER BY BookTitle ASC"
+                cursor.execute(query)
+            elif filter == "descending": # sort by descending order
+                query = "SELECT * FROM Book WHERE isDeleted IS NULL ORDER BY BookTitle DESC"
+                cursor.execute(query)
+            else: # assume filter is a shelf number
+                query = "SELECT * FROM Book WHERE ShelfNo = ? AND isDeleted IS NULL"
+                cursor.execute(query, (filter,))  # use shelf number as filter
+
+            rows = cursor.fetchall()
+
+            columns = [desc[0] for desc in cursor.description]
+            records = [dict(zip(columns, row)) for row in rows]
+            return records
+
+        except Exception as e:
+            print(f"✗ Error in filterBooks: {e}")
+            return []
+        finally:
+            conn.close()
+
+    # Change the password of a librarian
+    def changePassword(self, username, new_password):
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+            cursor.execute("UPDATE Librarian SET LibPass = ? WHERE LibUsername = ?", (hashed_password, username))
+            conn.commit()
+            if cursor.rowcount > 0:
+                print(f"✓ Password for {username} updated successfully.")
+                return True
+            else:
+                print(f"⚠️ No rows updated for {username}. Username may not exist.")
+                return False
+        except Exception as e:
+            print(f"✗ Error changing password for {username}: {e}")
+            return False
+        finally:
+            conn.close()
    
 if __name__ == "__main__":
     seeder = DatabaseSeeder()

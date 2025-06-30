@@ -177,7 +177,7 @@ class DatabaseSeeder:
             print(f"Error clearing {tableName}: {e}")
         finally:
             conn.close()
-
+    #get borrowed transaction from joined tables
     def get_borrowed_transactions(self, librarian_id):
         try:
             conn, cursor = self.get_connection_and_cursor()

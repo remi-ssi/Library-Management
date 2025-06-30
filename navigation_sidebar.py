@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer
+from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QHBoxLayout,
@@ -42,7 +42,8 @@ class NavigationArea(QWidget):
 
 class NavigationSidebar(QWidget):
     """Collapsible navigation sidebar with hover animations"""
-    
+    navigation_clicked = Signal(str)
+
     def __init__(self, navigation_items=None):
         super().__init__()
         
@@ -149,6 +150,14 @@ class NavigationSidebar(QWidget):
             self.buttons.append(btn)
 
     def _emit_navigation(self, item_name):
+        """Emit navigation signal when an item is clicked"""
+        print(f"Navigation clicked: {item_name}")
+        
+        # Use BOTH approaches for backward compatibility
+        # 1. Emit the signal for components that connect to it
+        self.navigation_clicked.emit(item_name)
+        
+        # 2. Call the callback for old components that use it
         if self.on_navigation_clicked:
             self.on_navigation_clicked(item_name)
 

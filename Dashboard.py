@@ -83,7 +83,8 @@ class LibraryDashboard(QMainWindow):
         self.sidebar = NavigationSidebar()
 
         # Set up navigation handler 
-        self.sidebar.on_navigation_clicked = self.handle_navigation
+        self.sidebar = NavigationSidebar()
+        self.sidebar.on_navigation_clicked = lambda item_name: nav_manager.handle_navigation(item_name, self.librarian_id)
         main_layout.addWidget(self.sidebar)
         
         # Content area

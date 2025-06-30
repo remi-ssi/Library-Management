@@ -14,9 +14,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QDate
 from functools import partial
-from AddTransactionForm import AddTransactionForm  # PARA MA-IMPORT UNG TRANSACTION FORM 
-from PreviewCurrentTransaction import PreviewCurrentTransaction # PARA MA-IMPORT UNG PREVIEW NG TRANSACTION
-from HistoryPreviewTransaction import HistoryPreviewTransaction # PARA MA-IMPORT UNG PREVIEW NG HISTORY 
+from .AddTransactionForm import AddTransactionForm  # PARA MA-IMPORT UNG TRANSACTION FORM 
+from .PreviewTransactionForm import PreviewCurrentTransaction # PARA MA-IMPORT UNG PREVIEW NG TRANSACTION
+from .HistoryPreviewForm import HistoryPreviewTransaction # PARA MA-IMPORT UNG PREVIEW NG HISTORY 
 from navigation_sidebar import NavigationSidebar # PARA SA SIDE BAR 
 from navbar_logic import nav_manager
 
@@ -131,8 +131,9 @@ class TransactionCard(QFrame):
         layout.addWidget(status_label)
 
 class LibraryTransactionSystem(QMainWindow):
-    def __init__(self):
+    def __init__(self, librarian_id=None):
         super().__init__()
+        self.librarian_id = librarian_id
         self.setGeometry(100, 100, 1400, 800)
         self.showMaximized()
         self.setStyleSheet("background-color: white;")
@@ -158,7 +159,10 @@ class LibraryTransactionSystem(QMainWindow):
         main_layout.setSpacing(0)
 
         self.sidebar = NavigationSidebar()
-        self.sidebar.on_navigation_clicked = nav_manager.handle_navigation
+        self.sidebar.navigation_clicked.connect(
+            lambda item_name: nav_manager.handle_navigation(item_name, self.librarian_id)
+        )
+        
         main_layout.addWidget(self.sidebar)
 
         content_widget = QWidget()

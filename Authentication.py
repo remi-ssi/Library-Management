@@ -343,7 +343,8 @@ class Authentication(QWidget):
                 self.set_current_librarian_id(librarian_id)
                 nav_manager.set_librarian_id(librarian_id)
                 print("Log in successful: ", librarian_id)
-                self.dashboard_window = Dashboard.LibraryDashboard(librarian_id=librarian_id)  # Open Dashboard instead
+                self.dashboard_window = Dashboard.LibraryDashboard()
+                self.dashboard_window.librarian_id = librarian_id
                 nav_manager._current_window = self.dashboard_window
                 self.dashboard_window.show()
                 self.close()

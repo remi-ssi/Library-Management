@@ -16,8 +16,9 @@ from PySide6.QtCore import QDate
 from functools import partial
 from AddTransactionForm import AddTransactionForm  # PARA MA-IMPORT UNG TRANSACTION FORM 
 from navigation_sidebar import NavigationSidebar # PARA SA SIDE BAR 
-from PreviewTransactionForm import PreviewCurrentTransaction
-from HistoryPreviewForm import HistoryPreviewTransaction
+from PreviewTransactionForm import PreviewTransactionForm
+from HistoryPreviewForm import HistoryTransactionPreviewForm 
+
 class TransactionCard(QFrame):
     def __init__(self, transaction, parent_system):
         super().__init__()
@@ -627,7 +628,7 @@ class LibraryTransactionSystem(QMainWindow):
     def on_transaction_double_click(self, row, column):
         # Get the transaction for the clicked row
         transaction = self.transactions[row]  
-        dialog = PreviewCurrentTransaction(transaction, self)
+        dialog = PreviewTransactionForm(transaction, self)
         if dialog.exec():
             updated_transaction = dialog.get_transaction()
 
@@ -645,7 +646,7 @@ class LibraryTransactionSystem(QMainWindow):
         # Use the same data as display_history
         sorted_transactions = sorted(self.transactions, key=lambda x: x['date'], reverse=True)
         transaction = sorted_transactions[row]
-        dialog = HistoryPreviewTransaction(transaction, self)
+        dialog = HistoryTransactionPreviewForm(transaction, self)
         dialog.exec()
 
 # To run the app

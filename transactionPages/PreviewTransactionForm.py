@@ -8,7 +8,7 @@ from PySide6.QtGui import QFont
 
 
 
-class PreviewCurrentTransaction(QDialog):
+class PreviewTransactionForm(QDialog):
     def __init__(self, transaction, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Preview Current Transaction")

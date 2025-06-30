@@ -12,7 +12,7 @@ from navigation_sidebar import NavigationSidebar
 from navbar_logic import nav_manager
 
 class LibraryDashboard(QMainWindow):
-    def __init__(self, librarian_id=None): 
+    def __init__(self, librarian_id=None):  
         super().__init__()
         self.librarian_id = librarian_id  
         self.init_sample_data()
@@ -505,16 +505,16 @@ class LibraryDashboard(QMainWindow):
         
         self.setStyleSheet(style)
 
-def main(librarian_id=None):  
+def main(librarian_id=None):  # ← Added librarian_id parameter to main function
     app = QApplication(sys.argv)
-    app.setStyle('Fusion')  
+    app.setStyle('Fusion')  # Use Fusion style for better cross-platform appearance
     
     # Set global font to Times New Roman
     font = QFont("Times New Roman", 10)
     app.setFont(font)
   
     nav_manager.initialize(app)
-    window = LibraryDashboard(librarian_id=librarian_id)  
+    window = LibraryDashboard(librarian_id=librarian_id)  # ← Pass librarian_id to constructor
     nav_manager._current_window = window
     window.show()
     

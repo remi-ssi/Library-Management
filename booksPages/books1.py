@@ -1,3 +1,7 @@
+"""wait lang yung itsura ng add book nasstress ako ayaw umayos ng itsura eh but its working 
+naman mwehehehe
+"""
+
 import os
 import re
 import sys
@@ -7,13 +11,13 @@ import traceback
 from dotenv import load_dotenv
 from navbar_logic import nav_manager
 from navigation_sidebar import NavigationSidebar
-from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer
+from PySide6.QtCore import Qt, QSize, QEvent, QPropertyAnimation, QTimer
 from PySide6.QtGui import QFont, QIcon, QFont, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QHBoxLayout,
     QLabel, QSizePolicy, QSpacerItem, QLineEdit, QScrollArea, QGridLayout,
     QTabWidget, QTextEdit, QMessageBox, QFormLayout, QDialog, QListWidget,
-    QListWidgetItem, QGroupBox, QSpinBox, QFileDialog
+    QListWidgetItem, QGroupBox, QSpinBox, QFileDialog, QMenu, QComboBox
 )
 
 from tryDatabase import DatabaseSeeder
@@ -273,7 +277,9 @@ class BookEditView(QWidget):
         self.book_data = book_data 
         self.parent_window = parent_window
         self.init_ui()
-    
+
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
     def init_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(40, 40, 40, 40)
@@ -700,7 +706,7 @@ class AddBookDialog(QDialog):
         """)
         info_layout = QVBoxLayout(info_group)
         info_layout.setContentsMargins(20, 20, 20, 20)
-        info_layout.setSpacing(15)
+        info_layout.setSpacing(30)
 
         section_title = QLabel("Book Information")
         section_title.setStyleSheet("""
@@ -1030,6 +1036,7 @@ class AddBookDialog(QDialog):
             self.open_manual_entry(title, author, isbn)
             self.reset_cover_preview()
 
+
     def open_manual_entry(self, title, author, isbn): #manual entry if no book is found
         print(f"📝 Opening manual entry with LibrarianID: {self.librarian_id}")
         book_data = {
@@ -1043,12 +1050,75 @@ class AddBookDialog(QDialog):
             'published_date': '',
             'image': ''
         }
+
+        self.accept()  # Close the current dialog
+
         details_dialog = BookDetailsDialog(
-            parent = self,
+            parent = self.parent,
             book_data = book_data,
-            is_found_book =False #allow edit all fields
+            is_found_book = False #allow edit all fields
         )
-        if details_dialog.exec() ==QDialog.Accepted:
+
+        # Configure window to be maximizable and make it fill the screen
+        details_dialog.setWindowFlags(Qt.Dialog | Qt.WindowCloseButtonHint | Qt.Window)
+        details_dialog.resize(QApplication.primaryScreen().availableSize() * 0.9)
+        details_dialog.showFullScreen()  
+
+        close_btn = QPushButton("X", details_dialog)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                color: white;
+                background-color: #5C4033;
+                font-size: 16px;
+                font-weight: bold;
+                border: none;
+                border-radius: 10px;
+                padding: 8px 15px;
+            }
+            QPushButton:hover {
+                background-color: #8B4513;
+            }
+        """)
+
+        # Apply fullscreen stylesheet
+        details_dialog.setStyleSheet("""
+            QDialog {
+                background-color: #f1efe3;
+                font-size: 14px;
+            }
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                width: 12px;
+                background-color: #f0f0f0;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #5C4033;
+                border-radius: 6px;
+                min-height: 30px;
+            }
+        """)
+        
+        # Add close button
+        #screen_size = QApplication.primaryScreen().size()
+
+        close_btn.setFixedSize(40, 40)
+
+        dialog_width = details_dialog.width()
+        close_btn.move(dialog_width -0, 20)
+
+        close_btn.raise_()
+        close_btn.clicked.connect(details_dialog.reject)
+        
+
+        # Now execute the dialog to make it modal
+        result = details_dialog.exec_()
+        
+    
+        if result == QDialog.Accepted:
             standardized_book = {
                 'title': details_dialog.book_data['title'],
                 'author': details_dialog.book_data['author'],
@@ -1061,6 +1131,7 @@ class AddBookDialog(QDialog):
                 'image': details_dialog.book_data.get('image', ''),
                 'available_copies': details_dialog.book_data['available_copies']
             }
+            
             print(f"Adding book to book-data: {standardized_book}")
             self.parent.books_data.append(standardized_book)
             self.parent.refresh_books_display()
@@ -1081,7 +1152,7 @@ class AddBookDialog(QDialog):
 
             # 2. Use seed_data to insert into Book table
             book_columns = ['BookTitle', 'Publisher', 'BookDescription', 'shelfNo', 'ISBN', 
-                           'BookTotalCopies', 'BookAvailableCopies', 'BookCover', 'LibrarianID']
+                        'BookTotalCopies', 'BookAvailableCopies', 'BookCover', 'LibrarianID']
             
             try:
                 # Insert book using seed_data
@@ -1157,7 +1228,6 @@ class AddBookDialog(QDialog):
                 traceback.print_exc()
             
             self.accept()
-            
     def load_cover(self, image_url):
         try: #download image
             response = requests.get(image_url, timeout = 10)
@@ -1199,18 +1269,18 @@ class AddBookDialog(QDialog):
     
     def add_book(self):
         print(f"📚 Adding book with LibrarianID: {self.librarian_id}")
-        title = self.title_input.text().strip() #get input values
+        title = self.title_input.text().strip()
         author = self.author_input.text().strip()
         isbn = re.sub(r'[^0-9X]', '', self.isbn_input.text().strip().upper())
 
-        if not title or not author or not isbn: #require three fields for input
+        if not title or not author or not isbn:
             QMessageBox.information(self, "Adding book Error", "Please fill in all required fields: Title, Author, and ISBN")
             return
-        if isbn and not self.validate_isbn(isbn): #check if isbn is valid
+        if isbn and not self.validate_isbn(isbn):
             QMessageBox.warning(self, "Validation Error", "Invalid ISBN")
             return
 
-        book_data = self.found_book_data or { #use found book data or create manually
+        book_data = self.found_book_data or {
             'title': title,
             'author': author if author else 'Unknown Author',
             'isbn': isbn if isbn and self.validate_isbn(isbn) else '',
@@ -1221,13 +1291,50 @@ class AddBookDialog(QDialog):
             'published_date': '',
             'image': ''
         }
-        details_dialog = BookDetailsDialog( # for futher inputs
-            parent=self,
+        
+        # Close current dialog first
+        self.accept()
+        
+        details_dialog = BookDetailsDialog(
+            parent=self.parent,  
             book_data=book_data,
             is_found_book=bool(self.found_book_data)
         )
-        if details_dialog.exec() == QDialog.Accepted:
-            standardized_book = { #book format and details
+        
+        # Configure window to be maximizable and fullscreen
+        details_dialog.setWindowFlags(Qt.Dialog | Qt.WindowCloseButtonHint | Qt.Window)
+        details_dialog.resize(QApplication.primaryScreen().availableSize() * 0.9)
+        details_dialog.showFullScreen()
+
+        # Add close button
+        close_btn = QPushButton("X", details_dialog)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                color: white;
+                background-color: #5C4033;
+                font-size: 16px;
+                font-weight: bold;
+                border: none;
+                border-radius: 10px;
+                padding: 8px 15px;
+            }
+            QPushButton:hover {
+                background-color: #8B4513;
+            }
+        """)
+        close_btn.setFixedSize(40, 40)
+        
+        dialog_width = details_dialog.width()
+        close_btn.move(dialog_width - 60, 20)
+        close_btn.raise_()
+        close_btn.clicked.connect(details_dialog.reject)
+        
+        # Now execute the dialog
+        result = details_dialog.exec_()
+        
+        # Continue with existing code for when dialog is accepted
+        if result == QDialog.Accepted:
+            standardized_book = {
                 'title': details_dialog.book_data['title'],
                 'author': details_dialog.book_data['author'],
                 'isbn': details_dialog.book_data['isbn'],
@@ -1239,9 +1346,10 @@ class AddBookDialog(QDialog):
                 'image': details_dialog.book_data.get('image', ''),
                 'available_copies': details_dialog.book_data['available_copies']
             }
+            
             print(f"Adding book to books_data: {standardized_book}")
-            self.parent.books_data.append(standardized_book) #create parent wqindow for book list
-            self.parent.refresh_books_display() #refresh display
+            self.parent.books_data.append(standardized_book)
+            self.parent.refresh_books_display()
             
             # 1. Prepare data for Book table
             book_data = {
@@ -1257,8 +1365,8 @@ class AddBookDialog(QDialog):
             }
 
             # 2. Use seed_data to insert into Book table
-            book_columns = ['BookTitle', 'Publisher', 'BookDescription', 'shelfNo', 'ISBN', 
-                           'BookTotalCopies', 'BookAvailableCopies', 'BookCover', 'LibrarianID']
+            book_columns = ['BookTitle', 'Publisher','BookDescription', 'shelfNo', 'ISBN', 
+                        'BookTotalCopies', 'BookAvailableCopies', 'BookCover', 'LibrarianID']
             
             try:
                 # Insert book using seed_data
@@ -1332,8 +1440,6 @@ class AddBookDialog(QDialog):
                 print(f"❌ Error saving book to database: {e}")
                 import traceback
                 traceback.print_exc()
-            
-            self.accept()
 
 class BookDetailsDialog(QDialog):
     def __init__(self, parent=None, book_data=None, is_found_book=False):
@@ -1347,41 +1453,103 @@ class BookDetailsDialog(QDialog):
 
     def setup_ui(self):
         self.setWindowTitle("Book Details")
-        self.setFixedSize(600, 700)
+        # Remove fixed size to allow fullscreen
+        # self.setFixedSize(600, 700)
         self.setStyleSheet('''
             QDialog {
                 background-color: #f1efe3;
                 font-size: 14px;
             }
         ''')
+        
+        # Create main layout
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(30, 50, 30, 30)
+        main_layout.setSpacing(20)
 
+        # Create scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                width: 15px;
+                background-color: #f0f0f0;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #5C4033;
+                border-radius: 6px;
+                min-height: 30px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #8B4513;
+            }
+        """)
+        
+        # Create container widget for scroll area
+        content_widget = QWidget()
+        content_widget.setMinimumWidth(800)  # Ensure content is wide enough
+        content_widget.setStyleSheet("background-color: #f1efe3;")
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(30, 40, 30, 30)
+        content_layout.setSpacing(25)  
+
+        # Add title
         title_label = QLabel("Enter Book Details")
         title_label.setStyleSheet("""
             QLabel {
-                font-size: 18px;
+                font-size: 26px;
                 font-weight: bold;
                 color: #5C4033;
-                margin-bottom: 5px;
+                margin-bottom: 10px;
                 background: transparent;
             }
         """)
-        main_layout.addWidget(title_label, alignment=Qt.AlignTop)
+        content_layout.addWidget(title_label)
+
+        # =============== BOOK INFORMATION (FULL WIDTH TOP) ===============
+        info_group = QGroupBox("Book Information")
+        info_group.setStyleSheet("""
+            QGroupBox {
+                background-color: white;
+                border-radius: 15px;
+                border: 2px solid #dbcfc1;
+                color: #5C4033;
+                font-size: 25px;
+                font-weight: bold;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left:8px;
+                padding: 0 3px;
+            }
+        """)
         
-        # Input fields
+        info_layout = QFormLayout(info_group)
+        info_layout.setContentsMargins(15, 25, 15, 25)  
+        info_layout.setVerticalSpacing(20)  
+        info_layout.setHorizontalSpacing(15)
+        
+        # Input style
         input_style = """
-            QLineEdit, QTextEdit, QSpinBox {
+            QLineEdit, QTextEdit, QSpinBox, QComboBox {
                 background-color: white;
                 border: 1px solid #dbcfc1;
                 border-radius: 5px;
-                padding: 6px;
+                padding: 10px 20px;
                 font-size: 14px;
                 color: #5C4033;
-                min-height: 12px;
+                
             }
-            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus {
+            QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QComboBox:focus {
                 border: 1px solid #5C4033;
             }
             QLineEdit[readOnly="true"], QTextEdit[readOnly="true"] {
@@ -1400,91 +1568,105 @@ class BookDetailsDialog(QDialog):
                 background-color: #e0e0e0;
             }
             QTextEdit {
-                min-height: 40px;
+                min-height: 30px;  
             }
         """
-        # Label style with background
+        
+        # Label style
         label_style = """
             QLabel {
                 color: #5C4033;
-                font-size: 13px;
+                font-size: 14px;
                 font-weight: bold;
                 background-color: #f9f9f9;
                 border: 1px solid #dbcfc1;
                 border-radius: 8px;
-                padding: 3px 8px;
-                margin-right: 8px;
+                padding: 8px 12px;
+                margin-right: 10px;
             }
         """
-        #book information group
-        info_group = QGroupBox("Book Information")
-        info_group.setStyleSheet("""
-            QGroupBox {
-                background-color: white;
-                border-radius: 15px;
-                border: 2px solid #dbcfc1;
-                color: #5C4033;
-                font-size: 16px;
-                font-weight: bold;
-                margin-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left:8px;
-                padding: 0 3px;
-            }
-        """)
-        info_layout = QFormLayout(info_group)
-        info_layout.setContentsMargins(12, 15, 12, 12)
-        info_layout.setVerticalSpacing(6)
-        info_layout.setHorizontalSpacing(8)
         
         # Form fields
         self.title_edit = QLineEdit()
         self.title_edit.setPlaceholderText("Enter Title")
         self.title_edit.setStyleSheet(input_style)
-        self.title_edit.setFixedHeight(32)
+        self.title_edit.setFixedHeight(35)  
         
         self.author_edit = QLineEdit()
         self.author_edit.setPlaceholderText("Enter Author")
         self.author_edit.setStyleSheet(input_style)
-        self.author_edit.setFixedHeight(32)
+        self.author_edit.setFixedHeight(35)
         
         self.isbn_edit = QLineEdit()
         self.isbn_edit.setPlaceholderText("Enter ISBN")
         self.isbn_edit.setStyleSheet(input_style)
-        self.isbn_edit.setFixedHeight(32)
+        self.isbn_edit.setFixedHeight(35)
         
         self.publisher_edit = QLineEdit()
         self.publisher_edit.setPlaceholderText("Enter Publisher")
         self.publisher_edit.setStyleSheet(input_style)
-        self.publisher_edit.setFixedHeight(32)
+        self.publisher_edit.setFixedHeight(35)
         
-        self.genre_edit = QLineEdit()
-        self.genre_edit.setPlaceholderText("Enter Genre")
-        self.genre_edit.setStyleSheet(input_style)
-        self.genre_edit.setFixedHeight(32)
+        # Genres container
+        self.genre_container = QWidget()
+        genre_container_layout = QVBoxLayout(self.genre_container)
+        genre_container_layout.setContentsMargins(0, 0, 0, 0)
+        genre_container_layout.setSpacing(10)  # More space between elements
+
+        # Genre help text
+        genre_help = QLabel("Select a genre or type a new one, then press Enter to add it")
+        genre_help.setStyleSheet("""
+            QLabel {
+                color: #777777;
+                font-size: 12px;
+                font-style: italic;
+                background: transparent;
+                border: none;
+            }
+        """)
+        genre_container_layout.addWidget(genre_help)
+
+        # Container for selected genre tags
+        self.selected_genres_container = QWidget()
+        self.selected_genres_layout = QHBoxLayout(self.selected_genres_container)
+        self.selected_genres_layout.setContentsMargins(0, 0, 0, 0)
+        self.selected_genres_layout.setSpacing(5)
+        self.selected_genres_layout.setAlignment(Qt.AlignLeft)
+
+        # Genre combo box
+        self.genre_combo = QComboBox()
+        self.genre_combo.setStyleSheet(input_style)
+        self.genre_combo.setFixedHeight(55)
+        self.genre_combo.setEditable(True)
+        self.genre_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.genre_combo.setPlaceholderText("Select or type a genre")
+
+        # Add popular genres as options
+        common_genres = [
+            "Fiction", "Non-Fiction", "Science Fiction", "Fantasy", "Mystery", 
+            "Thriller", "Romance", "Historical Fiction", "Biography", "Autobiography",
+            "Self-Help", "Business", "Children's", "Young Adult", "Poetry", 
+            "Science", "History", "Philosophy", "Religion", "Art", "Cooking"
+        ]
+        self.genre_combo.addItems(sorted(common_genres))
+
+        # Connect signals
+        self.genre_combo.currentIndexChanged.connect(self.add_current_genre_from_dropdown)
+        self.genre_combo.lineEdit().returnPressed.connect(self.add_current_genre)
+
+        genre_container_layout.addWidget(self.genre_combo)
+        genre_container_layout.addWidget(self.selected_genres_container)
+
+        # Initialize selected genres list
+        self.selected_genres = []
         
+        # Description text area
         self.description_edit = QTextEdit()
         self.description_edit.setPlaceholderText("Enter Description")
         self.description_edit.setStyleSheet(input_style)
-        self.description_edit.setMinimumHeight(30)
+        self.description_edit.setMinimumHeight(45)
 
-        if self.is_found_book:
-            self.title_edit.setReadOnly(True)
-            self.author_edit.setReadOnly(True)
-            self.isbn_edit.setReadOnly(True)
-            self.publisher_edit.setReadOnly(True)
-            if self.book_data.get('categories', ['N/A'])[0] != 'N/A':
-                self.genre_edit.setReadOnly(True)
-        else:
-            self.title_edit.setReadOnly(False)
-            self.author_edit.setReadOnly(False)
-            self.isbn_edit.setReadOnly(False)
-            self.publisher_edit.setReadOnly(False)
-            self.genre_edit.setReadOnly(False)
-        
-        # Create and style labels
+        # Labels
         title_label = QLabel("Title:")
         title_label.setStyleSheet(label_style)
         author_label = QLabel("Author:")
@@ -1503,12 +1685,67 @@ class BookDetailsDialog(QDialog):
         info_layout.addRow(author_label, self.author_edit)
         info_layout.addRow(isbn_label, self.isbn_edit)
         info_layout.addRow(publisher_label, self.publisher_edit)
-        info_layout.addRow(genre_label, self.genre_edit)
+        info_layout.addRow(genre_label, self.genre_container)
         info_layout.addRow(description_label, self.description_edit)
 
-        main_layout.addWidget(info_group)
+        # Add Book Information group to content layout
+        content_layout.addWidget(info_group)
 
-        #for book cover
+        # =============== HORIZONTAL LAYOUT FOR LIBRARY INFO AND BOOK COVER ===============
+        lib_cover_container = QWidget()
+        lib_cover_layout = QHBoxLayout(lib_cover_container)
+        lib_cover_layout.setContentsMargins(0, 0, 0, 0)
+        lib_cover_layout.setSpacing(20)
+        
+        # =============== LIBRARY INFORMATION (LEFT SIDE) ===============
+        lib_group = QGroupBox("Library Information")
+        lib_group.setStyleSheet("""
+            QGroupBox {
+                background-color: white;
+                border-radius: 15px;
+                border: 2px solid #dbcfc1;
+                color: #5C4033;
+                font-size: 16px;
+                font-weight: bold;
+                margin-top: 10px;
+                padding-top: 10px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0px 5px;
+                background: transparent;
+            }
+        """)
+        
+        lib_layout = QFormLayout(lib_group)
+        lib_layout.setContentsMargins(15, 25, 15, 25)  # Increased vertical margins
+        lib_layout.setVerticalSpacing(20)  # More space between rows
+        lib_layout.setHorizontalSpacing(15)
+
+        # Library info fields
+        self.shelf_edit = QLineEdit()
+        self.shelf_edit.setPlaceholderText("e.g., A1, B2")
+        self.shelf_edit.setStyleSheet(input_style)
+        self.shelf_edit.setFixedHeight(35)  # Taller input fields
+
+        self.copies_spin = QSpinBox()
+        self.copies_spin.setMaximum(999)
+        self.copies_spin.setMinimum(1)
+        self.copies_spin.setValue(1)
+        self.copies_spin.setStyleSheet(input_style)
+        self.copies_spin.setFixedHeight(35)
+
+        # Library info labels
+        shelf_label = QLabel("Shelf Number:")
+        shelf_label.setStyleSheet(label_style)
+        copies_label = QLabel("Total Copies:")
+        copies_label.setStyleSheet(label_style)
+
+        lib_layout.addRow(shelf_label, self.shelf_edit)
+        lib_layout.addRow(copies_label, self.copies_spin)
+
+        # =============== BOOK COVER (RIGHT SIDE) ===============
         image_group = QGroupBox("Book Cover")
         image_group.setStyleSheet("""
             QGroupBox {
@@ -1518,6 +1755,7 @@ class BookDetailsDialog(QDialog):
                 color: #5C4033;
                 font-size: 16px;
                 font-weight: bold;
+                margin-top: 10px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
@@ -1528,24 +1766,31 @@ class BookDetailsDialog(QDialog):
         """)
 
         image_layout = QHBoxLayout(image_group)
-        image_layout.setContentsMargins(10, 10, 10, 10)
-        image_layout.setSpacing(10)
+        image_layout.setContentsMargins(15, 20, 15, 20)
+        image_layout.setSpacing(15)
 
         image_container = QWidget()
         image_container_layout = QVBoxLayout(image_container)
-        image_container_layout.setContentsMargins(0,0,0,0)
+        image_container_layout.setContentsMargins(0, 0, 0, 0)
         image_container_layout.setSpacing(10)
 
         self.image_preview = QLabel()
         self.image_preview.setFixedSize(self.image_preview_size)
-        self.image_preview.setMinimumSize(160, 200)
+        self.image_preview.setMinimumSize(80, 100)
         self.image_preview.setAlignment(Qt.AlignCenter)
-        self.image_preview.setStyleSheet("")
+        self.image_preview.setStyleSheet("""
+            QLabel {
+                background-color: #f5f5f5;
+                border: 2px dashed #dbcfc1;
+                border-radius: 10px;
+            }
+        """)
         
         image_container_layout.addWidget(self.image_preview, alignment=Qt.AlignCenter)
 
         self.image_label = QLabel("No image selected")
         self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setStyleSheet("border: none; background: transparent;")
         image_container_layout.addWidget(self.image_label)
 
         image_layout.addWidget(image_container)
@@ -1556,80 +1801,47 @@ class BookDetailsDialog(QDialog):
             QPushButton {
                 background-color: #5C4033;
                 color: white;
-                padding: 8px 12px;
+                padding: 12px 20px;
                 border: none;
                 border-radius: 10px;
                 font-size: 14px;
+                font-weight: bold;
             }
             QPushButton:hover {
                 background-color: #8B4513;
             }
         """)
+        self.image_btn.setFixedHeight(45)
         image_layout.addWidget(self.image_btn, alignment=Qt.AlignCenter)
 
+        # Load cover preview if needed
         if self.is_found_book and self.book_data.get('image'):
             self.load_cover_preview()
 
-        main_layout.addWidget(image_group)
+        # =============== ADD BOTH GROUPS TO HORIZONTAL LAYOUT ===============
+        # Library Info on the left (60% width), Book Cover on the right (40% width)
+        lib_cover_layout.addWidget(lib_group, 6)   # 60% width
+        lib_cover_layout.addWidget(image_group, 4)  # 40% width
 
-        lib_group= QGroupBox("Library Information")
-        lib_group.setStyleSheet("""
-            QGroupBox {
-                background-color: white;
-                border-radius: 15px;
-                border: 2px solid #dbcfc1;
-                color: #5C4033;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 0px 5px;
-                background: transparent;
-            }
-        """)
-        lib_layout = QFormLayout(lib_group)
-        lib_layout.setContentsMargins(15, 20, 15, 15)
-        lib_layout.setVerticalSpacing(10)
-        lib_layout.setHorizontalSpacing(10)
+        # Add the horizontal container to content layout
+        content_layout.addWidget(lib_cover_container)
 
-        self.shelf_edit= QLineEdit()
-        self.shelf_edit.setPlaceholderText("e.g., A1, B2")
-        self.shelf_edit.setStyleSheet(input_style)
-        self.shelf_edit.setFixedHeight(30)
-
-        self.copies_spin = QSpinBox()
-        self.copies_spin.setMaximum(999)
-        self.copies_spin.setMinimum(1)
-        self.copies_spin.setValue(1)
-        self.copies_spin.setStyleSheet(input_style)
-        self.copies_spin.setFixedHeight(30)
-
-        # Create and style library info labels
-        shelf_label = QLabel("Shelf Number:")
-        shelf_label.setStyleSheet(label_style)
-        copies_label = QLabel("Total Copies:")
-        copies_label.setStyleSheet(label_style)
-
-        lib_layout.addRow(shelf_label, self.shelf_edit)
-        lib_layout.addRow(copies_label, self.copies_spin)
-
-        main_layout.addWidget(lib_group)
-
-        # save and cancel buttons
+        # =============== BUTTONS ===============
         button_layout = QHBoxLayout()
+        button_layout.setSpacing(15)
+        
         save_btn = QPushButton("Save Book")
         save_btn.clicked.connect(self.save_book)
         save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #5C4033;
                 color: white;
-                padding: 10px;
+                padding: 14px 20px;
                 border: none;
                 border-radius: 10px;
                 font-size: 16px;
-                min-width: 120px;
+                font-weight: bold;
+                min-width: 150px;
             }
             QPushButton:hover {
                 background-color: #8B4513;
@@ -1642,38 +1854,61 @@ class BookDetailsDialog(QDialog):
             QPushButton {
                 background-color: white;
                 color: #5C4033;
-                padding: 10px;
+                padding: 14px 20px;
                 border: 2px solid #5C4033;
                 border-radius: 10px;
                 font-size: 16px;
-                min-width: 120px;
+                font-weight: bold;
+                min-width: 150px;
             }
             QPushButton:hover {
                 background-color: #f0f0f0;
             }
         """)
-        button_layout.addStretch()
+
+        button_layout.addStretch(1)
         button_layout.addWidget(save_btn)
         button_layout.addWidget(cancel_btn)
         button_layout.addStretch()
-        main_layout.addLayout(button_layout)
-        main_layout.addStretch()
+        
+        content_layout.addLayout(button_layout)
+
+        # Set content widget as scroll area's widget
+        scroll_area.setWidget(content_widget)
+        
+        # Add scroll area to main layout
+        main_layout.addWidget(scroll_area)
+
+        # Set readOnly properties based on is_found_book
+        if self.is_found_book:
+            self.title_edit.setReadOnly(True)
+            self.author_edit.setReadOnly(True)
+            self.isbn_edit.setReadOnly(True)
+            self.publisher_edit.setReadOnly(True)
+            if self.book_data.get('categories', ['N/A'])[0] != 'N/A':
+                self.genre_combo.setEnabled(False)
+        else:
+            self.title_edit.setReadOnly(False)
+            self.author_edit.setReadOnly(False)
+            self.isbn_edit.setReadOnly(False)
+            self.publisher_edit.setReadOnly(False)
+            self.genre_combo.setEnabled(True)
 
     def load_cover_preview(self):
         try:
-            image_path = os.path.normpath(self.book_data['image']) #get local image file
-            pixmap = QPixmap(image_path) #use qpixmap to load
+            image_path = os.path.normpath(self.book_data['image'])
+            pixmap = QPixmap(image_path)
             if not pixmap.isNull():
-                scaled_pixmap = pixmap.scaled( #resize image to fit preview
+                scaled_pixmap = pixmap.scaled(
                     self.image_preview.size(),
                     Qt.KeepAspectRatio,
                     Qt.SmoothTransformation
                 )
                 self.image_preview.setPixmap(scaled_pixmap)
-                self.image_preview.setScaledContents(True) #pixmap automatically scale to preview size
-                self.image_label.setText(f"Image: {os.path.basename(image_path)}") #display name of the imagefile below
+                self.image_preview.setScaledContents(True)
+                self.image_label.setText(f"Image: {os.path.basename(image_path)}")
             else:
-                self.image_preview.setText("") #if failed to load image, clear preview area
+                self.image_preview.setText("")
                 self.image_preview.setStyleSheet("""
                     QLabel {
                         background-color: #dbcfc1;
@@ -1694,34 +1929,39 @@ class BookDetailsDialog(QDialog):
             """)
             self.image_label.setText("No image selected")
 
-    def populate_fields(self): #fill form fields with book data
+    def populate_fields(self):
         self.title_edit.setText(self.book_data.get('title', ''))
         author = self.book_data.get('author', '')
-        if isinstance(author, list): # for response for author is list
+        if isinstance(author, list):
             author = ', '.join(author)
         self.author_edit.setText(author)
         self.isbn_edit.setText(self.book_data.get('isbn', ''))
         self.publisher_edit.setText(self.book_data.get('publisher', ''))
-        self.genre_edit.setText(','.join(self.book_data.get('categories', [''])))
+        genres = self.book_data.get('categories', [''])
+        if not isinstance(genres, list):
+            genres = [genres]
+        
+        self.selected_genres = [g.strip() for g in genres if g.strip()]
+        self.update_genre_tags()
         self.description_edit.setText(self.book_data.get('description', ''))
 
     def upload_image(self):
-        file_path, _ = QFileDialog.getOpenFileName( #open file for user to upload image
+        file_path, _ = QFileDialog.getOpenFileName(
             self, "Select Book Cover", "", "Images (*.png *.jpg *.jpeg *.bmp *.gif)"
         )
-        if file_path: #process only if file was selected
+        if file_path:
             try:
-                if not os.path.exists('assets'): #create assests folder
+                if not os.path.exists('assets'):
                     os.makedirs('assets')
-                isbn = re.sub(r'[^0-9X]', '', self.isbn_edit.text().strip().upper()) or 'temp' #isbn for filenames
+                isbn = re.sub(r'[^0-9X]', '', self.isbn_edit.text().strip().upper()) or 'temp'
                 filename = f"book_cover_{isbn}.png"
-                image_path = os.path.normpath(os.path.join('assets', filename)) #full path to dave the image
-                shutil.copy(file_path, image_path) #copy the imaget= tot the folder
+                image_path = os.path.normpath(os.path.join('assets', filename))
+                shutil.copy(file_path, image_path)
                 print(f"Image copied to: {image_path}, Exists: {os.path.exists(image_path)}")
                 if os.path.exists(image_path):
-                    self.book_data['image'] = image_path #save image to book data
+                    self.book_data['image'] = image_path
                     self.image_label.setText(f"Image: {os.path.basename(image_path)}")
-                    pixmap = QPixmap(image_path) #load image in preview
+                    pixmap = QPixmap(image_path)
                     if not pixmap.isNull():
                         scaled_pixmap = pixmap.scaled(
                             self.image_preview.size(),
@@ -1730,7 +1970,7 @@ class BookDetailsDialog(QDialog):
                         )
                         self.image_preview.setPixmap(scaled_pixmap)
                         self.image_preview.setStyleSheet("")
-                    else: # for invald image
+                    else:
                         print(f"Invalid image file: {image_path}")
                         self.image_preview.setText("")
                         self.image_preview.setStyleSheet("""
@@ -1741,7 +1981,7 @@ class BookDetailsDialog(QDialog):
                             }
                         """)
                         self.image_label.setText("Invalid image")
-                else: #fallback for copy error
+                else:
                     print(f"Failed to copy image to: {image_path}")
                     self.image_preview.setText("")
                     self.image_preview.setStyleSheet("""
@@ -1773,25 +2013,71 @@ class BookDetailsDialog(QDialog):
             ('Description', lambda: self.description_edit.toPlainText().strip(), "Description is required", None),
             ('Shelf Number', lambda: self.shelf_edit.text().strip(), "Shelf number is required", None),
         ]
-        isbn = re.sub(r'[^0-9X]', '', self.isbn_edit.text().strip().upper()) #clean isbn
-        if isbn and not self.parent.validate_isbn(isbn): #validate isbn
+        
+        isbn = re.sub(r'[^0-9X]', '', self.isbn_edit.text().strip().upper())
+        
+        # Internal ISBN validation instead of using parent.validate_isbn
+        is_valid_isbn = False
+        if len(isbn) == 10:
+            # ISBN-10 validation
+            try:
+                total = 0
+                for i in range(9):
+                    if not isbn[i].isdigit():
+                        break
+                    total += int(isbn[i]) * (10 - i)
+                check = 11 - (total % 11)
+                if check == 11:
+                    check = '0'
+                elif check == 10:
+                    check = 'X'
+                else:
+                    check = str(check)
+                is_valid_isbn = (isbn[9] == check)
+            except:
+                is_valid_isbn = False
+        elif len(isbn) == 13:
+            # ISBN-13 validation
+            try:
+                if not isbn.isdigit():
+                    is_valid_isbn = False
+                else:
+                    total = 0
+                    for i in range(12):
+                        if i % 2 == 0:
+                            total += int(isbn[i])
+                        else:
+                            total += int(isbn[i]) * 3
+                    check = (10 - (total % 10)) % 10
+                    is_valid_isbn = (int(isbn[12]) == check)
+            except:
+                is_valid_isbn = False
+        
+        if isbn and not is_valid_isbn:
             QMessageBox.warning(self, "Validation Error", "Invalid ISBN")
+            return
+        
         shelf = self.shelf_edit.text().strip()
         if not re.match(r'^[A-Z][0-9]{1,5}$', shelf):
             QMessageBox.warning(self, "Validation Error", "Shelf number must be one letter (A-Z) followed by 1 to 5 digits. (e.g. A1, B12, C345)")
             return
-        for field_name , getter, error_msg, validator in fields:
+            
+        for field_name, getter, error_msg, validator in fields:
             value = getter()
             if not value or (validator and not validator(value)):
                 QMessageBox.warning(self, "Validation Error", error_msg)
                 return
+                
         authors = list(set([a.strip() for a in self.author_edit.text().strip().split(',') if a.strip()]))
-        genres = list(set([g.strip() for g in self.genre_edit.text().strip().split(',') if g.strip()]))
+        genres = list(set(self.selected_genres)) 
+        
         if not genres:
             QMessageBox.warning(self, "Validation Error", "At least one(1) genre is required")
             return
+
         try:
-            self.book_data = { #store book infos in a disctionary
+            # Update book_data with form values
+            self.book_data = {
                 'title': self.title_edit.text().strip(),
                 'author': authors,
                 'isbn': isbn,
@@ -1802,15 +2088,123 @@ class BookDetailsDialog(QDialog):
                 'copies': self.copies_spin.value(),
                 'image': self.book_data.get('image', ''),
                 'available_copies': self.copies_spin.value(),
-                'image_url' : self.book_data.get('image_url', '')
+                'image_url': self.book_data.get('image_url', '')
             }
-            print(f"Saving book: {self.book_data}") #for debudding 
+            
+            print(f"Saving book: {self.book_data}")
             QMessageBox.information(self, "Success", f"Book '{self.book_data['title']}' has been added to the library")
             self.accept()
         except Exception as e:
-            QMessageBox.warning(self, "Error", "Unexpected Error: {e}")
+            QMessageBox.warning(self, "Error", f"Unexpected Error: {e}")
             print(f"Unexpected Error: {e}")
+            
 
+    def handle_genre_input(self, text):
+        """Handle genre input changes"""
+        if not text.strip():
+            return
+
+    def add_current_genre(self):
+        """Add the current genre in the combobox to selected genres"""
+        genre = self.genre_combo.currentText().strip()
+        if genre and genre not in self.selected_genres:
+            self.selected_genres.append(genre)
+            self.update_genre_tags()
+            self.genre_combo.clearEditText()
+            QToolTip.showText(
+                self.genre_combo.mapToGlobal(self.genre_combo.rect().bottomRight()),
+                f"Added genre: {genre}",
+                self.genre_combo,
+                QRect(),
+                1500)
+
+    def create_genre_tag(self, genre):
+        """Create a tag widget for a selected genre"""
+        tag = QWidget()
+        tag.setStyleSheet("""
+            QWidget {
+                background-color: #f0f0f0;
+                border: 1px solid #dbcfc1;
+                border-radius: 10px;
+            }
+        """)
+        tag_layout = QHBoxLayout(tag)
+        tag_layout.setContentsMargins(8, 2, 8, 2)
+        tag_layout.setSpacing(5)
+        
+        label = QLabel(genre)
+        label.setStyleSheet("background: transparent; border: none;")
+        
+        remove_btn = QPushButton("×")
+        remove_btn.setFixedSize(16, 16)
+        remove_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #5C4033;
+                font-weight: bold;
+                border: none;
+            }
+            QPushButton:hover {
+                color: red;
+            }
+        """)
+        remove_btn.clicked.connect(lambda: self.remove_genre(genre))
+        
+        tag_layout.addWidget(label)
+        tag_layout.addWidget(remove_btn)
+        
+        return tag
+
+    def update_genre_tags(self):
+        """Update the genre tags display"""
+        # Clear current tags
+        for i in reversed(range(self.selected_genres_layout.count())):
+            widget = self.selected_genres_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        
+        # Add tags for each selected genre
+        for genre in self.selected_genres:
+            tag = self.create_genre_tag(genre)
+            self.selected_genres_layout.addWidget(tag)
+
+    def remove_genre(self, genre):
+        """Remove a genre from selected genres"""
+        if genre in self.selected_genres:
+            self.selected_genres.remove(genre)
+            self.update_genre_tags()
+    
+    def add_current_genre_from_dropdown(self, index):
+        """Add genre when selected from dropdown without needing Enter key"""
+        if index >= 0:  # Ensure it's a valid selection
+            genre = self.genre_combo.itemText(index)
+            if genre and genre not in self.selected_genres:
+                self.selected_genres.append(genre)
+                self.update_genre_tags()
+                # Clear the text but don't lose focus
+                self.genre_combo.setCurrentText("")
+                # Show tooltip confirmation
+                QToolTip.showText(
+                    self.genre_combo.mapToGlobal(self.genre_combo.rect().bottomRight()),
+                    f"Added genre: {genre}",
+                    self.genre_combo,
+                    QRect(),
+                    1500
+                )
+    def keyPressEvent(self, event):
+        """Override key press events to prevent Enter from accepting the dialog"""
+        from PySide6.QtCore import Qt, QEvent
+        
+        # If Enter/Return is pressed while the genre combo has focus
+        if (event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter) and self.genre_combo.hasFocus():
+            # Add the current genre instead of accepting the dialog
+            self.add_current_genre()
+            # Stop event propagation
+            event.accept()
+        else:
+            # For all other keys, pass to parent handler
+            super().keyPressEvent(event)
+            
 #MAIN WINDOW
 class CollapsibleSidebar(QWidget):
     def __init__(self, librarian_id=None):
@@ -1936,6 +2330,144 @@ class CollapsibleSidebar(QWidget):
             # Initialize with empty data if there's an error
             self.books_data = []
             self.original_books_data = []
+    
+    #SORTING BOOKS 
+    def show_sort_options(self):
+        """Show a popup menu with sorting options"""
+        # Create menu
+        sort_menu = QMenu(self)
+        sort_menu.setStyleSheet("""
+            QMenu {
+                background-color: #FFFEF0;
+                border: 2px solid #5C4033;
+                border-radius: 8px;
+                padding: 5px;
+            }
+            QMenu::item {
+                padding: 8px 20px;
+                color: #5C4033;
+                font-size: 14px;
+            }
+            QMenu::item:selected {
+                background-color: #dbcfc1;
+                border-radius: 4px;
+            }
+        """)
+        
+        # Add sort options
+        sort_menu.addAction("Title (A-Z)", lambda: self.sort_books("title", True))
+        sort_menu.addAction("Title (Z-A)", lambda: self.sort_books("title", False))
+        sort_menu.addAction("Author (A-Z)", lambda: self.sort_books("author", True))
+        sort_menu.addAction("Author (Z-A)", lambda: self.sort_books("author", False))
+        sort_menu.addAction("Most Copies", lambda: self.sort_books("copies", False))
+        sort_menu.addAction("Least Copies", lambda: self.sort_books("copies", True))
+        
+        # Show menu at button position
+        sort_menu.exec(self.sort_button.mapToGlobal(self.sort_button.rect().bottomLeft()))
+
+    def sort_books(self, key, ascending=True):
+        """Sort books by the given key"""
+        if key == "author":
+            # Special handling for author since it can be a list
+            def get_first_author(book):
+                authors = book.get("author", [""])
+                if isinstance(authors, list) and authors:
+                    return authors[0].lower()
+                return str(authors).lower()
+            
+            self.books_data.sort(key=get_first_author, reverse=not ascending)
+        else:
+            # For other fields
+            def get_sort_key(book):
+                value = book.get(key)
+                if isinstance(value, str):
+                    return value.lower()
+                return value or 0  
+            
+            self.books_data.sort(key=get_sort_key, reverse=not ascending)
+        
+        # Refresh the display with sorted books
+        self.populate_books()
+
+    def show_shelf_view(self):
+        """Show books organized by shelf location"""
+        # Create a popup menu with available shelves
+        from PySide6.QtWidgets import QMenu
+        
+        shelf_menu = QMenu(self)
+        shelf_menu.setStyleSheet("""
+            QMenu {
+                background-color: #FFFEF0;
+                border: 2px solid #5C4033;
+                border-radius: 8px;
+                padding: 5px;
+            }
+            QMenu::item {
+                padding: 8px 20px;
+                color: #5C4033;
+                font-size: 14px;
+            }
+            QMenu::item:selected {
+                background-color: #dbcfc1;
+                border-radius: 4px;
+            }
+        """)
+        
+       
+        # HELLO SO SABI NI AI KINUKUHA NAMAN DAW NAITN YUNG PYTHON DICTIONARY SA LOAD BOOKS
+        # SO KAHIT ANG KUNIN NALANG DAW IS YUNG LIST AND LAMBDA FOR SORTING
+        #BUT IF WANT NIYO TANGGALIN GO LANG PUU
+        
+        #REMOVE THIS HANGGANG
+        shelves = set()
+        for book in self.original_books_data:
+            shelf = book.get('shelf', '')
+            if shelf:
+                shelves.add(shelf)
+        
+        # Sort shelves
+        sorted_shelves = sorted(list(shelves))
+        #DITO ANG TATANGGALIN 
+
+        # HUWAG TONG TATANGGALIN!!!
+        shelf_menu.addAction("All Books", lambda: self.display_shelf_books(None))
+        
+        #TANGGAL TO IF WANT NIYO
+        if sorted_shelves:
+            shelf_menu.addSeparator()
+            
+            for shelf in sorted_shelves:
+                shelf_menu.addAction(f"Shelf {shelf}", lambda s=shelf: self.display_shelf_books(s))
+        else:
+            # If no shelves are found
+            shelf_menu.addAction("No shelves found", lambda: None).setEnabled(False)
+        #HANGGANG HERE
+
+        # Show menu at button position
+        shelf_menu.exec(self.shelf_button.mapToGlobal(self.shelf_button.rect().bottomLeft()))
+        
+    def display_shelf_books(self, shelf=None):
+        """Display books for a specific shelf or all books if shelf is None"""
+        if shelf is None:
+            # Show all books
+            self.books_data = self.original_books_data.copy()
+            self.title_label.setText("Books Management")
+        else:
+            # Filter books by shelf
+            self.books_data = [book for book in self.original_books_data if book.get('shelf') == shelf]
+            self.title_label.setText(f"Books on Shelf {shelf}")
+        
+        # Update display
+        self.populate_books()
+        
+        # Show message if no books found
+        if not self.books_data and shelf is not None:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self,
+                "Shelf View",
+                f"No books found on shelf {shelf}."
+            )
 
     def create_main_books_view(self):
         """Create the main books view with search and grid"""
@@ -2004,7 +2536,47 @@ class CollapsibleSidebar(QWidget):
                 color: white;
             }
         """)
-        
+
+        # SORT BUTTON
+        self.sort_button = QPushButton("🔄")
+        self.sort_button.setFixedSize(50, 50)
+        self.sort_button.setToolTip("Sort Books")
+        self.sort_button.clicked.connect(self.show_sort_options)
+        self.sort_button.setStyleSheet("""
+            QPushButton {
+                color: #5C4033;
+                font-size: 20px;
+                font-weight: bold;
+                background-color: #F5F5F5;
+                border: 3px solid #5C4033;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #5C4033;
+                color: white;
+            }
+        """)
+
+        # BOOKSHELF BUTTON
+        self.shelf_button = QPushButton("📚")
+        self.shelf_button.setFixedSize(50, 50)
+        self.shelf_button.setToolTip("View by Shelf")
+        self.shelf_button.clicked.connect(self.show_shelf_view)
+        self.shelf_button.setStyleSheet("""
+            QPushButton {
+                color: #5C4033;
+                font-size: 20px;
+                font-weight: bold;
+                background-color: #F5F5F5;
+                border: 3px solid #5C4033;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #5C4033;
+                color: white;
+            }
+        """)
+
         # ADD A BOOK BUTTON
         self.add_button = QPushButton("➕")
         self.add_button.setFixedSize(50, 50)
@@ -2026,6 +2598,8 @@ class CollapsibleSidebar(QWidget):
         
         search_layout.addWidget(self.search_bar)
         search_layout.addWidget(self.search_button)
+        search_layout.addWidget(self.sort_button)
+        search_layout.addWidget(self.shelf_button)
         search_layout.addWidget(self.add_button)
         
         header_layout.addWidget(self.title_label)
@@ -2086,7 +2660,8 @@ class CollapsibleSidebar(QWidget):
     def create_books_section(self):
         """Create the books display section with multiple columns and vertical scrolling"""
         books_container = QWidget()
-        books_container.setMinimumHeight(500)
+        books_container.setMinimumWidth(1200)
+        books_container.setMinimumHeight(590)
         books_container.setStyleSheet("""
             QWidget {
                 background-color: white;
@@ -2142,11 +2717,12 @@ class CollapsibleSidebar(QWidget):
         self.scroll_content.setStyleSheet("background-color: transparent;")
           # Use grid layout with multiple columns
         self.grid_layout = QGridLayout(self.scroll_content)
-        self.grid_layout.setSpacing(20)
+        self.grid_layout.setSpacing(15)
         self.grid_layout.setContentsMargins(15, 15, 15, 15)
         self.grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         
-        # Populate books        #self.populate_books()
+        for i in range(6):  
+            self.grid_layout.setColumnStretch(i, 1)   
         
         scroll_area.setWidget(self.scroll_content)
         books_layout.addWidget(scroll_area)
@@ -2158,10 +2734,12 @@ class CollapsibleSidebar(QWidget):
         print(f"Populating {len(self.books_data)} books...")
         # Clear existing widgets
         for i in reversed(range(self.grid_layout.count())):
-            self.grid_layout.itemAt(i).widget().setParent(None)
-        
+            widget = self.grid_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+    
         # Add books to grid (4 books per row with larger cards)
-        columns_per_row = 4
+        columns_per_row = 6
         for index, book in enumerate(self.books_data):
             row = index // columns_per_row
             col = index % columns_per_row            
@@ -2172,6 +2750,7 @@ class CollapsibleSidebar(QWidget):
         """Create a clickable book card"""
         card_widget = QPushButton()
         card_widget.setFixedSize(200, 280)
+        card_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         card_widget.clicked.connect(lambda checked, data = book_data: self.show_book_preview(data))
         card_widget.setStyleSheet("""
             QPushButton {

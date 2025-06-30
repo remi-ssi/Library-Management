@@ -266,10 +266,6 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     
-    # Test with multiple books
-    dialog = PreviewTransactionForm(transaction_multiple)
+    # Test with multiple books    dialog = PreviewTransactionForm(transaction_multiple)
     dialog.exec()
     
-    # Uncomment to test with single book
-    # dialog2 = PreviewTransactionForm(transaction_single)
-    # dialog2.exec()

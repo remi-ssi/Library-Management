@@ -64,6 +64,29 @@ class DatabaseSeeder:
                     PRIMARY KEY (BookCode, Genre), 
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
             return book, Author, Genre
+        # ----BookTransaction Table ------
+        elif tableName == "BookTransaction":
+            return """CREATE TABLE IF NOT EXISTS BookTransaction(
+                    TransactionID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    TransactionType VARCHAR(20) NOT NULL,
+                    TransactionDate TIMESTAMP NOT NULL,
+                    Status VARCHAR(20) NOT NULL,
+                    Remarks DEFAULT NULL,
+                    isDeleted TIMESTAMP DEFAULT NULL,
+                    LibrarianID INTEGER,
+                    MemberID INTEGER,
+                    FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID),
+                    FOREIGN KEY (MemberID) REFERENCES Member (MemberID))"""
+        elif tableName == "TransactionDetails":
+            return """CREATE TABLE IF NOT EXISTS TransactionDetails (
+                    DetailsID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    Quantity INTEGER NOT NULL,
+                    isDeleted TIMESTAMP DEFAULT NULL,
+                    TransactionID INTEGER,
+                    BookCode INTEGER,
+                    FOREIGN KEY (TransactionID) REFERENCES BookTransaction (TransactionID),
+                    FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
+       
 
     #check if the table exists in the database
     def check_table(self, tableName):
@@ -127,8 +150,14 @@ class DatabaseSeeder:
                 columns = ', '.join(columnOrder)
 
                 cursor.execute(f"INSERT INTO {tableName} ({columns}) VALUES ({placeholders})", values)
-                #cursor.execute("INSERT INTO Librarian (LibUsername, LibPass, FName, LName, MName) VALUES (?, ?, ?, ?, ?)", ["admin", b"$2b$12$abc123...hashed", "Shelley", "Sesante", "Hi"])
-            
+                # If seeding BookTransaction, also add BookCode to TransactionDetails if present
+                if tableName == "BookTransaction" and "BookCode" in i:
+                    book_code = i["BookCode"]
+                    transaction_id = cursor.lastrowid
+                    cursor.execute(
+                        "INSERT INTO TransactionDetails (Quantity, TransactionID, BookCode) VALUES (?, ?, ?)",
+                        (i.get("Quantity", 1), transaction_id, book_code)
+                    )
             conn.commit()
             print(f"✓ Seeded {len(data)} rows into {tableName}")
         except Exception as e:
@@ -148,6 +177,107 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+    def get_borrowed_transactions(self, librarian_id):
+        try:
+            conn, cursor = self.get_connection_and_cursor()
+            query = """
+                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.Remarks,
+                       m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
+                       b.BookCode, b.BookTitle, td.Quantity
+                FROM BookTransaction t
+                JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
+                JOIN Member m ON t.MemberID = m.MemberID
+                JOIN Book b ON td.BookCode = b.BookCode
+                WHERE t.TransactionType = 'Borrow'
+                AND t.isDeleted IS NULL
+                AND td.isDeleted IS NULL
+                AND b.isDeleted IS NULL
+                AND m.isDeleted IS NULL
+                AND t.LibrarianID = ?
+                ORDER BY t.TransactionDate DESC
+            """
+            cursor.execute(query, (librarian_id,))
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            records = [dict(zip(columns, row)) for row in rows]
+            return records
+        except Exception as e:
+            print(f"✗ Error fetching borrowed transactions: {e}")
+            return []
+        finally:
+            conn.close()
+
+    def get_transaction_with_details(self, member_id=None, librarian_id=None):
+        try:
+            conn, cursor = self.get_connection_and_cursor()
+            query = """
+                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.Remarks,
+                    m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
+                    b.BookCode, b.BookTitle, td.Quantity
+                FROM BookTransaction t
+                JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
+                JOIN Member m ON t.MemberID = m.MemberID
+                JOIN Book b ON td.BookCode = b.BookCode
+                WHERE t.isDeleted IS NULL
+                AND td.isDeleted IS NULL
+                AND b.isDeleted IS NULL
+                AND m.isDeleted IS NULL
+            """
+            parameters = []
+            if member_id:
+                query += " AND t.MemberID = ?"
+                parameters.append(member_id)
+            if librarian_id:
+                query += " AND t.LibrarianID = ?"
+                parameters.append(librarian_id)
+            query += " ORDER BY t.TransactionDate DESC"
+            cursor.execute(query, parameters)
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            records = [dict(zip(columns, row)) for row in rows]
+            return records
+        except Exception as e:
+            print(f"✗ Error fetching transactions with details: {e}")
+            return []
+        finally:
+            conn.close()
+    
+    def get_all_transactions(self, librarian_id):
+        try:
+            conn, cursor = self.get_connection_and_cursor()
+            query = """
+                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.Remarks,
+                    m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
+                    b.BookCode, b.BookTitle, td.Quantity
+                FROM BookTransaction t
+                JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
+                JOIN Member m ON t.MemberID = m.MemberID
+                JOIN Book b ON td.BookCode = b.BookCode
+                WHERE t.isDeleted IS NULL
+                AND td.isDeleted IS NULL
+                AND b.isDeleted IS NULL
+                AND m.isDeleted IS NULL
+                AND t.LibrarianID = ?
+                ORDER BY t.TransactionDate DESC
+            """
+            cursor.execute(query, (librarian_id,))
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            records = [dict(zip(columns, row)) for row in rows]
+            # --- Add this mapping ---
+            for rec in records:
+                rec['action'] = rec.get('TransactionType', '')
+                rec['transaction_type'] = rec.get('TransactionType', '')
+                rec['date'] = rec.get('TransactionDate', '')
+                rec['returned_date'] = rec.get('Remarks', '')  # or use the correct field
+            return records
+        except Exception as e:
+            print(f"✗ Error fetching all transactions: {e}")
+            return []
+        finally:
+            conn.close()
+    
+
     #to get all the records/rows inside the certain table
     def get_all_records(self, tableName, id):
         conn, cursor = self.get_connection_and_cursor()
@@ -165,9 +295,23 @@ class DatabaseSeeder:
                             JOIN Book AS BK ON BG.BookCode = BK.BookCode
                             WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?"""
                 cursor.execute(query, (id,))
+            elif tableName == "TransactionDetails":
+                query = """
+                    SELECT td.* 
+                    FROM TransactionDetails td
+                    JOIN BookTransaction bt ON td.TransactionID = bt.TransactionID
+                    WHERE td.isDeleted IS NULL 
+                    AND bt.isDeleted IS NULL 
+                    AND bt.LibrarianID = ?
+                """
+                cursor.execute(query, (id,))
+
             else: # for member and book table
                 # Filter by records that are not deleted and owned by the specified librarian
-                query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
+                if tableName == "BookTransaction":
+                    query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
+                else:
+                    query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
                 cursor.execute(query, (id,))
             
             rows = cursor.fetchall()

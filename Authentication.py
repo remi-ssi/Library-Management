@@ -529,7 +529,7 @@ class ConfirmEmailDialog(QWidget):
     def send_real_email(self, recipient_email, otp):
         try:
 
-            load_dotenv()
+            load_dotenv("email.env")
             
             # Get email credentials from environment variables
             sender_email = os.getenv("EMAIL_ADDRESS")
@@ -627,6 +627,10 @@ class OTPVerificationDialog(QWidget):
         self.otp_input = QLineEdit()
         self.otp_input.setPlaceholderText("Enter OTP")
         self.otp_input.setFixedHeight(40)
+        self.otp_input.setFixedWidth(350)
+        self.otp_input.setMaxLength(6)
+        self.otp_input.setContentsMargins(85, 0, 0, 0)  
+        self.otp_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.otp_input.setStyleSheet("""
             QLineEdit {
                 border: 2px solid #B7966B;
@@ -635,6 +639,7 @@ class OTPVerificationDialog(QWidget):
                 font-size: 16px;
                 background-color: #F0ECE9;
                 color: #4A4947;
+                text-align: center; 
             }
             QLineEdit:focus {
                 border: 3px solid #714423;
@@ -698,10 +703,11 @@ class OTPVerificationDialog(QWidget):
         button_layout.addWidget(self.verify_btn)
         
         # Add widgets to main layout
+        main_layout.addSpacing(20)
         main_layout.addWidget(title_label)
         main_layout.addSpacing(10)
         main_layout.addWidget(desc_label)
-        main_layout.addSpacing(20)
+        main_layout.addSpacing(50)
         main_layout.addWidget(self.otp_input)
         main_layout.addWidget(self.error_label)
         main_layout.addSpacing(10)

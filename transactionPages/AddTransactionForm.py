@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox,
-    QDateEdit, QPushButton, QWidget, QSizePolicy, QSpinBox, QScrollArea, QFrame
+    QDateEdit, QPushButton, QWidget, QSizePolicy, QSpinBox, QScrollArea, QFrame, QTextEdit
 )
 from PySide6.QtCore import Qt, QDate, Signal
 from PySide6.QtGui import QFont
@@ -14,14 +14,14 @@ class BookSelectionWidget(QWidget):
         self.books_list = books_list
         
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
+        layout.setContentsMargins(10,10,10,10)
+        layout.setSpacing(30)
         
         # Number label
         self.number_label = QLabel("1.")
         self.number_label.setStyleSheet("""
             color: #5e3e1f;
-            margin-left: 5px;
+            margin-left: 80;
             background: transparent;
             border: none;
         """)
@@ -191,8 +191,9 @@ class AddTransactionForm(QDialog):
         
         self.setWindowTitle("Add New Transaction")
         self.setStyleSheet("background-color: #f5f1e6;")
-        self.setMinimumWidth(1200)
-        self.showMaximized()  # Maximized window - keeps title bar and system buttons
+        
+        from PySide6.QtCore import Qt
+        self.setWindowState(Qt.WindowMaximized)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 20, 20, 20)
@@ -205,7 +206,7 @@ class AddTransactionForm(QDialog):
             border: 2px solid #e8d8bd;
             border-radius: 12px;
         """)
-        form_container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        form_container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
         form_layout.setContentsMargins(30, 30, 30, 30)
         form_layout.setSpacing(20)
@@ -234,7 +235,7 @@ class AddTransactionForm(QDialog):
             """)
             widget.setFont(QFont("Times New Roman", 12))
             widget.setStyleSheet("""
-                QLineEdit, QComboBox, QDateEdit {
+                QLineEdit, QComboBox, QDateEdit, QTextEdit {
                     border: 2px solid #e8d8bd;
                     border-radius: 16px;
                     padding: 8px 14px;
@@ -259,13 +260,18 @@ class AddTransactionForm(QDialog):
                 }
 
                 QDateEdit {
-                    padding-right: 24px; /* Make space for the buttons */
+                    padding-right: 24px; #spaces for buttons
                 }
 
                 QDateEdit::up-button, QDateEdit::down-button {
                     width: 0px;
                     height: 0px;
                     border: none;
+                }
+
+                QTextEdit {
+                    min-height: 60px;
+                    max-height: 80px;
                 }
             """)
             widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -278,7 +284,7 @@ class AddTransactionForm(QDialog):
         self.borrower_edit.setPlaceholderText("Enter Borrower Name")
         form_layout.addLayout(add_form_row("Borrower:", self.borrower_edit))
 
-        # Books Section
+        # Books Section - Give it more space
         books_section = QWidget()
         books_layout = QVBoxLayout(books_section)
         books_layout.setContentsMargins(0, 0, 0, 0)
@@ -301,11 +307,11 @@ class AddTransactionForm(QDialog):
 
         # Plus button
         self.add_book_btn = QPushButton("+")
-        self.add_book_btn.setFixedSize(30,30)
+        self.add_book_btn.setFixedSize(40,40)
         self.add_book_btn.setStyleSheet("""
             QPushButton {
-                margin-top:5px;
-                margin-right:5px;
+                margin-top:10px;
+                margin-right:8px;
                 color: #5e3e1f;
                 font-size: 22px;
                 font-weight: bold;
@@ -329,14 +335,13 @@ class AddTransactionForm(QDialog):
         # Container for book widgets
         self.books_container = QWidget()
         self.books_container_layout = QVBoxLayout(self.books_container)
-        self.books_container_layout.setContentsMargins(0, 0, 0, 0)
-        self.books_container_layout.setSpacing(10)
+        self.books_container_layout.setContentsMargins(0,0,0,0)
+        self.books_container_layout.setSpacing(15)
         
-        # Create the scroll area
+        # Create the scroll area with increased minimum height
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QScrollArea.NoFrame) 
-        self.scroll_area.setMaximumHeight(800)  
 
         
         books_layout.addLayout(books_header)
@@ -344,7 +349,8 @@ class AddTransactionForm(QDialog):
      
         self.scroll_area.setWidget(self.books_container)
         
-        form_layout.addWidget(books_section)
+        # Add the books section with stretch factor to give it more space
+        form_layout.addWidget(books_section, 2)  # Give books section more weight
         
         # Add first book widget by default
         self.add_book_widget(show_remove=False)
@@ -364,8 +370,35 @@ class AddTransactionForm(QDialog):
         self.status_combo.addItems(["Borrowed", "Returned"])
         form_layout.addLayout(add_form_row("Status:", self.status_combo))
 
+        # Remarks - Make it more compact
+        self.remarks_edit = QTextEdit()
+        self.remarks_edit.setPlaceholderText("Enter any additional remarks or notes (optional)")
+        self.remarks_edit.setMaximumHeight(60)  # Limit the height more strictly
+        self.remarks_edit.setMinimumHeight(60)  # Set a fixed height
+        form_layout.addLayout(add_form_row("Remarks:", self.remarks_edit))
+
         # Buttons
         button_row = QHBoxLayout()
+        button_row.setSpacing(15)
+        
+        # Cancel button
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setFont(QFont("Times New Roman", 13, QFont.Bold))
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #white;
+                color:#5e3e1f ;
+                border-radius: 16px;
+                padding: 12px 30px;
+                min-width: 120px;
+            }
+            QPushButton:hover {
+                background-color: #5e3e1f;
+                color: white;
+            }
+        """)
+        
+        # Add Transaction button
         self.add_btn = QPushButton("Add Transaction")
         self.add_btn.setFont(QFont("Times New Roman", 13, QFont.Bold))
         self.add_btn.setStyleSheet("""
@@ -374,20 +407,24 @@ class AddTransactionForm(QDialog):
                 color: white;
                 border-radius: 16px;
                 padding: 12px 30px;
+                min-width: 120px;
             }
             QPushButton:hover {
                 background-color: #a0522d;
             }
         """)
+        
         button_row.addStretch()
+        button_row.addWidget(self.cancel_btn)
         button_row.addWidget(self.add_btn)
         button_row.addStretch()
         form_layout.addLayout(button_row)
 
         main_layout.addWidget(form_container)
 
-        # Behavior
+        # Button connections
         self.add_btn.clicked.connect(self.accept)
+        self.cancel_btn.clicked.connect(self.reject)
 
     def add_book_widget(self, show_remove=True):
         """Add a new book selection widget"""
@@ -405,7 +442,6 @@ class AddTransactionForm(QDialog):
         self.book_widgets.append(book_widget)
         self.books_container_layout.addWidget(book_widget)
     
-
         book_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 
         # Para sa delete buttons if maraming books 
@@ -444,6 +480,9 @@ class AddTransactionForm(QDialog):
             })
         return books_data
 
+    def get_remarks(self):
+        return self.remarks_edit.toPlainText().strip()
+
 if __name__ == "__main__":
     import sys
     from PySide6.QtWidgets import QApplication
@@ -451,7 +490,10 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     books = ["1984", "To Kill a Mockingbird", "Pride and Prejudice"]
     dialog = AddTransactionForm(books)
-    if dialog.exec():
+    result = dialog.exec()
+    
+    if result == QDialog.Accepted:
+        print("Transaction Added:")
         print("Borrower:", dialog.borrower_edit.text())
         print("Books borrowed:")
         for book_data in dialog.get_books_data():
@@ -459,3 +501,6 @@ if __name__ == "__main__":
         print("Borrowed:", dialog.borrow_date_edit.date().toString("yyyy-MM-dd"))
         print("Due:", dialog.due_date_edit.date().toString("yyyy-MM-dd"))
         print("Status:", dialog.status_combo.currentText())
+        print("Remarks:", dialog.get_remarks() or "None")
+    else:
+        print("Transaction cancelled by user")

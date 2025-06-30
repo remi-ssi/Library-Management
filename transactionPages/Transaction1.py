@@ -2,7 +2,6 @@ import sys
 import requests
 import navigation_sidebar
 from navbar_logic import nav_manager
-
 from datetime import datetime, timedelta
 from PySide6.QtCore import Qt, QSize, QPropertyAnimation, QTimer, QRect, QEasingCurve
 from PySide6.QtGui import QFont, QIcon, QPixmap, QPainter, QColor
@@ -15,9 +14,11 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QDate
 from functools import partial
-from .AddTransactionForm import AddTransactionForm
-from navigation_sidebar import NavigationSidebar  
-from navbar_logic import nav_manager  
+from AddTransactionForm import AddTransactionForm  # PARA MA-IMPORT UNG TRANSACTION FORM 
+from PreviewCurrentTransaction import PreviewCurrentTransaction # PARA MA-IMPORT UNG PREVIEW NG TRANSACTION
+from HistoryPreviewTransaction import HistoryPreviewTransaction # PARA MA-IMPORT UNG PREVIEW NG HISTORY 
+from navigation_sidebar import NavigationSidebar # PARA SA SIDE BAR 
+from navbar_logic import nav_manager
 
 class TransactionCard(QFrame):
     def __init__(self, transaction, parent_system):
@@ -27,33 +28,25 @@ class TransactionCard(QFrame):
         self.setup_ui()
         
     def setup_ui(self):
-        central_widget = QWidget() 
+        central_widget = QWidget()
+        self.setFixedSize(280, 210)  
         self.setFrameStyle(QFrame.Box)
         self.setCentralWidget(central_widget)
         self.setStyleSheet("""
             QFrame {
                 background-color: #e8d8bd;
                 border-radius: 15px;
+                     
             }
             QFrame:hover {
                 border-color: #5e3e1f;
                 background-color: #5e3e1f;
             }
         """)
-        self.showMaximized()
 
         layout = QVBoxLayout(self)
         layout.setSpacing(6)
         layout.setContentsMargins(12, 12, 12, 12)
-
-        # Transaction ID (always at the top, left-aligned)
-        id_label = QLabel(f"Transaction ID: {self.transaction['id']}")
-        id_label.setFont(QFont("Times New Roman", 11, QFont.Bold))
-        id_label.setStyleSheet("color: #8B4513; background: none; border: none; margin-bottom: 2px;")
-        id_label.setFrameStyle(QFrame.NoFrame)
-        id_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        id_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        layout.addWidget(id_label)
 
         # Book title
         title_label = QLabel(f"Book: {self.transaction['book_title']}")
@@ -80,7 +73,7 @@ class TransactionCard(QFrame):
         date_label.setFrameStyle(QFrame.NoFrame)
         layout.addWidget(date_label)
 
-        # Due date (if applicable)
+        # Due date 
         if self.transaction.get('due_date'):
             due_label = QLabel(f"Due: {self.transaction['due_date']}")
             due_label.setFont(QFont("Times New Roman", 10))
@@ -99,7 +92,7 @@ class TransactionCard(QFrame):
 
         layout.addStretch()
 
-        # Status indicator at bottom
+        # Status 
         if self.transaction['action'] == 'Borrowed':
             due_date = datetime.strptime(self.transaction['due_date'], "%Y-%m-%d")
             today = datetime.now()
@@ -138,12 +131,11 @@ class TransactionCard(QFrame):
         layout.addWidget(status_label)
 
 class LibraryTransactionSystem(QMainWindow):
-    def __init__(self, librarian_id=None):
+    def __init__(self):
         super().__init__()
-        self.librarian_id = librarian_id
         self.setGeometry(100, 100, 1400, 800)
-        self.setStyleSheet("background-color: white;")
         self.showMaximized()
+        self.setStyleSheet("background-color: white;")
         self.transactions = [
             {"id": 1, "book_title": "1984", "borrower": "John Doe", "action": "Borrowed", "date": "2025-06-06", "due_date": "2025-06-20"},
             {"id": 2, "book_title": "The Catcher in the Rye", "borrower": "Jane Smith", "action": "Borrowed", "date": "2025-06-04", "due_date": "2025-06-18"},
@@ -159,47 +151,42 @@ class LibraryTransactionSystem(QMainWindow):
 
     def setup_ui(self):
         central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
-        # MAIN HORIZONTAL LAYOUT for sidebar + content
+        self.setCentralWidget(central_widget)      
+
         main_layout = QHBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setContentsMargins(0,0,0,0)
         main_layout.setSpacing(0)
 
-        # Add sidebar to the left
         self.sidebar = NavigationSidebar()
         self.sidebar.on_navigation_clicked = nav_manager.handle_navigation
         main_layout.addWidget(self.sidebar)
 
-        # Create content area widget
         content_widget = QWidget()
         content_widget.setStyleSheet("background-color: #f5f3ed;")
         main_layout.addWidget(content_widget)
 
-        # Content layout (vertical)
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout= QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(0,0,0,0)
         content_layout.setSpacing(0)
 
         # Header
         header_widget = QWidget()
         header_widget.setFixedHeight(100)
         header_widget.setStyleSheet("background-color: #f5f3ed;")
-        content_layout.addWidget(header_widget)
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(40, 20, 40, 20)
         header_layout.setSpacing(20)
-        title_label = QLabel("Transaction Management")
+        title_label = QLabel("Books Management")
         title_label.setFont(QFont("Times New Roman", 32, QFont.Bold))
         title_label.setStyleSheet("color: #5e3e1f; margin-right: 20px;")
         header_layout.addWidget(title_label)
         header_layout.addStretch()
+        content_layout.addWidget(header_widget)
 
         # Navigation
         nav_widget = QWidget()
         nav_widget.setFixedHeight(60)
         nav_widget.setStyleSheet("background-color: white; border-bottom: 1px solid #e8d8bd;")
-        content_layout.addWidget(nav_widget)
         nav_layout = QHBoxLayout(nav_widget)
         nav_layout.setContentsMargins(80, 10, 80, 10)
         nav_layout.setSpacing(10)
@@ -213,15 +200,17 @@ class LibraryTransactionSystem(QMainWindow):
         self.history_btn.setFixedSize(180, 40)
         self.history_btn.clicked.connect(self.show_history_page)
         nav_layout.addWidget(self.history_btn)
+        content_layout.addWidget(nav_widget)
 
-        # Content area
+        # Content 
         self.content_stack = QStackedWidget()
         content_layout.addWidget(self.content_stack)
         self.create_transactions_page()
         self.create_history_page()
         self.show_transactions_page()
 
-    # ... rest of your methods remain the same ...
+
+        # TRANSACTION PAGE
     def create_transactions_page(self):
         self.transactions_page = QWidget()
         self.transactions_page.setStyleSheet("background-color: #f5f3ed;")
@@ -248,6 +237,7 @@ class LibraryTransactionSystem(QMainWindow):
                 background-color: #f5f3ed;
             }
         """)
+        # ADD BUTTON (Add Transaction)
         self.trans_search_edit.textChanged.connect(self.search_transactions)
         search_layout.addWidget(self.trans_search_edit)
         add_transaction_btn = QPushButton("➕")
@@ -281,8 +271,11 @@ class LibraryTransactionSystem(QMainWindow):
         self.trans_table.setShowGrid(True)
         layout.addWidget(self.trans_table, stretch=1)
         self.setup_table_style(self.trans_table)
+        self.trans_table.cellDoubleClicked.connect(self.on_transaction_double_click)  # double-click signal to see preview
         self.content_stack.addWidget(self.transactions_page)
 
+
+    # HISTORY PAGE 
     def create_history_page(self):
         self.history_page = QWidget()
         self.history_page.setStyleSheet("background-color:#f5f3ed;")
@@ -324,7 +317,10 @@ class LibraryTransactionSystem(QMainWindow):
         self.hist_table.setShowGrid(True)
         layout.addWidget(self.hist_table, stretch=1)
         self.setup_table_style(self.hist_table)
+        self.hist_table.cellDoubleClicked.connect(self.on_history_double_click)
         self.content_stack.addWidget(self.history_page)
+
+        
 
     def show_transactions_page(self):
         self.content_stack.setCurrentWidget(self.transactions_page)
@@ -399,6 +395,8 @@ class LibraryTransactionSystem(QMainWindow):
         active_transactions = [t for t in self.transactions if t['action'] == 'Borrowed']
         transactions_to_display = filtered_transactions if filtered_transactions is not None else active_transactions
 
+        self.displayed_trasactions = transactions_to_display
+
         self.trans_table.setRowCount(len(transactions_to_display))
         for row, trans in enumerate(transactions_to_display):
             # Status logic
@@ -415,8 +413,8 @@ class LibraryTransactionSystem(QMainWindow):
                 trans['borrower'],
                 trans['book_title'],
                 trans['date'],
-                "Borrowed",  #always shows borrowed 
-                trans.get('returned_date', ''),  # Returned Date (will be empty for borrowed) 
+                "Borrowed",
+                trans.get('returned_date', ''),  # Returned Date 
             ]
 
             for col, value in enumerate(values):
@@ -430,7 +428,7 @@ class LibraryTransactionSystem(QMainWindow):
                 self.trans_table.setItem(row, col, item)
 
 
-            # --- Delete button ---
+            # Delete button 
             delete_btn = QPushButton("Delete")
             delete_btn.setToolTip("Delete Transaction")
             delete_btn.setFont(QFont("Segoe UI Emoji", 10, QFont.Bold))
@@ -449,7 +447,7 @@ class LibraryTransactionSystem(QMainWindow):
                     background-color: #c0392b;
                 }
             """)
-            delete_btn.clicked.connect(partial(self.delete_transaction, row, transactions_to_display))
+            delete_btn.clicked.connect(partial(self.delete_transaction, trans))
 
             # Center the button in the cell
             container = QWidget()
@@ -499,7 +497,7 @@ class LibraryTransactionSystem(QMainWindow):
                         item.setForeground(QColor("#8B4513"))
                 self.hist_table.setItem(row, col, item)
 
-            # Add Delete button in last column of Transaction History
+            # Delete button on the Transaction History
             delete_btn = QPushButton("Delete")
             delete_btn.setToolTip("Delete Transaction Historty")
             delete_btn.setFont(QFont("Times New Roman", 10, QFont.Bold))
@@ -521,7 +519,7 @@ class LibraryTransactionSystem(QMainWindow):
             """)
             delete_btn.clicked.connect(partial(self.delete_transaction, trans))
 
-            # Center the button using a layout
+            # Center the button using layout
             actions_widget = QWidget()
             actions_layout = QHBoxLayout(actions_widget)
             actions_layout.addStretch()
@@ -546,7 +544,6 @@ class LibraryTransactionSystem(QMainWindow):
             self.display_history(filtered_history)
 
     def open_add_transaction_form(self):
-        # Use unique book titles from transactions as a fallback
         books_list = list({t['book_title'] for t in self.transactions})
         dialog = AddTransactionForm(books_list, self)
         if dialog.exec():
@@ -588,7 +585,7 @@ class LibraryTransactionSystem(QMainWindow):
             self.display_history()
 
     def delete_transaction(self, transaction):
-        # Remove from the main transactions list
+        # Remove main transactions list
         self.transactions = [t for t in self.transactions if t['id'] != transaction['id']]
         # Refresh the table and history
         self.display_transactions()
@@ -627,14 +624,38 @@ class LibraryTransactionSystem(QMainWindow):
             }
         """)
 
+    def on_transaction_double_click(self, row, column):
+        # Get the transaction for the clicked row
+        transaction = self.transactions[row]  
+        dialog = PreviewCurrentTransaction(transaction, self)
+        if dialog.exec():
+            updated_transaction = dialog.get_transaction()
+
+            for i, trans in enumerate(self.transactions):
+                if trans ['id'] == updated_transaction['id']:
+                    self.transactions[i] = updated_transaction
+                    break
+                                      
+   
+            self.display_transactions()  
+            self.display_history()
+
+    def on_history_double_click(self, row, column):
+        print("History row double-clicked:", row, column)
+        # Use the same data as display_history
+        sorted_transactions = sorted(self.transactions, key=lambda x: x['date'], reverse=True)
+        transaction = sorted_transactions[row]
+        dialog = HistoryPreviewTransaction(transaction, self)
+        dialog.exec()
+
 # To run the app
 if __name__ == "__main__":
+    import sys
+    from PySide6.QtWidgets import QApplication
+
+
     app = QApplication(sys.argv)
-    
-    # Initialize navigation manager
-    nav_manager.initialize(app)
-    
-    window = LibraryTransactionSystem()
-    window.showMaximized()
-    nav_manager._current_window = window  # Set as current window
+    window = LibraryTransactionSystem()  
+    nav_manager._current_window = window
+    window.show()
     sys.exit(app.exec())

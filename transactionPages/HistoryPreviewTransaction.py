@@ -1,58 +1,60 @@
+import sys
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLabel, QLineEdit, QTableWidget,
-    QTableWidgetItem, QDateEdit, QCheckBox, QPushButton, QHBoxLayout, QHeaderView
+    QApplication, QDialog, QVBoxLayout, QFormLayout, QLabel, QLineEdit, QTableWidget,
+    QTableWidgetItem, QDateEdit, QCheckBox, QPushButton, QHBoxLayout, QHeaderView, QTextEdit
 )
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtGui import QFont
 
-class HistoryTransactionPreviewForm(QDialog):
+class HistoryPreviewTransaction(QDialog):
     def __init__(self, transaction, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Preview Transaction")
-        self.setFixedSize(1000, 500)
+        self.setWindowTitle("History Preview Transaction")
+        self.setFixedSize(1000, 600)  # Increased height for remarks
         self.transaction = transaction
 
         self.setStyleSheet("""
             QDialog {
-                background-color: #f5f3ed;
+                background-color: #f5f1e6;
             }
             QLabel {
                 color: #5e3e1f;
                 font-family: 'Times New Roman';
                 font-size: 14px;
                 font-weight: bold;
-                background-color:#transparent;
+                background-color: transparent;
             }
-            QLineEdit, QDateEdit {
+            QLineEdit, QDateEdit, QTextEdit {
                 padding: 8px;
                 border: 2px solid #e8d8bd;
                 border-radius: 8px;
-                background-color: #f5f3ed;
-                color: #5e3e1f;
+                background-color: white;
+                color: #4a3a28;
                 font-family: 'Times New Roman';
                 font-size: 12px;
             }
-            QLineEdit:read-only, QDateEdit:read-only {
-                background-color: #f5f3ed;
-                color: #5e3e1f;
+            QLineEdit:read-only, QDateEdit:read-only, QTextEdit:read-only {
+                background-color: white;
+                color: #4a3a28;
             }
             QTableWidget {
-                background-color: #f5f3ed;
+                background-color: white;
                 border: 2px solid #e8d8bd;
                 border-radius: 8px;
                 gridline-color: #e8d8bd;
-                color: #5e3e1f;
+                color: #4a3a28;
                 font-family: 'Times New Roman';
                 font-size: 12px;
             }
             QTableWidget::item {
                 padding: 8px;
                 border-bottom: 1px solid #e8d8bd;
-                color: #5e3e1f;
-                background-color: #f5f3ed;
+                color: #4a3a28;
+                background-color: white;
             }
             QTableWidget::item:selected {
-                background-color: #e8d8bd;
+                background-color: #d8c0a0;
+                color: #000000;
             }
             QHeaderView::section {
                 background-color: #e8d8bd;
@@ -71,16 +73,18 @@ class HistoryTransactionPreviewForm(QDialog):
             QCheckBox::indicator {
                 width: 18px;
                 height: 18px;
+                border: 2px solid #e8d8bd;
+                border-radius: 4px;
+                background-color: white;
             }
             QCheckBox::indicator:checked {
-                background-color: #27ae60;
-                border: 2px solid #27ae60;
-                border-radius: 3px;
+                background-color: #5e3e1f;
+                border-color: #5e3e1f;
             }
             QCheckBox::indicator:unchecked {
-                background-color: #f5f3ed;
+                background-color: white;
                 border: 2px solid #e8d8bd;
-                border-radius: 3px;
+                border-radius: 4px;
             }
             QCheckBox:disabled {
                 color: #5e3e1f;
@@ -108,11 +112,12 @@ class HistoryTransactionPreviewForm(QDialog):
         borrowed_date.setReadOnly(True)
         form.addRow("Borrowed Date:", borrowed_date)
 
-        layout.addLayout(form)
-
-        books_table = QTableWidget()
-        self.setup_books_table(books_table)
-        layout.addWidget(books_table)
+        # Add remarks field only if remarks exist (read-only)
+        if self.transaction.get('remarks') and self.transaction['remarks'].strip():
+            remarks_edit = QTextEdit(self.transaction['remarks'])
+            remarks_edit.setReadOnly(True)
+            remarks_edit.setMaximumHeight(80)  # Limit height
+            form.addRow("Remarks:", remarks_edit)
 
         # Return Date (moved to left side, no checkbox)
         returned_date = QDateEdit()
@@ -124,7 +129,11 @@ class HistoryTransactionPreviewForm(QDialog):
         returned_date.setReadOnly(True)  # Make it read-only
         form.addRow("Returned Date:", returned_date)
 
-        
+        layout.addLayout(form)
+
+        books_table = QTableWidget()
+        self.setup_books_table(books_table)
+        layout.addWidget(books_table)
 
     def setup_books_table(self, books_table):
         # Handle both single book and multiple books formats (same as the working form)
@@ -161,3 +170,26 @@ class HistoryTransactionPreviewForm(QDialog):
         header = books_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+
+# Example usage and test
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    
+    # Sample transaction data for testing
+    sample_transaction = {
+        'borrower': 'John Doe',
+        'date': '2024-01-15',
+        'returned_date': '2024-01-22',
+        'remarks': 'Hello Nads!! ',
+        'books': [
+            {'title': 'Python Programming', 'quantity': 2},
+            {'title': 'Data Structures', 'quantity': 1},
+            {'title': 'Algorithms', 'quantity': 3}
+        ]
+    }
+    
+    # Create and show the dialog
+    dialog = HistoryPreviewTransaction(sample_transaction)
+    dialog.show()
+    
+    sys.exit(app.exec())

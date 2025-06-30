@@ -104,6 +104,14 @@ class Settings(QMainWindow):
             }
         """)
 
+        # Create a main container that will hold content and footer
+        main_container = QWidget()
+        main_container.setStyleSheet("background-color: #f1efe3;")
+        main_container_layout = QVBoxLayout(main_container)
+        main_container_layout.setContentsMargins(0, 0, 0, 0)
+        main_container_layout.setSpacing(0)
+        
+        # Create content widget with margins
         content_widget = QWidget()
         content_widget.setStyleSheet("background-color: #f1efe3;")
         content_layout = QVBoxLayout(content_widget)
@@ -111,20 +119,26 @@ class Settings(QMainWindow):
         content_layout.setSpacing(20)
         content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        # Add all your content widgets
         header = self.create_header()
         content_layout.addWidget(header)
         self.personal_info_section = self.create_personal_info_section()
         content_layout.addWidget(self.personal_info_section)
         about_us_section = self.create_about_us_section()
         content_layout.addWidget(about_us_section)
-        info_containers_section = self.create_info_containers_section()
-        content_layout.addWidget(info_containers_section)
         logout_section = self.create_logout_section()
         content_layout.addWidget(logout_section)
-
-        self.content_layout = content_layout
         content_layout.addStretch()
-        scroll_area.setWidget(content_widget)
+        
+        # Add content to main container
+        main_container_layout.addWidget(content_widget, 1)  # 1 = stretch factor
+        
+        # Add footer to main container (without margins)
+        footer = self.create_footer()
+        main_container_layout.addWidget(footer)
+        
+        # Set the main container as the widget for scroll area
+        scroll_area.setWidget(main_container)
         main_layout.addWidget(scroll_area)
 
     def create_header(self):
@@ -353,9 +367,46 @@ class Settings(QMainWindow):
         about_dialog = AboutUsDialog(self)
         about_dialog.exec()
 
+    def create_footer(self):
+        footer = QWidget()
+        footer.setStyleSheet("""
+            QWidget {
+                background-color: #dbcfc1;
+                border-top: 2px solid #5C4033;
+            }
+        """)
+        footer.setFixedHeight(30)
+        
+        # Use a horizontal layout with proper spacing
+        footer_layout = QHBoxLayout(footer)
+        footer_layout.setContentsMargins(20, 0, 20, 0)
+        
+        # Contact information
+        contact_label = QLabel("📞 Contact Us: (+639)92 642 3076")
+        contact_label.setFont(QFont("Times New Roman", 10))
+        contact_label.setStyleSheet("color: #714423; background-color: transparent; border: none;")
+        
+        # Version information
+        version_label = QLabel("📱 App Version: v1.0.0")
+        version_label.setFont(QFont("Times New Roman", 10))
+        version_label.setStyleSheet("color: #714423; background-color: transparent; border: none;")
+        
+        # Copyright text
+        copyright_label = QLabel("© 2025 BJRS Library Management")
+        copyright_label.setFont(QFont("Times New Roman", 10))
+        copyright_label.setStyleSheet("color: #714423; background-color: transparent; border: none;")
+        
+        footer_layout.addWidget(contact_label)
+        footer_layout.addStretch()
+        footer_layout.addWidget(copyright_label)
+        footer_layout.addStretch()
+        footer_layout.addWidget(version_label)
+        
+        return footer
+
     def create_info_containers_section(self):
         section_widget = QWidget()
-        section_widget.setStyleSheet("background-color: #f1efe3;")
+        section_widget.setStyleSheet("background-color: #dbcfc1;")
         section_layout = QVBoxLayout(section_widget)
         section_layout.setContentsMargins(0, 15, 0, 0)
         section_layout.setSpacing(0)
@@ -364,7 +415,7 @@ class Settings(QMainWindow):
         containers_layout.setContentsMargins(20, 0, 20, 0)
         containers_layout.setSpacing(15)
 
-        contact_container = self.create_info_container("📞", "Contact Number", "+1 (555) 123-4567")
+        contact_container = self.create_info_container("📞", "Contact Us", "(+639)92 642 3076")
         containers_layout.addWidget(contact_container)
         containers_layout.addSpacing(35)
         version_container = self.create_info_container("📱", "App Version", "v1.0.0")
@@ -378,8 +429,7 @@ class Settings(QMainWindow):
         container.setFixedHeight(80)
         container.setStyleSheet("""
             QWidget {
-                background-color: #f1efe3;
-                border: 3px solid #714423;
+                background-color: #dbcfc1;
                 border-radius: 15px;
             }
         """)

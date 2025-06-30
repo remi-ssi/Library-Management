@@ -122,8 +122,7 @@ class AddMemberDialog(QDialog):
         form_layout.addRow(self.create_label("First Name:"), self.first_name_edit)
         form_layout.addRow(self.create_label("Middle Name:"), self.middle_name_edit)
         form_layout.addRow(self.create_label("Last Name:"), self.last_name_edit)
-        form_layout.addRow(self.create_label("Contact Number:"), self.contact_edit)
-        
+
         layout.addLayout(form_layout)
         layout.addSpacing(50)
         
@@ -718,17 +717,19 @@ class MembersMainWindow(QWidget):
         
         container.mousePressEvent = lambda event, m=member, idx=index: self.on_member_click(m, idx)
 
+        # Create image label
         image_label = QLabel()
         image_label.setStyleSheet("background: transparent; border: none;")
-        pixmap = QPixmap("assets/default_cover.jpg")  
-        pixmap = pixmap.scaled(80, 80, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-        rounded_pixmap = get_rounded_pixmap(pixmap, 80)
-        image_label.setPixmap(rounded_pixmap)
         
+        # Get member name
         first_name = member.get("MemberFN", "")
         middle_initial = member.get("MemberMI", "")
         last_name = member.get("MemberLN", "")
         full_name = f"{first_name} {middle_initial} {last_name}".strip()
+        
+        # Create initials avatar instead of using default image
+        avatar_pixmap = create_initials_avatar(full_name, 80)
+        image_label.setPixmap(avatar_pixmap)
         
         def truncate_to_two_lines(text, max_width=220, font_size=16):
             font = QFont("Times New Roman", font_size)
@@ -830,6 +831,66 @@ class MembersMainWindow(QWidget):
                     QMessageBox.information(self, "Success", "Member deleted successfully")
             except Exception as e:
                 QMessageBox.critical(self, "Database Error", f"Failed to refresh members: {str(e)}")
+
+def create_initials_avatar(name, size=80):
+    # Get initials from name
+    words = name.split()
+    initials = ""
+    
+    if len(words) >= 2:
+        # Get first letter of first name and first letter of last name
+        initials = words[0][0].upper() + words[-1][0].upper()
+    elif len(words) == 1 and words[0]:
+        # If only one name, take first letter
+        initials = words[0][0].upper()
+    else:
+        # If no name, use question mark
+        initials = "?"
+    
+    # Create colored background with initials
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.transparent)
+    
+    # Define theme colors - brown shades
+    primary_colors = [
+        "#5C4033",  # Dark brown
+        "#8B4513",  # Saddle brown
+        "#A67B5B",  # Medium brown
+        "#B7966B",  # Light brown
+        "#964B00",  # Brown
+        "#6B4423",  # Dark wood brown
+        "#825D30"   # Medium wood brown
+    ]
+    
+    # Choose color based on the name (to get consistent colors for same names)
+    import hashlib
+    hash_value = int(hashlib.md5(name.encode('utf-8')).hexdigest(), 16)
+    color_index = hash_value % len(primary_colors)
+    bg_color = QColor(primary_colors[color_index])
+    
+    # Create painter and draw circle with text
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+    
+    # Draw background circle
+    painter.setBrush(QBrush(bg_color))
+    painter.setPen(Qt.NoPen)
+    painter.drawEllipse(0, 0, size, size)
+    
+    # Draw text
+    font = QFont("Times New Roman")
+    font.setPixelSize(int(size * 0.4))  # Font size proportional to avatar size
+    font.setBold(True)
+    painter.setFont(font)
+    
+    # White text for contrast
+    painter.setPen(QColor("#FFFEF0"))  
+    
+    # Center the text
+    painter.drawText(pixmap.rect(), Qt.AlignCenter, initials)
+    painter.end()
+    
+    return pixmap
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

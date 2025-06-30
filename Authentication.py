@@ -2,12 +2,17 @@ import sys
 import sqlite3
 import bcrypt #for password hashing
 import Dashboard
-
+import re
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import os
+from dotenv import load_dotenv  
 from PySide6.QtCore import Qt, QSize, QTimer
-from PySide6.QtGui import QFont, QMovie
+from PySide6.QtGui import QFont, QMovie, QIcon
 from PySide6.QtWidgets import (
     QApplication, QLineEdit, QLabel, QPushButton, QWidget, QVBoxLayout,
-    QSpacerItem, QSizePolicy, QHBoxLayout
+    QSpacerItem, QSizePolicy, QHBoxLayout, QFrame
 )
 #initialize database from the seeder
 from tryDatabase import DatabaseSeeder
@@ -124,6 +129,35 @@ class Authentication(QWidget):
         }                                  
     """)
         
+        # ito yung eye button para makita yung password
+        self.toggle_password_btn = QPushButton()
+        self.toggle_password_btn.setIcon(QIcon("assets/eye-closed.png"))  # default icon na nakaclose
+        self.toggle_password_btn.setFixedSize(30, 30)
+        self.toggle_password_btn.setStyleSheet("""
+            QPushButton {
+                border: none;
+                background-color: transparent;
+            }
+            QPushButton:hover {
+                background-color: rgba(183, 150, 107, 0.1);
+                border-radius: 15px;
+            }
+        """)
+        self.toggle_password_btn.clicked.connect(self.toggle_password_visibility)
+
+        # gagawa ako ng container para sa password field at eye button
+        password_container = QWidget()
+        password_container.setFixedHeight(40)
+        password_container.setFixedWidth(300)
+        
+        # horizontal layout para magkatabi sila
+        password_layout = QHBoxLayout(password_container)
+        password_layout.setContentsMargins(0, 0, 0, 0)
+        password_layout.setSpacing(0)
+        password_layout.addWidget(self.password_input)
+        password_layout.addWidget(self.toggle_password_btn)
+        password_layout.addSpacing(5)  
+        
         # Password error label
         self.password_error_label = QLabel("")
         self.password_error_label.setStyleSheet("color: red; font-weight: bold; font: 14px;")
@@ -136,7 +170,7 @@ class Authentication(QWidget):
         #PATONG YUNG PASSWORD NA TEXT AT IINPUT-AN
         password_v_layout = QVBoxLayout()
         password_v_layout.addWidget(password_label)
-        password_v_layout.addWidget(self.password_input)
+        password_v_layout.addWidget(password_container)  
         password_v_layout.addWidget(self.password_error_label)
         
         # PARA NASA RIGHT SIDE LANG YUNG YUNG USERNAME AT PASSWORD KASI ANG NASA LEFT IS SI GIF SO MAY MALAKING PARANG PADDING SIYA
@@ -260,10 +294,22 @@ class Authentication(QWidget):
         """Clear general error"""
         self.general_error_label.hide()
         self.general_error_label.setText("")
+
+    
+    def toggle_password_visibility(self):
+        # pag nakaclick yung eye button, toggle natin kung visible or hidden yung password
+        if self.password_input.echoMode() == QLineEdit.EchoMode.Password:
+            self.password_input.setEchoMode(QLineEdit.EchoMode.Normal)  # ipakita yung password
+            self.toggle_password_btn.setIcon(QIcon("assets/eye-open.png"))
+        else:
+            self.password_input.setEchoMode(QLineEdit.EchoMode.Password)  # itago ulit yung password
+            self.toggle_password_btn.setIcon(QIcon("assets/eye-closed.png"))
+
      
     def handle_login(self):
         username = self.username_input.text()
         password = self.password_input.text()
+        
         
         # Clear all previous errors
         self.clear_email_error()
@@ -313,8 +359,403 @@ class Authentication(QWidget):
         self.signup_window = SignUp()
         self.signup_window.show()
 
-#FOR JASMINE
+class ConfirmEmailDialog(QWidget):
+    def __init__(self, email, parent=None):
+        super().__init__(parent)
+        self.email = email
+        self.parent = parent
+        self.initUI()
+        
+    def initUI(self):
+        self.setWindowTitle("Confirm Your Email")
+        self.setFixedSize(500, 400)
+        # Set proper window flags for a dialog
+        self.setWindowFlags(Qt.Dialog | Qt.WindowCloseButtonHint)
+    
+        # Make sure window has a background
+        self.setAttribute(Qt.WA_TranslucentBackground, False)
+        
+        # Center dialog on screen
+        self.center_on_screen()
+        
+        self.setStyleSheet("""
+            background-color: #f1efe3;
+     
+            border-radius: 16px;
+        """)
+        
+        # Main layout
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 80, 30, 30)
+        
+        # Title
+        title_label = QLabel("Confirm your email")
+        title_label.setFont(QFont("Times New Roman", 18, QFont.Bold))
+        title_label.setStyleSheet("color: #714423;")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Description
+        desc_label = QLabel("We will send an OTP to your email address. Please confirm it to proceed.")
+        desc_label.setFont(QFont("Times New Roman", 12))
+        desc_label.setStyleSheet("color: #4A4947;")
+        desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        desc_label.setWordWrap(True)
+        
+        # Email field - center it horizontally
+        email_container = QHBoxLayout()
+        email_container.addStretch()
+        
+        self.email_input = QLineEdit()
+        self.email_input.setText(self.email)  # Pre-fill with the email provided during signup
+        self.email_input.setReadOnly(True)  
+        self.email_input.setFixedHeight(40)
+        self.email_input.setFixedWidth(300)
+        self.email_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.email_input.setStyleSheet("""
+            QLineEdit {
+                border-radius: 10px;
+                padding: 8px;
+                font-size: 15px;
+                font-weight: bold;
+                color: #5C4033;
 
+            }
+
+        """)
+        
+        email_container.addWidget(self.email_input)
+        email_container.addStretch()
+        
+        # Error label
+        self.error_label = QLabel("")
+        self.error_label.setStyleSheet("color: red; font-weight: bold; font-size: 14px;")
+        self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.error_label.setFixedWidth(300)
+        self.error_label.hide()
+        
+        # Center buttons
+        button_container = QHBoxLayout()
+        button_container.addStretch()
+        
+        # Confirm button
+        self.confirm_btn = QPushButton("Confirm Email")
+        self.confirm_btn.setFixedHeight(40)
+        self.confirm_btn.setFixedWidth(120)
+        self.confirm_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #B7966B;
+                color: white;
+                border-radius: 10px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #A67B5B;
+            }
+        """)
+        self.confirm_btn.clicked.connect(self.send_otp)
+        
+        # Cancel button
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setFixedHeight(40)
+        self.cancel_btn.setFixedWidth(120)
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #DDDDDD;
+                color: #333333;
+                border-radius: 10px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #CCCCCC;
+            }
+        """)
+        self.cancel_btn.clicked.connect(self.close)
+        
+        # Button layout
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.cancel_btn)
+        button_layout.addSpacing(20)  # Add space between buttons
+        button_layout.addWidget(self.confirm_btn)
+        
+        button_container.addLayout(button_layout)
+        button_container.addStretch()
+        
+        # Add widgets to main layout
+        main_layout.addWidget(title_label)
+        main_layout.addSpacing(10)
+        main_layout.addWidget(desc_label)
+        main_layout.addSpacing(40)
+        main_layout.addLayout(email_container)
+        main_layout.addWidget(self.error_label)
+        main_layout.addStretch()
+        main_layout.addLayout(button_container)
+        
+        self.setLayout(main_layout)
+    
+    def center_on_screen(self):
+        # Center the dialog on the screen
+        screen_geometry = QApplication.primaryScreen().geometry()
+        x = (screen_geometry.width() - self.width()) // 2
+        y = (screen_geometry.height() - self.height()) // 2
+        self.move(x, y)
+
+    def send_otp(self):
+        email = self.email_input.text().strip()
+        
+        # Since the field is read-only, we don't need to validate it again
+        # We know it's the email from the signup form
+        
+        # Generate OTP
+        import random
+        otp = str(random.randint(100000, 999999))
+        
+        # Send email with OTP
+        if self.send_real_email(email, otp):
+            # Email sent successfully
+            self.close()
+            self.otp_dialog = OTPVerificationDialog(email, self.parent, otp)
+            self.otp_dialog.show()
+            
+            # Center the OTP dialog on screen
+            screen_geometry = QApplication.primaryScreen().geometry()
+            x = (screen_geometry.width() - self.otp_dialog.width()) // 2
+            y = (screen_geometry.height() - self.otp_dialog.height()) // 2
+            self.otp_dialog.move(x, y)
+        else:
+            # Failed to send email
+            self.error_label.setText("Failed to send verification email. Please try again.")
+            self.error_label.show()
+    
+    def send_real_email(self, recipient_email, otp):
+        try:
+
+            load_dotenv()
+            
+            # Get email credentials from environment variables
+            sender_email = os.getenv("EMAIL_ADDRESS")
+            sender_password = os.getenv("EMAIL_PASSWORD")
+            
+            if not sender_email or not sender_password:
+                print("Email credentials not found in environment variables")
+                return False
+                
+            # Create message
+            message = MIMEMultipart()
+            message["From"] = sender_email
+            message["To"] = recipient_email
+            message["Subject"] = "BJRS Library - Email Verification Code"
+            
+            # Email body
+            body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.5;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                    <h2 style="color: #714423; text-align: center;">BJRS Library Email Verification</h2>
+                    <p>Thank you for registering with BJRS Library Management System.</p>
+                    <p>Your verification code is:</p>
+                    <div style="text-align: center; margin: 20px 0;">
+                        <div style="display: inline-block; padding: 10px 20px; background-color: #f1efe3; border: 2px solid #B7966B; border-radius: 5px; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #714423;">
+                            {otp}
+                        </div>
+                    </div>
+                    <p>This code will expire in 10 minutes.</p>
+                    <p>If you didn't request this code, please ignore this email.</p>
+                    <p style="margin-top: 30px; font-size: 12px; color: #777; text-align: center;">
+                        This is an automated message, please do not reply.
+                    </p>
+                </div>
+            </body>
+            </html>
+            """
+            
+            # Attach HTML content
+            message.attach(MIMEText(body, "html"))
+            
+            # Connect to SMTP server (using Gmail as example)
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                server.login(sender_email, sender_password)
+                server.send_message(message)
+                
+            return True
+        except Exception as e:
+            print(f"Error sending email: {e}")
+            return False
+        
+
+class OTPVerificationDialog(QWidget):
+    def __init__(self, email, parent=None, otp=None):
+        super().__init__(parent)
+        self.email = email
+        self.parent = parent
+        # Store the OTP parameter that was passed in
+        self.otp = otp if otp else self.generate_otp()
+        self.initUI()
+        
+    def initUI(self):
+        self.setWindowTitle("OTP Verification")
+        self.setFixedSize(500, 400)
+        # Set proper window flags for a dialog
+        self.setWindowFlags(Qt.Dialog | Qt.WindowCloseButtonHint)
+
+        # Make sure window has a background
+        self.setAttribute(Qt.WA_TranslucentBackground, False)
+
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #f1efe3;
+            }
+        """)
+        
+        # Main layout
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        
+        # Title
+        title_label = QLabel("Verify Your Email")
+        title_label.setFont(QFont("Times New Roman", 18, QFont.Bold))
+        title_label.setStyleSheet("color: #714423;")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Description
+        desc_label = QLabel(f"We've sent a verification code to {self.email}. Please enter the code below:")
+        desc_label.setFont(QFont("Times New Roman", 12))
+        desc_label.setStyleSheet("color: #4A4947;")
+        desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        desc_label.setWordWrap(True)
+        
+        # OTP field
+        self.otp_input = QLineEdit()
+        self.otp_input.setPlaceholderText("Enter OTP")
+        self.otp_input.setFixedHeight(40)
+        self.otp_input.setStyleSheet("""
+            QLineEdit {
+                border: 2px solid #B7966B;
+                border-radius: 10px;
+                padding: 8px;
+                font-size: 16px;
+                background-color: #F0ECE9;
+                color: #4A4947;
+            }
+            QLineEdit:focus {
+                border: 3px solid #714423;
+            }
+            QLineEdit::placeholder {
+                color: #A0A0A0;
+            }
+        """)
+        
+     
+        
+        # Error label
+        self.error_label = QLabel("")
+        self.error_label.setStyleSheet("color: red; font-weight: bold; font-size: 14px;")
+        self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.error_label.hide()
+        
+        # Resend OTP link
+        resend_label = QLabel("<a href='resend'>Didn't receive the code? Resend</a>")
+        resend_label.setTextFormat(Qt.TextFormat.RichText)
+        resend_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        resend_label.setOpenExternalLinks(False)
+        resend_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        resend_label.linkActivated.connect(self.resend_otp)
+        
+        # Verify button
+        self.verify_btn = QPushButton("Verify Email")
+        self.verify_btn.setFixedHeight(40)
+        self.verify_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #B7966B;
+                color: white;
+                border-radius: 10px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #A67B5B;
+            }
+        """)
+        self.verify_btn.clicked.connect(self.verify_otp)
+        
+        # Cancel button
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setFixedHeight(40)
+        self.cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #DDDDDD;
+                color: #333333;
+                border-radius: 10px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #CCCCCC;
+            }
+        """)
+        self.cancel_btn.clicked.connect(self.close)
+        
+        # Button layout
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.cancel_btn)
+        button_layout.addWidget(self.verify_btn)
+        
+        # Add widgets to main layout
+        main_layout.addWidget(title_label)
+        main_layout.addSpacing(10)
+        main_layout.addWidget(desc_label)
+        main_layout.addSpacing(20)
+        main_layout.addWidget(self.otp_input)
+        main_layout.addWidget(self.error_label)
+        main_layout.addSpacing(10)
+        main_layout.addWidget(resend_label)
+        main_layout.addStretch()
+        main_layout.addLayout(button_layout)
+        
+        self.setLayout(main_layout)
+    
+    def generate_otp(self):
+        # Generate a 6-digit random OTP
+        import random
+        return str(random.randint(100000, 999999))
+    
+    def resend_otp(self):
+        # Regenerate OTP
+        self.otp = self.generate_otp()
+        
+        # Create ConfirmEmailDialog instance to use its send_real_email method
+        confirm_dialog = ConfirmEmailDialog(self.email, self.parent)
+        
+        # Send email with the new OTP
+        if confirm_dialog.send_real_email(self.email, self.otp):
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "OTP Resent", f"A new OTP has been sent to {self.email}")
+        else:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Error", f"Failed to resend OTP to {self.email}")
+    
+    def verify_otp(self):
+        entered_otp = self.otp_input.text().strip()
+        
+        if not entered_otp:
+            self.error_label.setText("Please enter the OTP.")
+            self.error_label.show()
+            return
+        
+        print(f"Comparing entered OTP: {entered_otp} with stored OTP: {self.otp}")
+        
+        if entered_otp == self.otp:
+            from PySide6.QtWidgets import QMessageBox  # Add this import here
+            QMessageBox.information(self, "Success", "Email verified successfully!")
+            self.close()
+            
+            # Debug print to confirm we're calling proceed_with_signup
+            print("Calling proceed_with_signup on parent:", self.parent)
+            
+            # Make sure parent exists before calling method
+            if self.parent:
+                self.parent.proceed_with_signup()
+                print("proceed_with_signup called successfully")
+        else:
+            self.error_label.setText("Invalid OTP. Please try again.")
+            self.error_label.show()
 class SignUp(QWidget):
     def __init__(self):
         super().__init__()
@@ -385,23 +826,45 @@ class SignUp(QWidget):
         self.mname_input.setStyleSheet(self.input_style())
 
         # PASSWORD
-        password_label = QLabel("Password")
-        self.password_input = QLineEdit()
-        self.password_input.setPlaceholderText("Enter password")
-        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password_input.setFixedHeight(40)
-        self.password_input.setFixedWidth(300)
-        self.password_input.setStyleSheet(self.input_style())
+        self.toggle_password_btn = QPushButton()
+        self.toggle_password_btn.setIcon(QIcon("assets/eye-closed.png"))
+        self.toggle_password_btn.setFixedSize(30, 30)
+        self.toggle_password_btn.setStyleSheet("""
+            QPushButton {
+                border: none;
+                background-color: transparent;
+            }
+            QPushButton:hover {
+                background-color: rgba(183, 150, 107, 0.1);
+                border-radius: 15px;
+            }
+        """)
 
-        # PASSWORD NGANI
-        confirm_label = QLabel("Confirm Password")
-        self.confirm_input = QLineEdit()
-        self.confirm_input.setPlaceholderText("Confirm password")
-        self.confirm_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.confirm_input.setFixedHeight(40)
-        self.confirm_input.setFixedWidth(300)
-        self.confirm_input.setStyleSheet(self.input_style())
-        
+        password_container, self.password_input = self.create_password_field("Enter password", self.toggle_password_btn)
+        self.toggle_password_btn.clicked.connect(
+            lambda: self.toggle_password_visibility(self.password_input, self.toggle_password_btn)
+        )
+
+        # CONFIRM PASSWORD
+        self.toggle_confirm_btn = QPushButton()
+        self.toggle_confirm_btn.setIcon(QIcon("assets/eye-closed.png"))
+        self.toggle_confirm_btn.setFixedSize(30, 30)
+        self.toggle_confirm_btn.setStyleSheet("""
+            QPushButton {
+                border: none;
+                background-color: transparent;
+            }
+            QPushButton:hover {
+                background-color: rgba(183, 150, 107, 0.1);
+                border-radius: 15px;
+            }
+        """)
+
+        confirm_container, self.confirm_input = self.create_password_field("Confirm password", self.toggle_confirm_btn)
+        self.toggle_confirm_btn.clicked.connect(
+            lambda: self.toggle_password_visibility(self.confirm_input, self.toggle_confirm_btn)
+        )
+
         # SIGN UP BUTTON CLICK
         signup_button = QPushButton("Sign Up")
         signup_button.setFixedHeight(40)
@@ -463,12 +926,12 @@ class SignUp(QWidget):
         mname_layout.addWidget(self.mname_input)
 
         password_layout = QVBoxLayout()
-        password_layout.addWidget(password_label)
-        password_layout.addWidget(self.password_input)
+        password_layout.addWidget(QLabel("Password"))
+        password_layout.addWidget(password_container)
 
         confirm_layout = QVBoxLayout()
-        confirm_layout.addWidget(confirm_label)
-        confirm_layout.addWidget(self.confirm_input)
+        confirm_layout.addWidget(QLabel("Confirm Password"))
+        confirm_layout.addWidget(confirm_container)
 
         form_layout = QVBoxLayout()
         form_layout.addLayout(username_layout)
@@ -539,38 +1002,76 @@ class SignUp(QWidget):
 
     def handle_signup(self):
         username = self.username_input.text().strip()
-        lname = self.lname__input.text().strip ()
+        lname = self.lname__input.text().strip()
         fname = self.fname_input.text().strip()
-        mname = self.mname_input.text ().strip ()
+        mname = self.mname_input.text().strip()
         password = self.password_input.text()
         confirm = self.confirm_input.text()
 
-        if not username:
-            self.error_label.setText("Email cannot be empty.")
-            self.username_input.setStyleSheet(self.input_style(error=True))
-            return
-
-        if self.db_seeder.findUsername(username=username):
-            self.error_label.setText("Email already exists. Please enter a new username.")
-            self.username_input.setStyleSheet(self.input_style(error=True))
+        # --- Field validation ---
+        if not username or not lname or not fname or not password or not confirm:
+            self.error_label.setText("All fields are required.")
             return
         
-        if not password:
-            self.error_label.setText("Password cannot be empty.")
-            self.password_input.setStyleSheet(self.input_style(error=True))
+        # --- Email validation ---
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, username):
+            self.error_label.setText("Please enter a valid email address.")
+            self.username_input.setStyleSheet(self.input_style(error=True))
             return
+        else:
+        # Reset style if valid
+            self.username_input.setStyleSheet(self.input_style(error=False))
 
+
+        # --- Password constraints ---
+        if len(password) < 8:
+            self.error_label.setText("Password must be at least 8 characters.")
+            return
+        if not re.search(r"[A-Z]", password):
+            self.error_label.setText("Password must have at least one uppercase letter.")
+            return
+        if not re.search(r"[a-z]", password):
+            self.error_label.setText("Password must have at least one lowercase letter.")
+            return
+        if not re.search(r"\d", password):
+            self.error_label.setText("Password must have at least one digit.")
+            return
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+            self.error_label.setText("Password must have at least one special character.")
+            return
         if password != confirm:
             self.error_label.setText("Passwords do not match.")
-            self.password_input.setStyleSheet(self.input_style(error=True))
-            self.confirm_input.setStyleSheet(self.input_style(error=True))
             return
-        
-        #PARA YUNG HASHESD PASS YUNG MAISTORE SA DATABASE
+
+        # --- Username/email uniqueness check ---
+        if self.db_seeder.findUsername(username=username):
+            self.error_label.setText("     Email already exists.")
+            return
+
+        # --- If all checks pass, open the confirm email dialog ---
+        print("Opening ConfirmEmailDialog...")
+        self.confirm_email_dialog = ConfirmEmailDialog(username, self)
+        self.confirm_email_dialog.show()
+
+        # Store the user data for later use after verification
+        self.pending_username = username
+        self.pending_lname = lname
+        self.pending_fname = fname
+        self.pending_mname = mname
+        self.pending_password = password
+
+    def proceed_with_signup(self):
+        username = self.pending_username
+        lname = self.pending_lname
+        fname = self.pending_fname
+        mname = self.pending_mname
+        password = self.pending_password
+
+        # Hash the password
         hashedPass = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
-       # hashed_password_str = hashedPass.decode('utf-8')
-       
-       # self.db_seeder.preSeed_all_tables()
+        
+        # Create the account in the database
         self.db_seeder.seed_data(
             tableName="Librarian",
             data=[
@@ -588,9 +1089,34 @@ class SignUp(QWidget):
         # Show success message briefly then go back to login
         self.error_label.setStyleSheet("color: green; font-weight: bold;")
         self.error_label.setText("Account created successfully! Redirecting to login...")
-        
-        # Use QTimer to delay the redirect
-        QTimer.singleShot(2000, self.close)  # Close after 2 seconds
+       
+        QTimer.singleShot(2000, self.close)
+
+    def toggle_password_visibility(self, input_field, toggle_button):
+        if input_field.echoMode() == QLineEdit.EchoMode.Password:
+            input_field.setEchoMode(QLineEdit.EchoMode.Normal)
+            toggle_button.setIcon(QIcon("assets/eye-open.png"))
+        else:
+            input_field.setEchoMode(QLineEdit.EchoMode.Password)
+            toggle_button.setIcon(QIcon("assets/eye-closed.png"))
+
+    def create_password_field(self, placeholder, icon_btn):
+        container = QFrame()
+        container.setFixedSize(300, 40)
+        container.setStyleSheet("QFrame { background: transparent; }")
+
+        line_edit = QLineEdit(container)
+        line_edit.setPlaceholderText(placeholder)
+        line_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        line_edit.setGeometry(0, 0, 300, 40)
+        line_edit.setStyleSheet(self.input_style() + "padding-right: 35px;")
+
+        icon_btn.setParent(container)
+        icon_btn.setGeometry(265, 5, 30, 30)  # Position inside the QLineEdit
+        icon_btn.raise_()
+
+        return container, line_edit
+
 
 if __name__ == "__main__":
     #This runs the program

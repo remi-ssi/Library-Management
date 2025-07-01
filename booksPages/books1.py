@@ -359,7 +359,7 @@ class BookEditView(QWidget):
         
         # Create shelf dropdown instead of text input
         self.shelf_input = QComboBox()
-        self.shelf_input.setEditable(True)  # Allow custom input if needed
+        self.shelf_input.setEditable(False)  # Allow custom input if needed
         self.shelf_input.setStyleSheet("""
             QComboBox {
                 color: #5C4033;
@@ -1791,7 +1791,7 @@ class BookDetailsDialog(QDialog):
 
         # Library info fields - Create shelf dropdown instead of text input
         self.shelf_edit = QComboBox()
-        self.shelf_edit.setEditable(True)  # Allow custom input if needed
+        self.shelf_edit.setEditable(False)  # Allow custom input if needed
         self.shelf_edit.setPlaceholderText("e.g., A1, B2")
         self.shelf_edit.setStyleSheet("""
             QComboBox {

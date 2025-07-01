@@ -707,7 +707,7 @@ class LibraryTransactionSystem(QMainWindow):
     def on_transaction_double_click(self, row, column):
         # Get the transaction for the clicked row
         transaction = self.transactions[row]  
-        dialog = PreviewCurrentTransaction(transaction, self)
+        dialog = PreviewTransactionForm(transaction, self)
         if dialog.exec():
             updated_transaction = dialog.get_transaction()
 

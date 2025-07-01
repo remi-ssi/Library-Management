@@ -44,12 +44,17 @@ class NavigationManager(QObject):
                 print("💰 Loading Transactions...")
                 from transactionPages.Transaction1 import LibraryTransactionSystem
                 self._current_window = LibraryTransactionSystem(librarian_id= self._librarian_id)
-                
+            
             elif item_name == "Members":
                 print("👥 Loading Members...")
                 from membersPages.members import MembersMainWindow
                 self._current_window = MembersMainWindow(librarian_id=self._librarian_id)
-               
+
+            elif item_name == "Archive":
+                print("👥 Loading Arhive...")
+                from Archive import ArchiveManager
+                self._current_window = ArchiveManager(librarian_id=self._librarian_id)
+
             elif item_name == "Settings":
                 print("⚙️ Loading Settings...")
                 from librarianPages.settings import Settings

@@ -54,6 +54,7 @@ class NavigationSidebar(QWidget):
                 ("assets/books.png", "    Books"),
                 ("assets/transactions.png", "    Transactions"),
                 ("assets/members.png", "    Members"),
+                ("assets/archive.png", "    Archive"),
                 ("assets/settings.png", "    Settings")
             ]
         
@@ -153,11 +154,8 @@ class NavigationSidebar(QWidget):
         """Emit navigation signal when an item is clicked"""
         print(f"Navigation clicked: {item_name}")
         
-        # Use BOTH approaches for backward compatibility
-        # 1. Emit the signal for components that connect to it
         self.navigation_clicked.emit(item_name)
         
-        # 2. Call the callback for old components that use it
         if self.on_navigation_clicked:
             self.on_navigation_clicked(item_name)
 
@@ -273,8 +271,9 @@ if __name__ == "__main__":
             custom_nav_items = [
                 ("assets/dashboard.png", "    Dashboard"),
                 ("assets/books.png", "    Books"),
-                ("assets/transactions.png", "    Transactions"),
+                ("assets/transactions.png", "    Transactions"),  
                 ("assets/members.png", "    Members"),
+                ("assets/archive.png", "    Archive"),
                 ("assets/settings.png", "    Settings"),
             ]
             
@@ -327,9 +326,14 @@ if __name__ == "__main__":
                 self.content_label.setText("Transactions View")
 
                 print("Redirected to Transactions")
+
             elif item_name == "Members":
                 self.content_label.setText("Members View")
                 print("Redirected to Members")
+
+            elif item_name == "Archive":
+                self.content_label.setText("Archive View")
+                print("Redirected to Archive")
 
             elif item_name == "Settings":
                 self.content_label.setText("Settings View")

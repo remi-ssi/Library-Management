@@ -4,17 +4,18 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                               QStackedWidget, QTableWidget, QTableWidgetItem,
                               QHeaderView, QLineEdit, QMessageBox, QDialog,
                               QFormLayout, QDateEdit, QComboBox, QSpacerItem,
-                              QSizePolicy)
+                              QSizePolicy, QCheckBox)
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QFont, QColor, QIcon
 from datetime import datetime, timedelta
 from navigation_sidebar import NavigationSidebar
 from navbar_logic import nav_manager
-
+from tryDatabase import DatabaseSeeder
 
 class ArchiveManager(QMainWindow):
     def __init__(self, librarian_id=None):
         super().__init__()
+        self.db_seeder = DatabaseSeeder()
         self.librarian_id = librarian_id
         
         # Define button styles as class attributes
@@ -433,7 +434,7 @@ class ArchiveManager(QMainWindow):
         """Load archived books from database"""
         try:
             #dito ilalagay yung db logic
-            archived_books = []
+            archived_books = self.db_seeder.archiveTable("Book", self.librarian_id or 1)
             
             self.display_archived_books(archived_books)
         except Exception as e:
@@ -443,7 +444,7 @@ class ArchiveManager(QMainWindow):
         """Load archived members from database"""
         try:
             #dito ilalagay yung db lo
-            archived_members = [  ]
+            archived_members = self.db_seeder.archiveTable("Member", self.librarian_id or 1)
             
             self.display_archived_members(archived_members)
         except Exception as e:
@@ -453,7 +454,7 @@ class ArchiveManager(QMainWindow):
         """Load archived shelves from database"""
         try:
             #dito ilalagay yung db lo
-            archived_shelves = [    ]
+            archived_shelves = self.db_seeder.archiveTable("BookShelf", self.librarian_id or 1)
             
             self.display_archived_shelves(archived_shelves)
         except Exception as e:
@@ -466,28 +467,53 @@ class ArchiveManager(QMainWindow):
         self.books_table.setRowCount(len(books))
         
         for row, book in enumerate(books):
+            # Map database columns to display columns
+            # Database columns: BookCode, BookTitle, Publisher, BookDescription, ISBN, BookTotalCopies, BookAvailableCopies, BookCover, isDeleted, LibrarianID
+            
+            # Get authors and genres for this book from database
+            try:
+                book_authors = self.db_seeder.get_all_records("BookAuthor", self.librarian_id or 1)
+                book_genres = self.db_seeder.get_all_records("Book_Genre", self.librarian_id or 1)
+                
+                # Find authors for this book
+                book_code = book.get('BookCode', '')
+                authors = [author.get('bookAuthor', '') for author in book_authors if author.get('BookCode') == book_code]
+                author_text = ', '.join(authors) if authors else 'Unknown Author'
+                
+                # Find genres for this book
+                genres = [genre.get('Genre', '') for genre in book_genres if genre.get('BookCode') == book_code]
+                genre_text = ', '.join(genres) if genres else 'Unknown Genre'
+                
+            except Exception as e:
+                print(f"Error getting book details: {e}")
+                author_text = 'Unknown Author'
+                genre_text = 'Unknown Genre'
+            
             # Book details columns
-            self.books_table.setItem(row, 0, QTableWidgetItem(book.get('book_code', 'N/A')))
-            self.books_table.setItem(row, 1, QTableWidgetItem(book.get('title', 'N/A')))
-            self.books_table.setItem(row, 2, QTableWidgetItem(book.get('author', 'N/A')))
-            self.books_table.setItem(row, 3, QTableWidgetItem(book.get('genre', 'N/A')))
-            self.books_table.setItem(row, 4, QTableWidgetItem(book.get('isbn', 'N/A')))
-            self.books_table.setItem(row, 5, QTableWidgetItem(str(book.get('copies', 'N/A'))))
-            self.books_table.setItem(row, 6, QTableWidgetItem(book.get('shelf', 'N/A')))
+            self.books_table.setItem(row, 0, QTableWidgetItem(str(book.get('BookCode', 'N/A'))))
+            self.books_table.setItem(row, 1, QTableWidgetItem(book.get('BookTitle', 'N/A')))
+            self.books_table.setItem(row, 2, QTableWidgetItem(author_text))
+            self.books_table.setItem(row, 3, QTableWidgetItem(genre_text))
+            self.books_table.setItem(row, 4, QTableWidgetItem(str(book.get('ISBN', 'N/A'))))
             
             # Create centered copies item
-            copies_item = QTableWidgetItem(str(book.get('copies', 'N/A')))
+            copies_item = QTableWidgetItem(str(book.get('BookTotalCopies', 'N/A')))
             copies_item.setTextAlignment(Qt.AlignCenter)
             self.books_table.setItem(row, 5, copies_item)
             
-            # Create centered shelf item
-            shelf_item = QTableWidgetItem(book.get('shelf', 'N/A'))
+            # Create centered shelf item - note: BookShelf column might not exist in Book table
+            try:
+                shelf_text = book.get('BookShelf', 'N/A')
+                if shelf_text is None:
+                    shelf_text = 'N/A'
+            except:
+                shelf_text = 'N/A'
+            shelf_item = QTableWidgetItem(str(shelf_text))
             shelf_item.setTextAlignment(Qt.AlignCenter)
             self.books_table.setItem(row, 6, shelf_item)
 
             # Checkbox for selection with checkmark icon
             checkbox = QCheckBox()
-
             checkbox.setStyleSheet("""
                 QCheckBox {
                     margin-left: 12px;
@@ -527,12 +553,15 @@ class ArchiveManager(QMainWindow):
         self.members_table.setRowCount(len(members))
         
         for row, member in enumerate(members):
-            # Member details with new column structure
-            self.members_table.setItem(row, 0, QTableWidgetItem(member.get('id', 'N/A')))
-            self.members_table.setItem(row, 1, QTableWidgetItem(member.get('first_name', 'N/A')))
-            self.members_table.setItem(row, 2, QTableWidgetItem(member.get('middle_name', 'N/A')))
-            self.members_table.setItem(row, 3, QTableWidgetItem(member.get('last_name', 'N/A')))
-            self.members_table.setItem(row, 4, QTableWidgetItem(member.get('contact', 'N/A')))
+            # Map database columns to display columns
+            # Database columns: MemberID, MemberLN, MemberMI, MemberFN, MemberContact, CreatedAt, isDeleted, LibrarianID
+            
+            # Member details with correct column mapping
+            self.members_table.setItem(row, 0, QTableWidgetItem(str(member.get('MemberID', 'N/A'))))
+            self.members_table.setItem(row, 1, QTableWidgetItem(member.get('MemberFN', 'N/A')))
+            self.members_table.setItem(row, 2, QTableWidgetItem(member.get('MemberMI', 'N/A') or 'N/A'))
+            self.members_table.setItem(row, 3, QTableWidgetItem(member.get('MemberLN', 'N/A')))
+            self.members_table.setItem(row, 4, QTableWidgetItem(str(member.get('MemberContact', 'N/A'))))
             
             # Checkbox for selection
             checkbox = QCheckBox()
@@ -574,14 +603,20 @@ class ArchiveManager(QMainWindow):
         
         self.shelf_table.setRowCount(len(shelves))
         
+        # Note: Since BookShelf table doesn't have isDeleted column in the database schema,
+        # this will typically show an empty table until the schema is updated
+        
         for row, shelf in enumerate(shelves):
+            # Map database columns to display columns
+            # Database columns would be: ShelfId, LibrarianID if table had isDeleted column
+            
             # Shelf ID 
-            id_item = QTableWidgetItem(shelf.get('id', 'N/A'))
+            id_item = QTableWidgetItem(str(shelf.get('ShelfId', 'N/A')))
             id_item.setTextAlignment(Qt.AlignCenter)
             self.shelf_table.setItem(row, 0, id_item)
             
             # Librarian ID 
-            librarian_item = QTableWidgetItem(shelf.get('librarian_id', 'N/A'))
+            librarian_item = QTableWidgetItem(str(shelf.get('LibrarianID', 'N/A')))
             librarian_item.setTextAlignment(Qt.AlignCenter)
             self.shelf_table.setItem(row, 1, librarian_item)
             

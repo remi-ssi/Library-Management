@@ -68,6 +68,7 @@ class DatabaseSeeder:
             Shelf = """CREATE TABLE IF NOT EXISTS BookShelf(
                     ShelfId VARCHAR(6) PRIMARY KEY NOT NULL,
                     LibrarianID INTEGER,
+                    isDeleted TIMESTAMP DEFAULT NULL,
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID))"""
             return book, Author, Genre, Shelf
         # ----BookTransaction Table ------
@@ -470,7 +471,6 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
-
     # Change the password of a librarian
     def changePassword(self, username, new_password):
         conn, cursor = self.get_connection_and_cursor()
@@ -490,5 +490,57 @@ class DatabaseSeeder:
         finally:
             conn.close()
     
+    def archiveTable(self, tableName, id):
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            if tableName == "Book":
+                query = """
+                    SELECT 
+                        Book.BookCode, Book.BookTitle, Book.Publisher, Book.BookDescription,
+                        Book.ISBN, Book.BookTotalCopies, Book.BookAvailableCopies,
+                        Book.BookCover, Book.isDeleted, Book.LibrarianID
+                    FROM Book
+                    WHERE Book.isDeleted IS NOT NULL AND Book.LibrarianID = ?
+                    ORDER BY Book.isDeleted DESC
+                """
+                cursor.execute(query, (id,))
+
+            elif tableName == "Member":
+                query = """SELECT * FROM Member WHERE isDeleted IS NOT NULL AND LibrarianID = ? ORDER BY isDeleted DESC"""
+                cursor.execute(query, (id,))
+
+            elif tableName == "BookShelf":
+                query = """SELECT * FROM BookShelf WHERE isDeleted IS NOT NULL AND LibrarianID = ? ORDER BY isDeleted DESC"""
+                cursor.execute(query, (id,))
+
+            else:
+                # Default case for other tables - check if they have isDeleted column
+                try:
+                    query = f"""
+                        SELECT * FROM {tableName} 
+                        WHERE isDeleted IS NOT NULL AND LibrarianID = ?
+                        ORDER BY isDeleted DESC
+                    """
+                    cursor.execute(query, (id,))
+                except sqlite3.OperationalError as col_error:
+                    if "no such column: isDeleted" in str(col_error):
+                        print(f"⚠️ Table {tableName} doesn't have isDeleted column - no archived records to retrieve")
+                        return []
+                    else:
+                        raise col_error
+
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            records = [dict(zip(columns, row)) for row in rows]
+            
+            print(f"✓ Retrieved {len(records)} archived records from {tableName}")
+            return records
+
+        except Exception as e:
+            print(f"✗ Error fetching archived records from {tableName}: {e}")
+            return []
+        finally:
+            conn.close()
+
 if __name__ == "__main__":
     seeder = DatabaseSeeder()

@@ -2362,6 +2362,7 @@ class CollapsibleSidebar(QWidget):
         self.main_books_view = self.create_main_books_view()
         self.content_layout.addWidget(self.main_books_view)
         
+        self.current_shelf = None
         # Keep track of current view
         self.current_view = "books"
         self.sidebar = NavigationSidebar()
@@ -2680,9 +2681,13 @@ class CollapsibleSidebar(QWidget):
         """Display books for a specific shelf or all books if shelf is None"""
         if shelf is None:
             # Show all books - reload from database
+            self.current_shelf = None
+            self.delete_shelf_button.hide()
             self.load_books_from_database()
             self.title_label.setText("Books Management")
         else:
+            self.current_shelf = shelf
+            self.delete_shelf_button.show()
             # Filter books by shelf using database
             try:
                 print(f"Filtering books by shelf: {shelf}")
@@ -2792,6 +2797,32 @@ class CollapsibleSidebar(QWidget):
         # Update display
         self.populate_books()
 
+    def delete_current_shelf(self):
+        """Delete the currently selected shelf"""
+        from PySide6.QtWidgets import QMessageBox
+
+        shelf = self.current_shelf
+        if not shelf:
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            "Delete Shelf",
+            f"Are you sure you want to delete shelf '{shelf}'?\nAll books on this shelf will remain, but the shelf will be removed from the list.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if confirm == QMessageBox.Yes:
+            try:
+                #here insert db
+                QMessageBox.information(self, "Success", f"Shelf '{shelf}' deleted.")
+                self.current_shelf = None
+                self.delete_shelf_button.hide()
+                self.load_books_from_database()
+                self.title_label.setText("Books Management")
+            except Exception as e:
+                QMessageBox.warning(self, "Error", f"Failed to delete shelf: {e}")
+
     def create_main_books_view(self):
         """Create the main books view with search and grid"""
         view_widget = QWidget()
@@ -2814,6 +2845,27 @@ class CollapsibleSidebar(QWidget):
                 margin: 0px;
             }
         """)
+        # ...existing code...
+        self.delete_shelf_button = QPushButton("🗑️")
+        self.delete_shelf_button.setFixedSize(50, 50)
+        self.delete_shelf_button.setToolTip("Delete This Shelf")
+        self.delete_shelf_button.clicked.connect(self.delete_current_shelf)
+        self.delete_shelf_button.setStyleSheet("""
+            QPushButton {
+                color: #CC4125;
+                font-size: 20px;
+                font-weight: bold;
+                background-color: #F5F5F5;
+                border: 3px solid #CC4125;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #CC4125;
+                color: white;
+            }
+        """)
+        self.delete_shelf_button.hide()  # Hide by default
+
         
         # Create search container
         search_container = QWidget()
@@ -2919,6 +2971,7 @@ class CollapsibleSidebar(QWidget):
             }
         """)
         
+        search_layout.addWidget(self.delete_shelf_button)
         search_layout.addWidget(self.search_bar)
         search_layout.addWidget(self.search_button)
         search_layout.addWidget(self.sort_button)

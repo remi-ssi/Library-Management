@@ -53,6 +53,7 @@ class DatabaseSeeder:
                     BookCover BLOB,
                     isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER, 
+                    BookSHe
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID),
                     FOREIGN KEY (BookShelf) REFERENCES BookShelf(ShelfId))"""
             Author = """CREATE TABLE IF NOT EXISTS BookAuthor(
@@ -288,7 +289,7 @@ class DatabaseSeeder:
                             JOIN Book AS BK ON BA.BookCode = BK.BookCode
                             WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?""" 
                 elif tableName == "BookShelf":  # Get all shelves for this librarian
-                    query = """SELECT * FROM BookShelf WHERE LibrarianID = ? ORDER BY ShelfId"""
+                    query = """SELECT * FROM BookShelf WHERE isDeleted IS NUL AND LibrarianID = ? ORDER BY ShelfId"""
                 else:  # Book_Genre  BG is the alias for Book_Genre
                     query = """SELECT BG.*FROM Book_Genre AS BG
                             JOIN Book AS BK ON BG.BookCode = BK.BookCode

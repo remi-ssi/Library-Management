@@ -1788,7 +1788,7 @@ class BookDetailsDialog(QDialog):
         # Library info fields - Create shelf dropdown instead of text input
         self.shelf_edit = QComboBox()
         self.shelf_edit.setEditable(False)
-        self.shelf_edit.setPlaceholderText("e.g., A1, B2")
+        self.shelf_edit.setPlaceholderText("Select Shelf")
         self.shelf_edit.setStyleSheet("""
             QComboBox {
                 color: #5C4033;
@@ -2632,18 +2632,30 @@ class CollapsibleSidebar(QWidget):
             }
         """)
         
-        # Get available shelves from database using a more efficient approach
+        # Get available shelves from database - include both shelves with books and empty shelves
         try:
-            # Get unique shelf numbers from the database for this librarian
+            # Get unique shelf numbers from books AND all defined shelves for this librarian
             conn, cursor = self.db_seeder.get_connection_and_cursor()
+            
+            # Get shelves with books
             cursor.execute("""
                 SELECT DISTINCT BookShelf FROM Book 
                 WHERE isDeleted IS NULL AND LibrarianID = ? AND BookShelf IS NOT NULL AND BookShelf != ''
-                ORDER BY BookShelf
             """, (self.librarian_id or 1,))
-            shelves_result = cursor.fetchall()
-            sorted_shelves = [row[0] for row in shelves_result if row[0]]
+            shelves_with_books = [row[0] for row in cursor.fetchall() if row[0]]
+            
+            # Get all defined shelves (including empty ones)
+            cursor.execute("""
+                SELECT DISTINCT ShelfId FROM BookShelf 
+                WHERE LibrarianID = ? AND ShelfId IS NOT NULL AND ShelfId != ''
+            """, (self.librarian_id or 1,))
+            all_shelves = [row[0] for row in cursor.fetchall() if row[0]]
+            
             conn.close()
+            
+            # Combine and sort all shelves (union of both sets)
+            sorted_shelves = sorted(list(set(shelves_with_books + all_shelves)))
+            
         except Exception as e:
             print(f"Error getting shelves from database: {e}")
             sorted_shelves = []
@@ -2684,11 +2696,36 @@ class CollapsibleSidebar(QWidget):
                     self.populate_books()
                     
                     from PySide6.QtWidgets import QMessageBox
-                    QMessageBox.information(
-                        self,
-                        "Shelf View",
-                        f"No books found on shelf {shelf}."
-                    )
+                    msg = QMessageBox(self)
+                    msg.setWindowTitle("Shelf View")
+                    msg.setText(f"Shelf '{shelf}' is empty.\n\nTo add books to this shelf, use the '➕ Add Book' option and assign them to shelf '{shelf}'.")
+                    msg.setIcon(QMessageBox.Information)
+                    msg.setStyleSheet("""
+                        QMessageBox {
+                            background-color: white;
+                            color: black;
+                            font-weight: normal;
+                        }
+                        QLabel {
+                            color: black;
+                            font-weight: normal;
+                            font-size: 14px;
+                            background-color: transparent;
+                            border: none;
+                        }
+                        QPushButton {
+                            background-color: #5C4033;
+                            color: white;
+                            padding: 5px 15px;
+                            border: none;
+                            border-radius: 5px;
+                            font-weight: normal;
+                        }
+                        QPushButton:hover {
+                            background-color: #8B4513;
+                        }
+                    """)
+                    msg.exec()
                     return
                 
                 # Get the authors and genres for the filtered books
@@ -2933,6 +2970,8 @@ class CollapsibleSidebar(QWidget):
 
     def show_add_shelf_dialog(self):
         """Show dialog to add a new bookshelf"""
+        print(f"🔧 Opening Add Shelf dialog for LibrarianID: {self.librarian_id}")
+        
         # Create the add shelf dialog
         dialog = QDialog(self)
         dialog.setWindowTitle("Add New Shelf")
@@ -2981,7 +3020,7 @@ class CollapsibleSidebar(QWidget):
         input_container.addWidget(shelf_label)
         
         shelf_input = QLineEdit()
-        shelf_input.setPlaceholderText("e.g. A1, B2, C3")
+        shelf_input.setPlaceholderText("Select BookShelf ")
         input_container.addWidget(shelf_input)
         
         help_label = QLabel("Shelf ID must be one letter (A-Z) followed by 1-5 digits")
@@ -3023,6 +3062,7 @@ class CollapsibleSidebar(QWidget):
     def save_new_shelf(self, dialog, shelf_id):
         """Save a new bookshelf to the database"""
         shelf_id = shelf_id.strip()
+        print(f"🔧 save_new_shelf called with shelf_id: '{shelf_id}', LibrarianID: {self.librarian_id}")
         
         # Validate shelf ID format
         if not re.match(r'^[A-Z][0-9]{1,5}$', shelf_id):
@@ -3064,6 +3104,12 @@ class CollapsibleSidebar(QWidget):
             cursor.execute("SELECT * FROM BookShelf WHERE ShelfId = ? AND LibrarianID = ?", 
                         (shelf_id, self.librarian_id or 1))
             existing_shelf = cursor.fetchone()
+            
+            # Also check all existing shelves for this librarian
+            cursor.execute("SELECT * FROM BookShelf WHERE LibrarianID = ?", (self.librarian_id or 1,))
+            all_existing_shelves = cursor.fetchall()
+            print(f"🔍 Current shelves for LibrarianID {self.librarian_id}: {all_existing_shelves}")
+            
             conn.close()
             
             if existing_shelf:
@@ -3099,6 +3145,67 @@ class CollapsibleSidebar(QWidget):
                 msg.exec()
                 return
             
+            # Insert new shelf into database
+            print(f"🔄 Attempting to save shelf '{shelf_id}' for LibrarianID: {self.librarian_id}")
+            
+            try:
+                self.db_seeder.seed_data(
+                    tableName="BookShelf",
+                    data=[{"ShelfId": shelf_id, "LibrarianID": self.librarian_id or 1}], 
+                    columnOrder=["ShelfId", "LibrarianID"]
+                )
+                print(f"✅ Successfully saved shelf '{shelf_id}' to database")
+                
+                # Verify it was actually inserted
+                conn, cursor = self.db_seeder.get_connection_and_cursor()
+                cursor.execute("SELECT * FROM BookShelf WHERE ShelfId = ? AND LibrarianID = ?", 
+                            (shelf_id, self.librarian_id or 1))
+                verification = cursor.fetchone()
+                conn.close()
+                
+                if verification:
+                    print(f"✅ Verification successful: Shelf found in database: {verification}")
+                else:
+                    print(f"❌ Verification failed: Shelf not found in database")
+                    raise Exception("Shelf was not properly inserted into database")
+                    
+            except Exception as db_error:
+                print(f"❌ Database error while saving shelf: {db_error}")
+                raise db_error
+            
+            # Show success message
+            success_msg = QMessageBox(dialog)
+            success_msg.setWindowTitle("Success")
+            success_msg.setText(f"Shelf '{shelf_id}' has been added successfully!\n\nYou can now find it in the 'View by Shelf' menu (📚 button) to sort books by this shelf.")
+            success_msg.setIcon(QMessageBox.Information)
+            success_msg.setStyleSheet("""
+                QMessageBox {
+                    background-color: white;
+                    color: black;
+                    font-weight: normal;
+                }
+                QLabel {
+                    color: black;
+                    font-weight: normal;
+                    font-size: 14px;
+                    background-color: transparent;
+                    border: none;
+                }
+                QPushButton {
+                    background-color: #5C4033;
+                    color: white;
+                    padding: 5px 15px;
+                    border: none;
+                    border-radius: 5px;
+                    font-weight: normal;
+                }
+                QPushButton:hover {
+                    background-color: #8B4513;
+                }
+            """)
+            success_msg.exec()
+            
+            print(f"✅ Shelf '{shelf_id}' successfully added and verified in database")
             dialog.accept()
             
         except Exception as e:

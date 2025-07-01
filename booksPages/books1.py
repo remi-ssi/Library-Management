@@ -2868,7 +2868,7 @@ class CollapsibleSidebar(QWidget):
         # ADD A BOOK BUTTON
         self.add_button = QPushButton("➕")
         self.add_button.setFixedSize(50, 50)
-        self.add_button.clicked.connect(self.show_add_book_dialog)
+        self.add_button.clicked.connect(self.show_add_options)
         self.add_button.setStyleSheet("""
              QPushButton {
                 color: #5C4033;
@@ -2904,7 +2904,238 @@ class CollapsibleSidebar(QWidget):
         view_layout.addSpacerItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding))
         
         return view_widget
+    
+    def show_add_options(self):
+        """Show dropdown menu with Add Book and Add Shelf options"""
+        add_menu = QMenu(self)
+        add_menu.setStyleSheet("""
+            QMenu {
+                background-color: #FFFEF0;
+                border: 2px solid #5C4033;
+                border-radius: 8px;
+                padding: 5px;
+            }
+            QMenu::item {
+                padding: 8px 20px;
+                color: #5C4033;
+                font-size: 14px;
+            }
+            QMenu::item:selected {
+                background-color: #dbcfc1;
+                border-radius: 4px;
+            }
+        """)
+        
+        # Add options
+        add_menu.addAction("Add Book", self.show_add_book_dialog)
+        add_menu.addAction("Add Shelf", self.show_add_shelf_dialog)
+        
+        # Show menu at button position
+        add_menu.exec(self.add_button.mapToGlobal(self.add_button.rect().bottomLeft()))
 
+    def show_add_shelf_dialog(self):
+        """Show dialog to add a new bookshelf"""
+        # Create the add shelf dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Add New Shelf")
+        dialog.setFixedSize(400, 350)
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #f1efe3;
+            }
+            QLabel {
+                color: #5C4033;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QLineEdit {
+                background-color: white;
+                border: 2px solid #dbcfc1;
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 14px;
+                color: #5C4033;
+            }
+            QLineEdit:focus {
+                border-color: #5C4033;
+            }
+            QPushButton {
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+        """)
+        
+        # Dialog layout
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
+        
+        # Title
+        title_label = QLabel("Add New Bookshelf")
+        title_label.setStyleSheet("font-size: 20px; margin-bottom: 30px;")
+        layout.addWidget(title_label)
+        
+        # Shelf ID input with instructions
+        input_container = QVBoxLayout()
+        shelf_label = QLabel("Shelf ID:")
+        input_container.addWidget(shelf_label)
+        
+        shelf_input = QLineEdit()
+        shelf_input.setPlaceholderText("e.g. A1, B2, C3")
+        input_container.addWidget(shelf_input)
+        
+        help_label = QLabel("Shelf ID must be one letter (A-Z) followed by 1-5 digits")
+        help_label.setStyleSheet("color: #666; font-weight: normal; font-size: 12px;")
+        input_container.addWidget(help_label)
+        
+        layout.addLayout(input_container)
+        layout.addStretch()
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        save_btn = QPushButton("Save Shelf")
+        save_btn.setStyleSheet("""
+            background-color: #5C4033;
+            color: white;
+            min-width: 100px;
+        """)
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setStyleSheet("""
+            background-color: white;
+            color: #5C4033;
+            border: 2px solid #5C4033;
+            min-width: 100px;
+        """)
+        
+        button_layout.addStretch()
+        button_layout.addWidget(save_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+        
+        # Connect button signals
+        cancel_btn.clicked.connect(dialog.reject)
+        save_btn.clicked.connect(lambda: self.save_new_shelf(dialog, shelf_input.text()))
+        
+        # Show dialog
+        dialog.exec()
+
+    def save_new_shelf(self, dialog, shelf_id):
+        """Save a new bookshelf to the database"""
+        shelf_id = shelf_id.strip()
+        
+        # Validate shelf ID format
+        if not re.match(r'^[A-Z][0-9]{1,5}$', shelf_id):
+            msg = QMessageBox(dialog)
+            msg.setWindowTitle("Validation Error")
+            msg.setText("Shelf ID must be one letter (A-Z) followed by 1-5 digits.\nExample: A1, B12, C345")
+            msg.setIcon(QMessageBox.Warning)
+            msg.setStyleSheet("""
+                QMessageBox {
+                    background-color: white;
+                    color: black;
+                    font-weight: normal;
+                }
+                QLabel {
+                    color: black;
+                    font-weight: normal;
+                    font-size: 14px;
+                    background-color: transparent;
+                    border: none;
+                }
+                QPushButton {
+                    background-color: #e0e0e0;
+                    color: black;
+                    padding: 5px 15px;
+                    border: 1px solid #bbbbbb;
+                    border-radius: 5px;
+                    font-weight: normal;
+                }
+                QPushButton:hover {
+                    background-color: #d0d0d0;
+                }
+            """)
+            msg.exec()
+            return
+        
+        try:
+            # Check if shelf already exists
+            conn, cursor = self.db_seeder.get_connection_and_cursor()
+            cursor.execute("SELECT * FROM BookShelf WHERE ShelfId = ? AND LibrarianID = ?", 
+                        (shelf_id, self.librarian_id or 1))
+            existing_shelf = cursor.fetchone()
+            conn.close()
+            
+            if existing_shelf:
+                msg = QMessageBox(dialog)
+                msg.setWindowTitle("Duplicate Shelf")
+                msg.setText(f"Shelf ID '{shelf_id}' already exists.")
+                msg.setIcon(QMessageBox.Warning)
+                msg.setStyleSheet("""
+                    QMessageBox {
+                        background-color: white;
+                        color: black;
+                        font-weight: normal;
+                    }
+                    QLabel {
+                        color: black;
+                        font-weight: normal;
+                        font-size: 14px;
+                        background-color: transparent;
+                        border: none;
+                    }
+                    QPushButton {
+                        background-color: #e0e0e0;
+                        color: black;
+                        padding: 5px 15px;
+                        border: 1px solid #bbbbbb;
+                        border-radius: 5px;
+                        font-weight: normal;
+                    }
+                    QPushButton:hover {
+                        background-color: #d0d0d0;
+                    }
+                """)
+                msg.exec()
+                return
+            
+            dialog.accept()
+            
+        except Exception as e:
+            msg = QMessageBox(dialog)
+            msg.setWindowTitle("Error")
+            msg.setText(f"Failed to add shelf: {str(e)}")
+            msg.setIcon(QMessageBox.Critical)
+            msg.setStyleSheet("""
+                QMessageBox {
+                    background-color: #d0d0d0;
+                    color: black;
+                    font-weight: normal;
+                }
+                QLabel {
+                    color: black;
+                    font-weight: normal;
+                    font-size: 14px;
+                    background-color: transparent;
+                    border: none;
+                }
+                QPushButton {
+                    background-color: #e0e0e0;
+                    color: black;
+                    padding: 5px 15px;
+                    border: 1px solid #bbbbbb;
+                    border-radius: 5px;
+                    font-weight: normal;
+                }
+                QPushButton:hover {
+                    background-color: #d0d0d0;
+                }
+            """)
+            msg.exec()
+            print(f"Error adding shelf: {e}")
+            
     def perform_search(self):
         """Perform search with the text from search bar"""
         search_text = self.search_bar.text().strip().lower()

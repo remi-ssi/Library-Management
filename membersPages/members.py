@@ -122,6 +122,8 @@ class AddMemberDialog(QDialog):
         form_layout.addRow(self.create_label("First Name:"), self.first_name_edit)
         form_layout.addRow(self.create_label("Middle Name:"), self.middle_name_edit)
         form_layout.addRow(self.create_label("Last Name:"), self.last_name_edit)
+        form_layout.addRow(self.create_label("Contact Number:"), self.contact_edit)
+
 
         layout.addLayout(form_layout)
         layout.addSpacing(50)

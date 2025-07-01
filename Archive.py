@@ -1,0 +1,834 @@
+import sys
+from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                              QHBoxLayout, QLabel, QPushButton, QFrame, 
+                              QStackedWidget, QTableWidget, QTableWidgetItem,
+                              QHeaderView, QLineEdit, QMessageBox, QDialog,
+                              QFormLayout, QDateEdit, QComboBox, QSpacerItem,
+                              QSizePolicy)
+from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QFont, QColor, QIcon
+from datetime import datetime, timedelta
+from navigation_sidebar import NavigationSidebar
+from navbar_logic import nav_manager
+
+
+class ArchiveManager(QMainWindow):
+    def __init__(self, librarian_id=None):
+        super().__init__()
+        self.librarian_id = librarian_id
+        
+        # Define button styles as class attributes
+        self.button_base_style = """
+            QPushButton {
+                background-color: transparent;
+                color: #8B4513;
+                font-weight: normal;
+                border-radius: 20px;
+                border: 2px solid #e8d8bd;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #f5f3ed;
+                border-color: #8B4513;
+            }
+        """
+
+        self.button_active_style = """
+            QPushButton {
+                background-color: #5e3e1f;
+                color: white;
+                font-weight: bold;
+                border-radius: 20px;
+                border: 2px solid #5e3e1f;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #5e3e1f;
+                border-color: #5e3e1f;
+            }
+        """
+        
+        # Setup window properties
+        self.setWindowTitle("Archive Management")
+        self.setGeometry(100, 100, 1400, 800)
+        self.showMaximized()
+        
+        # Initialize UI components
+        self.setup_ui()
+        
+    def setup_ui(self):
+        # Create main widget and layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
+        # Main horizontal layout for sidebar + content
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setContentsMargins(20, 40, 20, 20)
+        main_layout.setSpacing(0)
+        
+        # Add sidebar
+        self.sidebar = NavigationSidebar()
+        self.sidebar.navigation_clicked.connect(
+            lambda item_name: nav_manager.handle_navigation(item_name, self.librarian_id)
+        )
+        main_layout.addWidget(self.sidebar)
+        
+        # Create content area widget with brown theme
+        content_widget = QWidget()
+        content_widget.setStyleSheet("background-color: #f5f3ed;")
+        main_layout.addWidget(content_widget)
+        
+        # Content layout (vertical)
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(0)
+        
+        # Header with title
+        header_widget = QWidget()
+        header_widget.setFixedHeight(100)
+        header_widget.setStyleSheet("background-color: #f5f3ed;")
+        content_layout.addWidget(header_widget)
+        
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(40, 20, 40, 20)
+        
+        title_label = QLabel("Archive Management")
+        title_label.setFont(QFont("Times New Roman", 32, QFont.Bold))
+        title_label.setStyleSheet("color: #5e3e1f;")
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        
+        # Tab navigation buttons
+        nav_widget = QWidget()
+        nav_widget.setFixedHeight(60)
+        nav_widget.setStyleSheet("background-color: #f5f3ed;") 
+        content_layout.addWidget(nav_widget)
+        
+        # FOR HORIZONTAL OF MEMBERS AND BOOKS ARCHIVE
+        nav_layout = QHBoxLayout(nav_widget)
+        nav_layout.setContentsMargins(80, 10, 200, 10)
+        nav_layout.setSpacing(50)
+        
+        # Books Archive button
+        self.books_btn = QPushButton("Archive Books")
+        self.books_btn.setFont(QFont("Times New Roman", 12, QFont.Bold))
+        self.books_btn.setFixedSize(180, 40)
+        self.books_btn.setStyleSheet(self.button_base_style)
+        self.books_btn.clicked.connect(self.show_books_archive)
+        nav_layout.addWidget(self.books_btn)
+
+        # Shelf Archive button
+        self.shelf_btn = QPushButton("Archive Shelf")
+        self.shelf_btn.setFont(QFont("Times New Roman", 12, QFont.Bold))
+        self.shelf_btn.setFixedSize(180, 40)
+        self.shelf_btn.setStyleSheet(self.button_base_style)
+        self.shelf_btn.clicked.connect(self.show_shelf_archive)
+        nav_layout.addWidget(self.shelf_btn)
+
+        # Members Archive button
+        self.members_btn = QPushButton("Archive Members")
+        self.members_btn.setFont(QFont("Times New Roman", 12, QFont.Bold))
+        self.members_btn.setFixedSize(180, 40)
+        self.members_btn.setStyleSheet(self.button_base_style)
+        self.members_btn.clicked.connect(self.show_members_archive)
+        nav_layout.addWidget(self.members_btn)
+        
+        nav_layout.setAlignment(Qt.AlignCenter)
+        
+        # Stacked widget for content pages
+        self.content_stack = QStackedWidget()
+        content_layout.addWidget(self.content_stack)
+        
+        # Create pages
+        self.create_books_archive_page()
+        self.create_shelf_archive_page()  
+        self.create_members_archive_page()
+        
+        # Show books archive by default
+        self.show_books_archive()
+        
+    def create_books_archive_page(self):
+        """Create the books archive page"""
+        self.books_page = QWidget()
+        self.books_page.setStyleSheet("background-color: #f5f3ed;")
+        
+        layout = QVBoxLayout(self.books_page)
+        layout.setContentsMargins(40, 30, 40, 30)
+        layout.setSpacing(20)
+        
+        # Search and filter section
+        search_layout = QHBoxLayout()
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.books_search = QLineEdit()
+        self.books_search.setPlaceholderText("Search archived books...")
+        self.books_search.setFont(QFont("Times New Roman", 12))
+        self.books_search.setFixedHeight(35)
+        self.books_search.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 2px solid #e8d8bd;
+                border-radius: 10px;
+                background-color: #fff;
+                color: #5e3e1f;
+            }
+            QLineEdit:focus {
+                border-color: #8B4513;
+                background-color: #f5f3ed;
+            }
+        """)
+        self.books_search.textChanged.connect(self.search_archived_books)
+        search_layout.addWidget(self.books_search)
+        
+        restore_btn = QPushButton("Restore Selected")
+        restore_btn.setStyleSheet("""
+            QPushButton {
+                color: #5e3e1f;
+                font-size: 14px;
+                font-weight: bold;
+                background-color: #fff;
+                border: 2px solid #e8d8bd;
+                border-radius: 10px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #5e3e1f;
+                color: #fff;
+            }
+        """)
+        restore_btn.clicked.connect(self.restore_selected_books)
+        search_layout.addWidget(restore_btn)
+        
+        layout.addLayout(search_layout)
+        
+        # Books archive table with description removed
+        self.books_table = QTableWidget()
+        self.books_table.setColumnCount(8)  
+        self.books_table.setHorizontalHeaderLabels([
+            "Book Code", "Title", "Author", "Genre", "ISBN", 
+            "Copies", "Shelf", "Select"
+        ])
+        
+
+        header = self.books_table.horizontalHeader()
+        for i in range(7):  # First 7 columns stretch
+            header.setSectionResizeMode(i, QHeaderView.Stretch)
+        header.setSectionResizeMode(7, QHeaderView.Fixed)  
+        self.books_table.setColumnWidth(7, 150)  
+    
+        self.books_table.verticalHeader().setVisible(False)
+        self.books_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.books_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.books_table.setAlternatingRowColors(True)
+        self.books_table.setShowGrid(True)
+        self.setup_table_style(self.books_table)
+        
+        layout.addWidget(self.books_table, stretch=1)
+        
+        self.content_stack.addWidget(self.books_page)
+        
+        # Load archived books data
+        self.load_archived_books()
+        
+    def create_members_archive_page(self):
+        """Create the members archive page"""
+        self.members_page = QWidget()
+        self.members_page.setStyleSheet("background-color:#f5f3ed;")
+        
+        
+        layout = QVBoxLayout(self.members_page)
+        layout.setContentsMargins(40, 30, 40, 30)
+        layout.setSpacing(20)
+        
+        # Search and filter section
+        search_layout = QHBoxLayout()
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.members_search = QLineEdit()
+        self.members_search.setPlaceholderText("Search archived members...")
+        self.members_search.setFont(QFont("Times New Roman", 12))
+        self.members_search.setFixedHeight(35)
+        self.members_search.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 2px solid #e8d8bd;
+                border-radius: 8px;
+                background-color: white;
+                color: #5C4033;
+            }
+            QLineEdit:focus {
+                border-color: #e8d8bd;
+                background-color: white;
+            }
+        """)
+        self.members_search.textChanged.connect(self.search_archived_members)
+        search_layout.addWidget(self.members_search)
+        
+        restore_btn = QPushButton("Restore Selected")
+        restore_btn.setStyleSheet("""
+            QPushButton {
+                color: #5e3e1f;
+                font-size: 14px;
+                font-weight: bold;
+                background-color: #fff;
+                border: 2px solid #e8d8bd;
+                border-radius: 10px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #5e3e1f;
+                color: #fff;
+            }
+        """)
+        restore_btn.clicked.connect(self.restore_selected_members)
+        search_layout.addWidget(restore_btn)
+        
+        layout.addLayout(search_layout)
+        
+        # Members archive table with updated columns
+        self.members_table = QTableWidget()
+        self.members_table.setColumnCount(6)
+        self.members_table.setHorizontalHeaderLabels([
+            "Member ID", "First Name", "Middle Name", "Last Name", "Contact Number", "Select"
+        ])
+        
+        
+        header = self.members_table.horizontalHeader()
+        for i in range(5):  # First 5 columns stretch
+            header.setSectionResizeMode(i, QHeaderView.Stretch)
+        header.setSectionResizeMode(5, QHeaderView.Fixed)  
+        self.members_table.setColumnWidth(5, 150) 
+    
+        self.members_table.verticalHeader().setVisible(False)
+        self.members_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.members_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.members_table.setAlternatingRowColors(True)
+        self.members_table.setShowGrid(True)
+        self.setup_table_style(self.members_table)
+        
+        layout.addWidget(self.members_table, stretch=1)
+        
+        self.content_stack.addWidget(self.members_page)
+        
+        # Load archived members data
+        self.load_archived_members()
+    
+    def create_shelf_archive_page(self):
+        """Create the shelf archive page"""
+        self.shelf_page = QWidget()
+        self.shelf_page.setStyleSheet("background-color: #f5f3ed;")
+        
+        layout = QVBoxLayout(self.shelf_page)
+        layout.setContentsMargins(40, 30, 40, 30)
+        layout.setSpacing(20)
+        
+        # Search and filter section
+        search_layout = QHBoxLayout()
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.shelf_search = QLineEdit()
+        self.shelf_search.setPlaceholderText("Search archived shelves...")
+        self.shelf_search.setFont(QFont("Times New Roman", 12))
+        self.shelf_search.setFixedHeight(35)
+        self.shelf_search.setStyleSheet("""
+            QLineEdit {
+                padding: 8px 12px;
+                border: 2px solid #e8d8bd;
+                border-radius: 10px;
+                background-color: #fff;
+                color: #5e3e1f;
+            }
+            QLineEdit:focus {
+                border-color: #8B4513;
+                background-color: #f5f3ed;
+            }
+        """)
+        self.shelf_search.textChanged.connect(self.search_archived_shelves)
+        search_layout.addWidget(self.shelf_search)
+        
+        restore_btn = QPushButton("Restore Selected")
+        restore_btn.setStyleSheet("""
+            QPushButton {
+                color: #5e3e1f;
+                font-size: 14px;
+                font-weight: bold;
+                background-color: #fff;
+                border: 2px solid #e8d8bd;
+                border-radius: 10px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #5e3e1f;
+                color: #fff;
+            }
+        """)
+        restore_btn.clicked.connect(self.restore_selected_shelves)
+        search_layout.addWidget(restore_btn)
+        
+        layout.addLayout(search_layout)
+       
+        self.shelf_table = QTableWidget()
+        self.shelf_table.setColumnCount(3)  
+        self.shelf_table.setHorizontalHeaderLabels([
+            "Shelf ID", "Librarian ID", "Select"
+        ])
+
+        header = self.shelf_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)  
+        header.setSectionResizeMode(1, QHeaderView.Stretch) 
+        header.setSectionResizeMode(2, QHeaderView.Fixed)    
+        self.shelf_table.setColumnWidth(2, 150) 
+
+        self.shelf_table.verticalHeader().setVisible(False)
+        self.shelf_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.shelf_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.shelf_table.setAlternatingRowColors(True)
+        self.shelf_table.setShowGrid(True)
+        self.setup_table_style(self.shelf_table)
+        
+        layout.addWidget(self.shelf_table, stretch=1)
+        
+        self.content_stack.addWidget(self.shelf_page)
+        
+        # Load archived shelves data
+        self.load_archived_shelves()
+
+    def show_books_archive(self):
+        """Switch to the books archive view"""
+        self.content_stack.setCurrentWidget(self.books_page)
+        
+        # Reset all buttons to inactive style first
+        self.books_btn.setStyleSheet(self.button_base_style)
+        self.shelf_btn.setStyleSheet(self.button_base_style)
+        self.members_btn.setStyleSheet(self.button_base_style)
+        
+        # Then set the active button
+        self.books_btn.setStyleSheet(self.button_active_style)
+
+    def show_shelf_archive(self):
+        """Switch to the shelf archive view"""
+        self.content_stack.setCurrentWidget(self.shelf_page)
+        
+        # Reset all buttons to inactive style first
+        self.books_btn.setStyleSheet(self.button_base_style)
+        self.shelf_btn.setStyleSheet(self.button_base_style)
+        self.members_btn.setStyleSheet(self.button_base_style)
+        
+        # Then set the active button
+        self.shelf_btn.setStyleSheet(self.button_active_style)
+
+    def show_members_archive(self):
+        """Switch to the members archive view"""
+        self.content_stack.setCurrentWidget(self.members_page)
+        
+        # Reset all buttons to inactive style first
+        self.books_btn.setStyleSheet(self.button_base_style)
+        self.shelf_btn.setStyleSheet(self.button_base_style)
+        self.members_btn.setStyleSheet(self.button_base_style)
+        
+        # Then set the active button
+        self.members_btn.setStyleSheet(self.button_active_style)
+    
+    def load_archived_books(self):
+        """Load archived books from database"""
+        try:
+            #dito ilalagay yung db logic
+            archived_books = []
+            
+            self.display_archived_books(archived_books)
+        except Exception as e:
+            print(f"Error loading archived books: {e}")
+    
+    def load_archived_members(self):
+        """Load archived members from database"""
+        try:
+            #dito ilalagay yung db lo
+            archived_members = [  ]
+            
+            self.display_archived_members(archived_members)
+        except Exception as e:
+            print(f"Error loading archived members: {e}")
+    
+    def load_archived_shelves(self):
+        """Load archived shelves from database"""
+        try:
+            #dito ilalagay yung db lo
+            archived_shelves = [    ]
+            
+            self.display_archived_shelves(archived_shelves)
+        except Exception as e:
+            print(f"Error loading archived shelves: {e}")
+    
+    def display_archived_books(self, books):
+        """Display archived books in the table"""
+        from PySide6.QtWidgets import QCheckBox
+        
+        self.books_table.setRowCount(len(books))
+        
+        for row, book in enumerate(books):
+            # Book details columns
+            self.books_table.setItem(row, 0, QTableWidgetItem(book.get('book_code', 'N/A')))
+            self.books_table.setItem(row, 1, QTableWidgetItem(book.get('title', 'N/A')))
+            self.books_table.setItem(row, 2, QTableWidgetItem(book.get('author', 'N/A')))
+            self.books_table.setItem(row, 3, QTableWidgetItem(book.get('genre', 'N/A')))
+            self.books_table.setItem(row, 4, QTableWidgetItem(book.get('isbn', 'N/A')))
+            self.books_table.setItem(row, 5, QTableWidgetItem(str(book.get('copies', 'N/A'))))
+            self.books_table.setItem(row, 6, QTableWidgetItem(book.get('shelf', 'N/A')))
+            
+            # Create centered copies item
+            copies_item = QTableWidgetItem(str(book.get('copies', 'N/A')))
+            copies_item.setTextAlignment(Qt.AlignCenter)
+            self.books_table.setItem(row, 5, copies_item)
+            
+            # Create centered shelf item
+            shelf_item = QTableWidgetItem(book.get('shelf', 'N/A'))
+            shelf_item.setTextAlignment(Qt.AlignCenter)
+            self.books_table.setItem(row, 6, shelf_item)
+
+            # Checkbox for selection with checkmark icon
+            checkbox = QCheckBox()
+
+            checkbox.setStyleSheet("""
+                QCheckBox {
+                    margin-left: 12px;
+                }
+                QCheckBox::indicator {
+                    width: 18px;
+                    height: 18px;
+                }
+                QCheckBox::indicator:checked {
+                    background-color: white;
+                    border: 2px solid #5e3e1f;
+                    border-radius: 4px;
+                    image: url('assets/check.png');  
+                }
+                QCheckBox::indicator:unchecked {
+                    background-color: white;
+                    border: 2px solid #d0d0d0;
+                    border-radius: 4px;
+                }
+            """)
+            
+            # Center the checkbox
+            checkbox_widget = QWidget()
+            checkbox_widget.setStyleSheet("background-color: transparent;")
+            checkbox_layout = QHBoxLayout(checkbox_widget)
+            checkbox_layout.addWidget(checkbox)
+            checkbox_layout.setAlignment(Qt.AlignCenter)
+            checkbox_layout.setContentsMargins(0, 0, 0, 0)
+            
+            self.books_table.setCellWidget(row, 7, checkbox_widget)
+            self.books_table.setRowHeight(row, 40)
+    
+    def display_archived_members(self, members):
+        """Display archived members in the table"""
+        from PySide6.QtWidgets import QCheckBox
+        
+        self.members_table.setRowCount(len(members))
+        
+        for row, member in enumerate(members):
+            # Member details with new column structure
+            self.members_table.setItem(row, 0, QTableWidgetItem(member.get('id', 'N/A')))
+            self.members_table.setItem(row, 1, QTableWidgetItem(member.get('first_name', 'N/A')))
+            self.members_table.setItem(row, 2, QTableWidgetItem(member.get('middle_name', 'N/A')))
+            self.members_table.setItem(row, 3, QTableWidgetItem(member.get('last_name', 'N/A')))
+            self.members_table.setItem(row, 4, QTableWidgetItem(member.get('contact', 'N/A')))
+            
+            # Checkbox for selection
+            checkbox = QCheckBox()
+            checkbox.setStyleSheet("""
+                QCheckBox {
+                    margin-left: 12px;
+                }
+                QCheckBox::indicator {
+                    width: 18px;
+                    height: 18px;
+                }
+                QCheckBox::indicator:checked {
+                    background-color: white;
+                    border: 2px solid #5e3e1f;
+                    border-radius: 4px;
+                    image: url('assets/check.png');  
+                }
+                QCheckBox::indicator:unchecked {
+                    background-color: white;
+                    border: 2px solid #d0d0d0;
+                    border-radius: 4px;
+                }
+            """)
+            
+            # Center the checkbox
+            checkbox_widget = QWidget()
+            checkbox_widget.setStyleSheet("background-color: transparent;")
+            checkbox_layout = QHBoxLayout(checkbox_widget)
+            checkbox_layout.addWidget(checkbox)
+            checkbox_layout.setAlignment(Qt.AlignCenter)
+            checkbox_layout.setContentsMargins(0, 0, 0, 0)
+            
+            self.members_table.setCellWidget(row, 5, checkbox_widget)
+            self.members_table.setRowHeight(row, 40)
+    
+    def display_archived_shelves(self, shelves):
+        """Display archived shelves in the table"""
+        from PySide6.QtWidgets import QCheckBox
+        
+        self.shelf_table.setRowCount(len(shelves))
+        
+        for row, shelf in enumerate(shelves):
+            # Shelf ID 
+            id_item = QTableWidgetItem(shelf.get('id', 'N/A'))
+            id_item.setTextAlignment(Qt.AlignCenter)
+            self.shelf_table.setItem(row, 0, id_item)
+            
+            # Librarian ID 
+            librarian_item = QTableWidgetItem(shelf.get('librarian_id', 'N/A'))
+            librarian_item.setTextAlignment(Qt.AlignCenter)
+            self.shelf_table.setItem(row, 1, librarian_item)
+            
+            # Checkbox for selection
+            checkbox = QCheckBox()
+            checkbox.setStyleSheet("""
+                QCheckBox {
+                    margin-left: 12px;
+                }
+                QCheckBox::indicator {
+                    width: 18px;
+                    height: 18px;
+                }
+                QCheckBox::indicator:checked {
+                    background-color: white;
+                    border: 2px solid #5e3e1f;
+                    border-radius: 4px;
+                    image: url('assets/check.png');  
+                }
+                QCheckBox::indicator:unchecked {
+                    background-color: white;
+                    border: 2px solid #d0d0d0;
+                    border-radius: 4px;
+                }
+            """)
+            
+            # Center the checkbox
+            checkbox_widget = QWidget()
+            checkbox_widget.setStyleSheet("background-color: transparent;")
+            checkbox_layout = QHBoxLayout(checkbox_widget)
+            checkbox_layout.addWidget(checkbox)
+            checkbox_layout.setAlignment(Qt.AlignCenter)
+            checkbox_layout.setContentsMargins(0, 0, 0, 0)
+            
+            self.shelf_table.setCellWidget(row, 2, checkbox_widget)
+            self.shelf_table.setRowHeight(row, 40)
+    
+    def search_archived_books(self):
+        """Search archived books based on input"""
+        search_text = self.books_search.text().lower()
+        if not search_text:
+            self.load_archived_books()
+            return
+            
+        # Perform search with the new fields
+        try:
+            # FOR SEARCHING PUU
+            all_archived_books = []
+            
+            # Filter based on search text including all relevant fields
+            filtered_books = [
+                book for book in all_archived_books
+                if search_text in book['book_code'].lower() or
+                   search_text in book['title'].lower() or 
+                   search_text in book['author'].lower() or
+                   search_text in book['genre'].lower() or
+                   search_text in book['isbn'].lower() or
+                   search_text in book['shelf'].lower() or
+                   search_text in book['description'].lower() or
+                   search_text in book['reason'].lower()
+            ]
+            
+            self.display_archived_books(filtered_books)
+        except Exception as e:
+            print(f"Error searching archived books: {e}")
+    
+    def search_archived_members(self):
+        """Search archived members based on input"""
+        search_text = self.members_search.text().lower()
+        if not search_text:
+            self.load_archived_members()
+            return
+            
+        try:
+            # SEARCIHNG THE MEMBERS
+            all_archived_members = []
+            
+            # Filter based on search text for all relevant fields
+            filtered_members = [
+                member for member in all_archived_members
+                if search_text in member['id'].lower() or
+                   search_text in member['first_name'].lower() or
+                   search_text in member['middle_name'].lower() or
+                   search_text in member['last_name'].lower() or
+                   search_text in member['contact'].lower() or
+                   search_text in member.get('reason', '').lower()
+            ]
+            
+            self.display_archived_members(filtered_members)
+        except Exception as e:
+            print(f"Error searching archived members: {e}")
+    
+    #WORKING SA PYTHON LIST PERO MAIIBA LOGIC NITO FOR THE DATABASE IBALIK KO NALANG    
+    def search_archived_shelves(self):
+        """Search archived shelves based on input"""
+        search_text = self.shelf_search.text().lower()
+        if not search_text:
+            self.load_archived_shelves()
+            return
+            
+        # Get all archived shelves
+        all_archived_shelves = [ ]
+        
+        # Filter based on search text
+        filtered_shelves = [
+            shelf for shelf in all_archived_shelves
+            if search_text in shelf['id'].lower() or 
+               search_text in shelf['location'].lower() or
+               search_text in shelf['reason'].lower()
+        ]
+        
+        self.display_archived_shelves(filtered_shelves)
+
+    def restore_selected_books(self):
+        """Restore selected books from archive"""
+        selected_indices = []
+        
+        # Find selected books 
+        for row in range(self.books_table.rowCount()):
+            checkbox_widget = self.books_table.cellWidget(row, 7)
+            if checkbox_widget:
+                checkbox = checkbox_widget.findChild(QCheckBox)
+                if checkbox and checkbox.isChecked():
+                    selected_indices.append(row)
+        
+        if not selected_indices:
+            QMessageBox.information(self, "No Selection", "Please select books to restore.")
+            return
+            
+        # Confirm restore
+        confirm = QMessageBox.question(
+            self, 
+            "Confirm Restore",
+            f"Are you sure you want to restore {len(selected_indices)} selected books?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            # Implement actual restore logic with database remicakes para magreload
+            QMessageBox.information(self, "Success", f"{len(selected_indices)} books restored successfully.")
+            self.load_archived_books()  # Reload the list
+
+    
+    def restore_selected_members(self):
+        """Restore selected members from archive"""
+        selected_indices = []
+        
+        # Find selected members
+        for row in range(self.members_table.rowCount()):
+            checkbox_widget = self.members_table.cellWidget(row, 5)
+            if checkbox_widget:
+                checkbox = checkbox_widget.findChild(QCheckBox)
+                if checkbox and checkbox.isChecked():
+                    selected_indices.append(row)
+        
+        if not selected_indices:
+            QMessageBox.information(self, "No Selection", "Please select members to restore.")
+            return
+            
+        # Confirm restore
+        confirm = QMessageBox.question(
+            self, 
+            "Confirm Restore",
+            f"Are you sure you want to restore {len(selected_indices)} selected members?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            # TODO: Implement actual restore logic with database
+            QMessageBox.information(self, "Success", f"{len(selected_indices)} members restored successfully.")
+            self.load_archived_members()  # Reload the list
+    
+    def restore_selected_shelves(self):
+        """Restore selected shelves from archive"""
+        selected_indices = []
+        
+        # Find selected shelves
+        for row in range(self.shelf_table.rowCount()):
+            checkbox_widget = self.shelf_table.cellWidget(row, 2)
+            if checkbox_widget:
+                checkbox = checkbox_widget.findChild(QCheckBox)
+                if checkbox and checkbox.isChecked():
+                    selected_indices.append(row)
+        
+        if not selected_indices:
+            QMessageBox.information(self, "No Selection", "Please select shelves to restore.")
+            return
+            
+        # Confirm restore
+        confirm = QMessageBox.question(
+            self, 
+            "Confirm Restore",
+            f"Are you sure you want to restore {len(selected_indices)} selected shelves?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if confirm == QMessageBox.Yes:
+            # TODO: Implement actual restore logic with database
+            QMessageBox.information(self, "Success", f"{len(selected_indices)} shelves restored successfully.")
+            self.load_archived_shelves()  # Reload the list
+    
+    def setup_table_style(self, table):
+        """Apply styling to table widget"""
+        table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #e8d8bd;
+                border-radius: 8px;
+                gridline-color: #e8d8bd;
+                font-family: 'Times New Roman';
+                font-size: 14px;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid #f0f0f0;
+            }
+            QTableWidget::item:selected {
+                background-color: #f5f3ed;
+                color: #5e3e1f;
+            }
+            QHeaderView::section {
+                background-color: #5e3e1f;
+                color: white;
+                font-weight: bold;
+                font-family: 'Times New Roman';
+                font-size: 16px;
+                padding: 10px;
+                border: none;
+                border-right: 1px solid #5e3e1f;
+            }
+            QHeaderView::section:last {
+                border-right: none;
+            }
+        """)
+
+# Run the application if executed directly
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    
+    # Initialize navigation manager
+    nav_manager.initialize(app)
+    
+    window = ArchiveManager()
+    window.showMaximized()
+    nav_manager._current_window = window  
+    
+    sys.exit(app.exec())

@@ -114,12 +114,11 @@ class HistoryTransactionPreviewForm(QDialog):
         borrowed_date.setReadOnly(True)
         form.addRow("Borrowed Date:", borrowed_date)
 
-        # Add remarks field only if remarks exist (read-only)
-        if self.transaction.get('remarks') and self.transaction['remarks'].strip():
-            remarks_edit = QTextEdit(self.transaction['remarks'])
-            remarks_edit.setReadOnly(True)
-            remarks_edit.setMaximumHeight(80)  # Limit height
-            form.addRow("Remarks:", remarks_edit)
+        remarks = self.transaction.get('remarks') or ""
+        remarks_edit = QTextEdit(remarks)
+        remarks_edit.setReadOnly(True)
+        remarks_edit.setMaximumHeight(80)  # Limit height
+        form.addRow("Remarks:", remarks_edit)
 
         # Return Date (moved to left side, no checkbox)
         returned_date = QDateEdit()

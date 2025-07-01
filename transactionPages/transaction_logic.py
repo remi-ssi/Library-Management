@@ -14,6 +14,7 @@ class BorrowBooks:
             return [book["BookTitle"] for book in books]
         except Exception as e:
             print(f"Error fetching books: {e}")
+            
             QMessageBox.warning(None, "Error", "Failed to fetch books.")
             return []
     
@@ -42,11 +43,12 @@ class BorrowBooks:
                         "borrower": member_dict.get(trans["MemberID"], "Unknown Member"),
                         "action": trans["Status"], #either borrowed or returned
                         "transaction_type": trans["TransactionType"],
-                        "date": trans["TransactionDate"], #borrowed date
+                        "date": trans["BorrowedDate"], #borrowed date
                         #calculate due date (14 days before due)
-                        "due_date": (datetime.strptime(trans["TransactionDate"], "%Y-%m-%d") + timedelta(days=14)).strftime("%Y-%m-%d"),
+                        "due_date": (datetime.strptime(trans["BorrowedDate"], "%Y-%m-%d") + timedelta(days=14)).strftime("%Y-%m-%d"),
                         "returned_date": trans.get("ReturnedDate", ""), # returned date if available
-                        "quantity": detail.get("Quantity", 1)
+                        "quantity": detail.get("Quantity", 1),
+                        "remarks": trans.get("Remarks", "")
                     })
             return formatted_transactions
         except Exception as e:
@@ -77,10 +79,11 @@ class BorrowBooks:
                         "borrower": member_dict.get(trans["MemberID"], "Unknown Member"),
                         "action": trans["Status"],
                         "transaction_type": trans["TransactionType"],
-                        "date": trans["TransactionDate"],
-                        "due_date": (datetime.strptime(trans["TransactionDate"], "%Y-%m-%d") + timedelta(days=14)).strftime("%Y-%m-%d"),
+                        "date": trans["BorrowedDate"],
+                        "due_date": (datetime.strptime(trans["BorrowedDate"], "%Y-%m-%d") + timedelta(days=14)).strftime("%Y-%m-%d"),
                         "returned_date": trans.get("ReturnedDate", ""),
-                        "quantity": detail.get("Quantity", 1)
+                        "quantity": detail.get("Quantity", 1),
+                        "remarks": trans.get("Remarks", "")
                     })
             return formatted_transactions
         except Exception as e:
@@ -128,7 +131,7 @@ class BorrowBooks:
             self.db_seeder.update_table(
                 tableName="BookTransaction",
                 updates={
-                    "TransactionDate": borrow_date.toString("yyyy-MM-dd") if isinstance(borrow_date, QDate) else borrow_date,
+                    "BorrowedDate": borrow_date.toString("yyyy-MM-dd") if isinstance(borrow_date, QDate) else borrow_date,
                     "Status": status,
                     "ReturnedDate": datetime.now().strftime("%Y-%m-%d") if status == "Returned" else None,
                     "MemberID": member_id
@@ -187,7 +190,7 @@ class BorrowBooks:
             # create transaction 
             transaction_data = [{
                 "TransactionType": "Borrow",
-                "TransactionDate": borrow_date,
+                "BorrowedDate": borrow_date,
                 "Status": status, 
                 "ReturnedDate": None, #initially not returned
                 "Remarks": None,
@@ -196,7 +199,7 @@ class BorrowBooks:
             }]
             
             transaction_columns = [
-                "TransactionType", "TransactionDate", "Status", "ReturnedDate", "Remarks", "LibrarianID", "MemberID"
+                "TransactionType", "BorrowedDate", "Status", "ReturnedDate", "Remarks", "LibrarianID", "MemberID"
             ]
             #insert transaction
             self.db_seeder.seed_data(
@@ -245,7 +248,7 @@ class BorrowBooks:
             return False
     
     #MARK BORROWED BOOK AS RETURNED
-    def return_book (self, transaction_id, librarian_id, returned_date=None):
+    def return_book(self, transaction_id, librarian_id, returned_date=None, remarks=None):
         try:
             transactions = self.db_seeder.get_all_records(tableName="BookTransaction", id=librarian_id)
             transaction = next((t for t in transactions if t["TransactionID"] == transaction_id and t["isDeleted"] is None), None)
@@ -263,12 +266,16 @@ class BorrowBooks:
                 return False
 
             returned_date = returned_date or datetime.now().strftime("%Y-%m-%d")
+            updates = {
+                "Status": "Returned",
+                "ReturnedDate": returned_date
+            }
+            if remarks is not None:
+                updates["Remarks"] = remarks
+
             self.db_seeder.update_table(
                 tableName="BookTransaction",
-                updates={
-                    "Status": "Returned",
-                    "ReturnedDate": returned_date
-                },
+                updates=updates,
                 column="TransactionID",
                 value=transaction_id
             )

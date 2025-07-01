@@ -156,7 +156,7 @@ class LibraryDashboard(QMainWindow):
         
         # Show librarian info if available
         if self.librarian_id:
-            title_text = f"BJRS Library Management System - Librarian {self.librarian_id}"
+            title_text = f"BJRS Library Management System"
         else:
             title_text = "BJRS Library Management System"
             
@@ -277,16 +277,20 @@ class LibraryDashboard(QMainWindow):
         return section
     
     def setup_due_books_table(self):
+    
         headers = ["Borrower Name", "Quantity", "Borrowed Date", "Due Date", "Days Left"]
         
         self.due_books_table.setColumnCount(len(headers))
         self.due_books_table.setHorizontalHeaderLabels(headers)
+
+        #Make Table Read-only
+        self.due_books_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         
         # Table settings
         self.due_books_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.due_books_table.setAlternatingRowColors(True)
+        self.due_books_table.setAlternatingRowColors(False)
         self.due_books_table.setGridStyle(Qt.SolidLine)
-        self.due_books_table.setSortingEnabled(True)
+        self.due_books_table.setSortingEnabled(False)
         self.due_books_table.setMinimumHeight(300)
         
         # Column widths - improved for better text visibility
@@ -458,6 +462,7 @@ class LibraryDashboard(QMainWindow):
             font-family: 'Times New Roman';
         }
         
+        
         QTableWidget {
             background-color: #ffffff;
             border: 2px solid #e8d8bd;
@@ -476,8 +481,8 @@ class LibraryDashboard(QMainWindow):
         }
         
         QTableWidget::item:selected {
-            background-color: #dbeafe;
-            color: #1e40af;
+            background-color: #e8d8bd;
+            color: #5e3e1f;
         }
         
         QHeaderView::section {
@@ -489,6 +494,7 @@ class LibraryDashboard(QMainWindow):
             font-family: 'Times New Roman';
             border-bottom: 2px solid #e5e7eb;
         }
+
         
         QTableWidget::item:alternate {
             background-color: #f8fafc;

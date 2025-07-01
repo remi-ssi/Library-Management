@@ -16,16 +16,11 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QDate
 from functools import partial
-from .HistoryPreviewForm import HistoryTransactionPreviewForm
-from .PreviewTransactionForm import PreviewTransactionForm
 from .AddTransactionForm import AddTransactionForm
-from navigation_sidebar import NavigationSidebar  
-from navbar_logic import nav_manager  
 from .AddTransactionForm import AddTransactionForm  # PARA MA-IMPORT UNG TRANSACTION FORM 
 from .PreviewTransactionForm import PreviewTransactionForm # PARA MA-IMPORT UNG PREVIEW NG TRANSACTION
 from .HistoryPreviewForm import HistoryTransactionPreviewForm # PARA MA-IMPORT UNG PREVIEW NG HISTORY 
 from navigation_sidebar import NavigationSidebar # PARA SA SIDE BAR 
-from navbar_logic import nav_manager
 
 class TransactionCard(QFrame):
     def __init__(self, transaction, parent_system):
@@ -290,7 +285,7 @@ class LibraryTransactionSystem(QMainWindow):
         self.trans_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.trans_table.setAlternatingRowColors(False)
         self.trans_table.setShowGrid(True)
-        self.trans_table.doubleClicked.connect(self.open_edit_transaction_form)
+        
         layout.addWidget(self.trans_table, stretch=1)
         self.setup_table_style(self.trans_table)
         self.trans_table.cellDoubleClicked.connect(self.on_transaction_double_click)  # double-click signal to see preview
@@ -415,30 +410,49 @@ class LibraryTransactionSystem(QMainWindow):
     def display_transactions(self, filtered_transactions=None):
         from PySide6.QtGui import QColor
         # Always fetch all transactions for the current librarian
-        self.transactions = self.borrow_books.fetch_transaction(self.librarian_id) or []
+        self.transactions = self.borrow_books.fetch_all_transactions(self.librarian_id) or []
         print("Transaction(Current):", self.transactions)
         # Only show transactions where action is "Borrowed"
-        transactions_to_display = filtered_transactions if filtered_transactions is not None else [
-            t for t in self.transactions if t.get('action') == 'Borrowed'
-        ]
-
+        transaction_dict = {}
+        for trans in self.transactions:
+            if trans.get('action') != 'Borrowed':
+                continue
+            trans_id = trans.get('id')
+            if trans_id not in transaction_dict:
+                transaction_dict[trans_id]  = {
+                    'id': trans_id,
+                    'borrower': trans.get('borrower', 'N/A'),
+                    'date': trans.get('date', 'N/A'),
+                    'due_date':trans.get('due_date', 'N/A'),
+                    'action': trans.get('action', 'Borrowed'),
+                    'remarks': trans.get('remarks', ''),
+                    'books': []
+                }
+            transaction_dict[trans_id]['books'].append({
+                'title': trans.get('book_title', 'N/A'),
+                'quantity':trans.get('quantity', 1)
+            })
+        all_transactions = list(transaction_dict.values())
+        transactions_to_display = filtered_transactions if filtered_transactions is not None else all_transactions
         self.trans_table.setRowCount(len(transactions_to_display))
         for row, trans in enumerate(transactions_to_display):
             due_date = datetime.strptime(trans['due_date'], "%Y-%m-%d")
             today = datetime.now()
             status = "Overdue" if due_date < today else "Active"
 
-            quantity = str(trans.get('quantity', 'N/A'))
+            book_titles = ", ".join([f"{book['title']} (x{book['quantity']})" for book in trans['books']])
+            total_quantity = sum(book['quantity'] for book in trans['books'])
             values = [
                 trans.get('borrower', 'N/A'),
-                trans.get('book_title', 'N/A'),
+                book_titles,
                 trans.get('date', 'N/A'),
                 status,
                 trans.get('due_date', 'N/A'),
-                quantity,
+                str(total_quantity),
                 ""
             ]
-
+            
+            
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 item.setForeground(QColor("#5C4033"))
@@ -485,13 +499,33 @@ class LibraryTransactionSystem(QMainWindow):
 
     def search_transactions(self):
         search_term = self.trans_search_edit.text().lower()
-        active_transactions = [t for t in self.transactions if t['action'] == 'Borrowed']
+        active_transactions = [t for t in self.transactions if t.get('action') == 'Borrowed']
         if not search_term:
             self.display_transactions()
         else:
+            transaction_dict = {}
+            for trans in self.transactions:
+                if trans.get('action') != 'Borrowed':
+                    continue
+                trans_id = trans.get('id')
+                if trans_id not in transaction_dict:
+                    transaction_dict[trans_id]  = {
+                        'id': trans_id,
+                        'borrower': trans.get('borrower', 'N/A'),
+                        'date': trans.get('date', 'N/A'),
+                        'due_date':trans.get('due_date', 'N/A'),
+                        'action': trans.get('action', 'Borrowed'),
+                        'remarks': trans.get('remarks', ''),
+                        'books': []
+                    }
+                transaction_dict[trans_id]['books'].append({
+                    'title': trans.get('book_title', 'N/A'),
+                    'quantity':trans.get('quantity', 1)
+                })
             filtered_transactions = [
-                trans for trans in active_transactions
-                if search_term in trans['book_title'].lower() or search_term in trans['borrower'].lower()
+                trans for trans in transaction_dict.values()
+                if search_term in trans['borrower'].lower() or 
+                any(search_term in book['title'].lower() for book in trans['books'] )
             ]
             self.display_transactions(filtered_transactions)
 
@@ -564,10 +598,11 @@ class LibraryTransactionSystem(QMainWindow):
         else:
             filtered_history = [
                 trans for trans in self.transactions
-                if search_term in trans('book_title').lower()
-                or search_term in trans.get('borrower').lower()
+                if (trans.get('action') == 'Returned' and
+                (search_term in trans.get('book_title', '').lower()
+                or search_term in trans.get('borrower', '').lower()
                 or search_term in trans.get('returned_date', '').lower()
-                or search_term in trans.get('action').lower()
+                or search_term in trans.get('action', '').lower()))
             ]
             self.display_history(filtered_history)
 
@@ -589,45 +624,107 @@ class LibraryTransactionSystem(QMainWindow):
                 librarian_id=self.librarian_id
             )
             if success:
-                self.transactions = self.borrow_books.fetch_transaction(self.librarian_id)
+                self.transactions = self.borrow_books.fetch_all_transaction(self.librarian_id)
                 self.display_transactions()
                 self.display_history()
 
-    def open_edit_transaction_form(self, index):
-        row = index.row()
-        transactions = [t for t in self.transactions if t.get('action') == 'Borrowed']
-        if row < len(transactions):
-            transaction = transactions[row]
-            preview_transaction = {
-                'id': transaction.get('id'),
-                'borrower': transaction.get('borrower', 'N/A'),
-                'date': transaction.get('date', 'N/A'),
-                'action': transaction.get('action', 'Borrowed'),
-                'due_date': transaction.get('due_date', 'N/A'),
-                'returned_date': transaction.get('returned_date', ''),
-                'books': [{
-                    'title': transaction.get('book_title', 'N/A'),
-                    'quantity': transaction.get('quantity', 1)
-                }]
-            }
-            dialog = PreviewTransactionForm(preview_transaction, parent=self)
-            if dialog.exec():
-                updated_transaction = dialog.get_transaction()
-                if updated_transaction.get('action') == 'Returned':
-                    try:
-                        success = self.borrow_books.return_book(
-                            transaction_id=transaction['id'],
-                            librarian_id=self.librarian_id,
-                            returned_date=datetime.now().strftime("%Y-%m-%d")
-                        )
-                        if success:
-                            self.transactions = self.borrow_books.fetch_all_transactions(self.librarian_id)
-                            self.display_transactions()
-                            self.display_history()
-                        else:
-                            QMessageBox.critical(self, "Error", "Failed to update transaction status.")
-                    except Exception as e:
-                        QMessageBox.critical(self, "Database Error", f"Failed to return transaction: {str(e)}")
+    def open_edit_transaction(self, selected_transaction):
+        transaction_id = selected_transaction.get('id')
+        if not transaction_id:
+            print("Error: Missing TransactionID")
+            QMessageBox.warning(self, "Error", "Invalid transactionID")
+            return
+        
+        # Aggregate all transaction details for this TransactionID
+        related_transactions = [t for t in self.transactions if t['id'] == transaction_id]
+        books = [
+            {'title': t['book_title'], 'quantity': t['quantity']}
+            for t in related_transactions
+        ]
+
+        # Create the transaction dictionary for PreviewTransactionForm
+        preview_transaction = {
+            'id': transaction_id,
+            'borrower': selected_transaction.get('borrower', 'N/A'),
+            'date': selected_transaction.get('date', 'N/A'),
+            'action': selected_transaction.get('action', 'Borrowed'),
+            'due_date': selected_transaction.get('due_date', 'N/A'),
+            'returned_date': selected_transaction.get('returned_date', ''),
+            'remarks': selected_transaction.get('remarks', ''),
+            'books': books
+        }
+
+        # Debug: Print the transaction being passed
+        print("Opening NewPreviewTransactionForm with transaction:", preview_transaction)
+
+        # Open the PreviewTransactionForm
+        dialog = PreviewTransactionForm(preview_transaction, parent=self)
+        if dialog.exec():
+            updated_transaction = dialog.get_transaction()
+            
+            # If the transaction is marked as Returned, update the database
+            if updated_transaction['action'] == 'Returned':
+                try:
+                    success = self.borrow_books.return_book(
+                        transaction_id=updated_transaction['id'],
+                        librarian_id=self.librarian_id,
+                        returned_date=updated_transaction['returned_date'],
+                        remarks=updated_transaction.get('remarks', '')
+                    )
+                    if success:
+                        # Refresh transactions and history
+                        self.transactions = self.borrow_books.fetch_all_transactions(self.librarian_id) or []
+                        self.display_transactions()
+                        self.display_history()
+                    else:
+                        QMessageBox.critical(self, "Error", "Failed to update transaction status.")
+                except Exception as e:
+                    QMessageBox.critical(self, "Database Error", f"Failed to return transaction: {str(e)}")
+
+    def on_transaction_double_click(self, row, column):
+        if column == 5:  # Skip if clicking on delete button column
+            return
+        
+        # Get the current filtered transactions (same as display_transactions uses)
+        search_term = self.trans_search_edit.text().lower()
+        transaction_dict = {}
+        for trans in self.transactions:
+            if trans.get('action') != 'Borrowed':
+                continue
+            trans_id = trans.get('id')
+            if trans_id not in transaction_dict:
+                transaction_dict[trans_id] = {
+                    'id': trans_id,
+                    'borrower': trans.get('borrower', 'N/A'),
+                    'date': trans.get('date', 'N/A'),
+                    'due_date': trans.get('due_date', 'N/A'),
+                    'action': trans.get('action', 'Borrowed'),
+                    'remarks': trans.get('remarks', ''),
+                    'books': []
+                }
+
+            transaction_dict[trans_id]['books'].append ({
+                'title': trans.get('book_title', 'N/A'),
+                'quantity': trans.get('quantity', 1)
+            })
+        active_transactions = list(transaction_dict.values())
+
+        if search_term:
+            filtered_transactions = [
+                trans for trans in active_transactions
+                if search_term in trans['borrower'].lower() or 
+                    any(search_term in book['title'].lower() for book in trans['books'])
+            ]
+        else:
+            filtered_transactions = active_transactions
+        if row >= len(filtered_transactions):
+            print("Error: row index out of range")
+            QMessageBox.critical(self, "Error", "Invalid transaction selected.")
+            return
+        selected_transaction = filtered_transactions[row]
+        print(f"Open selected transaction:", selected_transaction)
+        self.open_edit_transaction(selected_transaction)
+
     def return_transaction(self, transaction):
         reply = QMessageBox.question(
             self, 
@@ -668,9 +765,7 @@ class LibraryTransactionSystem(QMainWindow):
                 
             except Exception as e:
                 QMessageBox.critical(self, "Database Error", f"Failed to delete transaction: {str(e)}")
-
-        
-
+   
     def setup_table_style(self, table):
         table.setStyleSheet("""
             QTableWidget {
@@ -704,28 +799,12 @@ class LibraryTransactionSystem(QMainWindow):
             }
         """)
 
-    def on_transaction_double_click(self, row, column):
-        # Get the transaction for the clicked row
-        transaction = self.transactions[row]  
-        dialog = PreviewCurrentTransaction(transaction, self)
-        if dialog.exec():
-            updated_transaction = dialog.get_transaction()
-
-            for i, trans in enumerate(self.transactions):
-                if trans ['id'] == updated_transaction['id']:
-                    self.transactions[i] = updated_transaction
-                    break
-                                      
-   
-            self.display_transactions()  
-            self.display_history()
-
     def on_history_double_click(self, row, column):
         print("History row double-clicked:", row, column)
         # Use the same data as display_history
         sorted_transactions = sorted(self.transactions, key=lambda x: x['date'], reverse=True)
         transaction = sorted_transactions[row]
-        dialog = HistoryPreviewTransaction(transaction, self)
+        dialog = HistoryTransactionPreviewForm(transaction, self)
         dialog.exec()
 
 # To run the app

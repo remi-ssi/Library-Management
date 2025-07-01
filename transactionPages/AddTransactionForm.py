@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox,
-    QDateEdit, QPushButton, QWidget, QSizePolicy, QSpinBox, QScrollArea, QFrame, QTextEdit
+    QDateEdit, QPushButton, QWidget, QSizePolicy, QSpinBox, QScrollArea, QFrame, QTextEdit, QMessageBox
 )
 from PySide6.QtCore import Qt, QDate, Signal
 from PySide6.QtGui import QFont
@@ -521,7 +521,7 @@ class AddTransactionForm(QDialog):
             
         transaction_data = [{
             "TransactionType": "Borrow",
-            "TransactionDate": self.borrow_date_edit.date().toString("yyyy-MM-dd"),
+            "BorrowedDate": self.borrow_date_edit.date().toString("yyyy-MM-dd"),
             "Status": self.status_combo.currentText(),
             "Remarks": None,
             "LibrarianID": self.librarian_id,
@@ -532,7 +532,7 @@ class AddTransactionForm(QDialog):
             tableName="BookTransaction",
             data=transaction_data,
             columnOrder=[
-                "TransactionType", "TransactionDate", "Status", "Remarks", 
+                "TransactionType", "BorrowedDate", "Status", "Remarks", 
                 "LibrarianID", "MemberID"
             ]
         )

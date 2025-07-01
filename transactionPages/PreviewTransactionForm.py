@@ -5,8 +5,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtGui import QFont
-from .transaction_logic import BorrowBooks
-from tryDatabase import DatabaseSeeder
+
 
 
 class PreviewTransactionForm(QDialog):
@@ -99,12 +98,12 @@ class PreviewTransactionForm(QDialog):
         self.borrowed_date.setReadOnly(True)
         form.addRow("Borrowed Date:", self.borrowed_date)
 
-        # Add remarks field only if remarks exist
-        if transaction.get('remarks') and transaction['remarks'].strip():
-            self.remarks_edit = QTextEdit(transaction['remarks'])
-            self.remarks_edit.setReadOnly(True)
-            self.remarks_edit.setMaximumHeight(80)  # Limit height
-            form.addRow("Remarks:", self.remarks_edit)
+
+        remarks = transaction.get('remarks') or ""    
+        self.remarks_edit = QTextEdit(remarks)
+        self.remarks_edit.setReadOnly(True)
+        self.remarks_edit.setMaximumHeight(80)  # Limit height
+        form.addRow("Remarks:", self.remarks_edit)
 
         layout.addLayout(form)
 
@@ -329,10 +328,10 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     # Test with multiple books (will show "All books returned")
-    dialog = PreviewCurrentTransaction(transaction_multiple)
+    dialog = PreviewTransactionForm(transaction_multiple)
     result = dialog.exec()
     
     # Test with single book (will show "Book returned")
     if result:
-        dialog2 = PreviewCurrentTransaction(transaction_single)
+        dialog2 = PreviewTransactionForm(transaction_single)
         dialog2.exec()

@@ -77,9 +77,9 @@ class DatabaseSeeder:
                     TransactionID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     TransactionType VARCHAR(20) NOT NULL,
                     BorrowedDate TIMESTAMP NOT NULL,
-                    ReturnedDate TIMESTAMP NOT NULL
+                    ReturnedDate TIMESTAMP DEFAULT NULL,
                     Status VARCHAR(20) NOT NULL,
-                    Remarks DEFAULT NULL,
+                    Remarks VARCHAR(100) DEFAULT NULL,
                     isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER,
                     MemberID INTEGER,
@@ -178,7 +178,7 @@ class DatabaseSeeder:
         try:
             conn, cursor = self.get_connection_and_cursor()
             query = """
-                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.ReturnedDate, t.Remarks,
+                SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                        m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                        b.BookCode, b.BookTitle, td.Quantity
                 FROM BookTransaction t
@@ -191,7 +191,7 @@ class DatabaseSeeder:
                 AND b.isDeleted IS NULL
                 AND m.isDeleted IS NULL
                 AND t.LibrarianID = ?
-                ORDER BY t.TransactionDate DESC
+                ORDER BY t.BorrowedDate DESC
             """
             cursor.execute(query, (librarian_id,))
             rows = cursor.fetchall()
@@ -208,7 +208,7 @@ class DatabaseSeeder:
         try:
             conn, cursor = self.get_connection_and_cursor()
             query = """
-                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.ReturnedDate, t.Remarks,
+                SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                     b.BookCode, b.BookTitle, td.Quantity
                 FROM BookTransaction t
@@ -227,7 +227,7 @@ class DatabaseSeeder:
             if librarian_id:
                 query += " AND t.LibrarianID = ?"
                 parameters.append(librarian_id)
-            query += " ORDER BY t.TransactionDate DESC"
+            query += " ORDER BY t.BorrowedDate DESC"
             cursor.execute(query, parameters)
             rows = cursor.fetchall()
             columns = [desc[0] for desc in cursor.description]
@@ -243,7 +243,7 @@ class DatabaseSeeder:
         try:
             conn, cursor = self.get_connection_and_cursor()
             query = """
-                SELECT t.TransactionID, t.TransactionType, t.TransactionDate, t.Status, t.ReturnedDate t.Remarks,
+                SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                     b.BookCode, b.BookTitle, td.Quantity
                 FROM BookTransaction t
@@ -255,7 +255,7 @@ class DatabaseSeeder:
                 AND b.isDeleted IS NULL
                 AND m.isDeleted IS NULL
                 AND t.LibrarianID = ?
-                ORDER BY t.TransactionDate DESC
+                ORDER BY t.BorrowedDate DESC
             """
             cursor.execute(query, (librarian_id,))
             rows = cursor.fetchall()
@@ -265,7 +265,7 @@ class DatabaseSeeder:
             for rec in records:
                 rec['action'] = rec.get('TransactionType', '')
                 rec['transaction_type'] = rec.get('TransactionType', '')
-                rec['date'] = rec.get('TransactionDate', '')
+                rec['date'] = rec.get('BorrowedDate', '')
                 rec['returned_date'] = rec.get('ReturnedDate', '') 
                 rec['quantity'] = rec.get('Quantity', 1)
             return records

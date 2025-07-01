@@ -1,7 +1,3 @@
-"""wait lang yung itsura ng add book nasstress ako ayaw umayos ng itsura eh but its working 
-naman mwehehehe
-"""
-
 import os
 import re
 import sys
@@ -18,12 +14,10 @@ from PySide6.QtWidgets import (
     QLabel, QSizePolicy, QSpacerItem, QLineEdit, QScrollArea, QGridLayout,
     QTabWidget, QTextEdit, QMessageBox, QFormLayout, QDialog, QListWidget,
     QListWidgetItem, QGroupBox, QSpinBox, QFileDialog, QMenu, QComboBox,
-    QToolTip
-)
+    QToolTip)
 
 from tryDatabase import DatabaseSeeder
 load_dotenv()
-
 
 class BookPreviewDialog(QDialog):
     def __init__(self, book_data, parent=None):
@@ -32,10 +26,7 @@ class BookPreviewDialog(QDialog):
         self.parent_window = parent
         self.setWindowTitle(f"Book Preview - {book_data['title']}")
         self.setFixedSize(900, 750)
-        self.setStyleSheet("""            QDialog {
-                background-color: #f1efe3;
-            }
-        """)
+        self.setStyleSheet("""QDialog {background-color: #f1efe3;} """)
         self.init_ui()
       
     def init_ui(self):
@@ -276,6 +267,9 @@ class BookEditView(QWidget):
         super().__init__()
         self.book_data = book_data 
         self.parent_window = parent_window
+        # Initialize database seeder
+        from tryDatabase import DatabaseSeeder
+        self.db_seeder = DatabaseSeeder()
         self.init_ui()
 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -359,7 +353,7 @@ class BookEditView(QWidget):
         
         # Create shelf dropdown instead of text input
         self.shelf_input = QComboBox()
-        self.shelf_input.setEditable(True)  # Allow custom input if needed
+        self.shelf_input.setEditable(False)  
         self.shelf_input.setStyleSheet("""
             QComboBox {
                 color: #5C4033;
@@ -386,45 +380,63 @@ class BookEditView(QWidget):
         """)
         
         # Populate shelf dropdown with available shelves from database
-        try:
-            from tryDatabase import DatabaseSeeder
-            db_seeder = DatabaseSeeder()
+        try:  
             # Get librarian_id from parent window
             librarian_id = getattr(self.parent_window, 'librarian_id', 1)
-            shelf_records = db_seeder.get_all_records("BookShelf", librarian_id)
-            available_shelves = [record['ShelfId'] for record in shelf_records if record.get('ShelfId')]
+            shelf_records = self.db_seeder.get_all_records("BookShelf", librarian_id)
+            # Extract ShelfId values from records, skipping any missing or null ones
+            available_shelves = [record['ShelfId'] for record in shelf_records if record.get('ShelfId')] 
             
-            # Add available shelves to dropdown
-            if available_shelves:
-                self.shelf_input.addItems(available_shelves)
-            else:
-                # If no shelves exist, add some default options and seed them
-                default_shelves = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
-                self.shelf_input.addItems(default_shelves)
-                # Add default shelves to database
-                for shelf in default_shelves:
-                    try:
-                        db_seeder.seed_data("BookShelf", [{"ShelfId": shelf, "LibrarianID": librarian_id}], ["ShelfId", "LibrarianID"])
-                    except:
-                        pass  # Ignore if shelf already exists
-                
+            # If no shelves exist for this librarian, create default shelf A1
+            if not available_shelves:
+                print(f"📚 BookEditView - No shelves found, creating default shelf A1")
+                try:
+                    self.db_seeder.seed_data("BookShelf", [{"ShelfId": "A1", "LibrarianID": librarian_id}], ["ShelfId", "LibrarianID"])
+                    available_shelves = ["A1"]
+                    print(f"📚 BookEditView - Created default shelf A1")
+                except Exception as seed_error:
+                    print(f"⚠️ Could not create default shelf: {seed_error}")
+                    available_shelves = ["A1"]  # Use A1 anyway
+            
+            # Add all available shelves to dropdown
+            self.shelf_input.addItems(available_shelves)
+            print(f"📚 BookEditView - Added shelves to dropdown: {available_shelves}")
+
             # Set current shelf value if it exists
             current_shelf = self.book_data.get('shelf', '')
+            print(f"📚 BookEditView - Current shelf from book_data: '{current_shelf}'")
+            
             if current_shelf:
                 index = self.shelf_input.findText(current_shelf)
+                print(f"📚 BookEditView - Found shelf '{current_shelf}' at index: {index}")
+                
                 if index >= 0:
                     self.shelf_input.setCurrentIndex(index)
+                    print(f"📚 BookEditView - Set dropdown to index {index}")
                 else:
                     # If current shelf is not in the list, add it and select it
+                    print(f"📚 BookEditView - Shelf '{current_shelf}' not found in dropdown, adding it")
+                    # Add the shelf to the end of the dropdown
                     self.shelf_input.addItem(current_shelf)
-                    self.shelf_input.setCurrentText(current_shelf)
+                    index = self.shelf_input.findText(current_shelf)
+                    if index >= 0:
+                        self.shelf_input.setCurrentIndex(index)
+                        print(f"📚 BookEditView - Added and set shelf '{current_shelf}' at index {index}")
+            else:
+                # No current shelf, select first available shelf
+                if available_shelves:
+                    self.shelf_input.setCurrentIndex(0)
+                    print(f"📚 BookEditView - No current shelf, set to first available: {available_shelves[0]}")
                     
         except Exception as e:
-            print(f"Error loading shelves: {e}")
-            # Fallback to adding current shelf only
-            current_shelf = self.book_data.get('shelf', 'A1')
-            self.shelf_input.addItem(current_shelf)
-            self.shelf_input.setCurrentText(current_shelf)
+            print(f"❌ Error loading shelves in BookEditView: {e}")
+            print(f"📚 BookEditView - Exception traceback:")
+            import traceback
+            traceback.print_exc()
+            # Fallback to A1
+            self.shelf_input.addItem("A1")
+            self.shelf_input.setCurrentIndex(0)
+            print(f"📚 BookEditView - Fallback: Added A1 shelf")
         
         self.description_input = QTextEdit(self.book_data.get('description', 'No description available'))
         self.description_input.setMaximumHeight(150)
@@ -575,8 +587,8 @@ class BookEditView(QWidget):
             print(f"📝 Starting update process...")
             
             # Update book data in memory
-            old_copies = self.book_data.get('copies', 0)
-            old_available = self.book_data.get('available_copies', 0)
+            old_copies = self.book_data.get('copies', 0) 
+            old_available = self.book_data.get('available_copies', 0) #
             new_copies = int(copies_text)
             
             # Calculate new available copies (maintain the difference)
@@ -616,14 +628,10 @@ class BookEditView(QWidget):
             
             print(f"📋 Updates to apply: {book_updates}")
             
-            # Initialize database seeder
-            from tryDatabase import DatabaseSeeder
-            db_seeder = DatabaseSeeder()
-            
             # Update the Book table
             print(f"🔄 Executing database update...")
             try:
-                update_success = db_seeder.update_table("Book", book_updates, "BookCode", book_code)
+                update_success = self.db_seeder.update_table("Book", book_updates, "BookCode", book_code)
                 print(f"📊 Update result: {update_success} (type: {type(update_success)})")
                 
                 if update_success is False:
@@ -640,7 +648,7 @@ class BookEditView(QWidget):
                 return
             
             # Verify the update worked by checking the database
-            updated_books = db_seeder.get_all_records("Book", self.parent_window.librarian_id if hasattr(self.parent_window, 'librarian_id') else 1)
+            updated_books = self.db_seeder.get_all_records("Book", self.parent_window.librarian_id if hasattr(self.parent_window, 'librarian_id') else 1)
             updated_book = next((b for b in updated_books if b.get('BookCode') == book_code), None)
             
             if updated_book:
@@ -699,19 +707,8 @@ class BookEditView(QWidget):
                 
                 print(f"🗑️ Deleting book with BookCode: {book_code}")
                 
-                # Initialize database seeder
-                from tryDatabase import DatabaseSeeder
-                db_seeder = DatabaseSeeder()
-                
-                # Delete from related tables first (due to foreign key constraints)
-                # Delete from Book_Genre table
-                #db_seeder.delete_table("Book_Genre", "BookCode", book_code)
-                
-                # Delete from BookAuthor table
-               # db_seeder.delete_table("BookAuthor", "BookCode", book_code)
-                
                 # Finally delete from Book table
-                db_seeder.delete_table("Book", "BookCode", book_code)
+                self.db_seeder.delete_table("Book", "BookCode", book_code)
                 
                 # Show confirmation
                 msg = QMessageBox()
@@ -1101,7 +1098,6 @@ class AddBookDialog(QDialog):
             print(f"Search error: {e}")
             self.open_manual_entry(title, author, isbn)
             self.reset_cover_preview()
-
 
     def open_manual_entry(self, title, author, isbn): #manual entry if no book is found
         print(f"📝 Opening manual entry with LibrarianID: {self.librarian_id}")
@@ -1791,8 +1787,8 @@ class BookDetailsDialog(QDialog):
 
         # Library info fields - Create shelf dropdown instead of text input
         self.shelf_edit = QComboBox()
-        self.shelf_edit.setEditable(True)  # Allow custom input if needed
-        self.shelf_edit.setPlaceholderText("e.g., A1, B2")
+        self.shelf_edit.setEditable(False)
+        self.shelf_edit.setPlaceholderText("Select Shelf")
         self.shelf_edit.setStyleSheet("""
             QComboBox {
                 color: #5C4033;
@@ -1832,25 +1828,27 @@ class BookDetailsDialog(QDialog):
             shelf_records = db_seeder.get_all_records("BookShelf", librarian_id)
             available_shelves = [record['ShelfId'] for record in shelf_records if record.get('ShelfId')]
             
-            # Add available shelves to dropdown
-            if available_shelves:
-                self.shelf_edit.addItems(available_shelves)
-            else:
-                # If no shelves exist, add some default options and seed them
-                default_shelves = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
-                self.shelf_edit.addItems(default_shelves)
-                # Add default shelves to database
-                for shelf in default_shelves:
-                    try:
-                        db_seeder.seed_data("BookShelf", [{"ShelfId": shelf, "LibrarianID": librarian_id}], ["ShelfId", "LibrarianID"])
-                    except:
-                        pass  # Ignore if shelf already exists
+            print(f"📚 BookDetailsDialog - Available shelves from DB: {available_shelves}")
+            
+            # If no shelves exist for this librarian, create default shelf A1
+            if not available_shelves:
+                print(f"📚 BookDetailsDialog - No shelves found, creating default shelf A1")
+                try:
+                    db_seeder.seed_data("BookShelf", [{"ShelfId": "A1", "LibrarianID": librarian_id}], ["ShelfId", "LibrarianID"])
+                    available_shelves = ["A1"]
+                    print(f"📚 BookDetailsDialog - Created default shelf A1")
+                except Exception as seed_error:
+                    print(f"⚠️ Could not create default shelf: {seed_error}")
+                    available_shelves = ["A1"]  # Use A1 anyway
+            
+            # Add all available shelves to dropdown
+            self.shelf_edit.addItems(available_shelves)
+            print(f"📚 BookDetailsDialog - Added shelves to dropdown: {available_shelves}")
                         
         except Exception as e:
             print(f"Error loading shelves in BookDetailsDialog: {e}")
-            # Fallback to default shelves
-            default_shelves = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
-            self.shelf_edit.addItems(default_shelves)
+            # Fallback to default shelf
+            self.shelf_edit.addItem("A1")
 
         self.copies_spin = QSpinBox()
         self.copies_spin.setMaximum(999)
@@ -2634,18 +2632,30 @@ class CollapsibleSidebar(QWidget):
             }
         """)
         
-        # Get available shelves from database using a more efficient approach
+        # Get available shelves from database - include both shelves with books and empty shelves
         try:
-            # Get unique shelf numbers from the database for this librarian
+            # Get unique shelf numbers from books AND all defined shelves for this librarian
             conn, cursor = self.db_seeder.get_connection_and_cursor()
+            
+            # Get shelves with books
             cursor.execute("""
                 SELECT DISTINCT BookShelf FROM Book 
                 WHERE isDeleted IS NULL AND LibrarianID = ? AND BookShelf IS NOT NULL AND BookShelf != ''
-                ORDER BY BookShelf
             """, (self.librarian_id or 1,))
-            shelves_result = cursor.fetchall()
-            sorted_shelves = [row[0] for row in shelves_result if row[0]]
+            shelves_with_books = [row[0] for row in cursor.fetchall() if row[0]]
+            
+            # Get all defined shelves (including empty ones)
+            cursor.execute("""
+                SELECT DISTINCT ShelfId FROM BookShelf 
+                WHERE LibrarianID = ? AND ShelfId IS NOT NULL AND ShelfId != ''
+            """, (self.librarian_id or 1,))
+            all_shelves = [row[0] for row in cursor.fetchall() if row[0]]
+            
             conn.close()
+            
+            # Combine and sort all shelves (union of both sets)
+            sorted_shelves = sorted(list(set(shelves_with_books + all_shelves)))
+            
         except Exception as e:
             print(f"Error getting shelves from database: {e}")
             sorted_shelves = []
@@ -2686,11 +2696,36 @@ class CollapsibleSidebar(QWidget):
                     self.populate_books()
                     
                     from PySide6.QtWidgets import QMessageBox
-                    QMessageBox.information(
-                        self,
-                        "Shelf View",
-                        f"No books found on shelf {shelf}."
-                    )
+                    msg = QMessageBox(self)
+                    msg.setWindowTitle("Shelf View")
+                    msg.setText(f"Shelf '{shelf}' is empty.\n\nTo add books to this shelf, use the '➕ Add Book' option and assign them to shelf '{shelf}'.")
+                    msg.setIcon(QMessageBox.Information)
+                    msg.setStyleSheet("""
+                        QMessageBox {
+                            background-color: white;
+                            color: black;
+                            font-weight: normal;
+                        }
+                        QLabel {
+                            color: black;
+                            font-weight: normal;
+                            font-size: 14px;
+                            background-color: transparent;
+                            border: none;
+                        }
+                        QPushButton {
+                            background-color: #5C4033;
+                            color: white;
+                            padding: 5px 15px;
+                            border: none;
+                            border-radius: 5px;
+                            font-weight: normal;
+                        }
+                        QPushButton:hover {
+                            background-color: #8B4513;
+                        }
+                    """)
+                    msg.exec()
                     return
                 
                 # Get the authors and genres for the filtered books
@@ -2935,6 +2970,8 @@ class CollapsibleSidebar(QWidget):
 
     def show_add_shelf_dialog(self):
         """Show dialog to add a new bookshelf"""
+        print(f"🔧 Opening Add Shelf dialog for LibrarianID: {self.librarian_id}")
+        
         # Create the add shelf dialog
         dialog = QDialog(self)
         dialog.setWindowTitle("Add New Shelf")
@@ -2983,7 +3020,7 @@ class CollapsibleSidebar(QWidget):
         input_container.addWidget(shelf_label)
         
         shelf_input = QLineEdit()
-        shelf_input.setPlaceholderText("e.g. A1, B2, C3")
+        shelf_input.setPlaceholderText("Select BookShelf ")
         input_container.addWidget(shelf_input)
         
         help_label = QLabel("Shelf ID must be one letter (A-Z) followed by 1-5 digits")
@@ -3025,6 +3062,7 @@ class CollapsibleSidebar(QWidget):
     def save_new_shelf(self, dialog, shelf_id):
         """Save a new bookshelf to the database"""
         shelf_id = shelf_id.strip()
+        print(f"🔧 save_new_shelf called with shelf_id: '{shelf_id}', LibrarianID: {self.librarian_id}")
         
         # Validate shelf ID format
         if not re.match(r'^[A-Z][0-9]{1,5}$', shelf_id):
@@ -3066,6 +3104,12 @@ class CollapsibleSidebar(QWidget):
             cursor.execute("SELECT * FROM BookShelf WHERE ShelfId = ? AND LibrarianID = ?", 
                         (shelf_id, self.librarian_id or 1))
             existing_shelf = cursor.fetchone()
+            
+            # Also check all existing shelves for this librarian
+            cursor.execute("SELECT * FROM BookShelf WHERE LibrarianID = ?", (self.librarian_id or 1,))
+            all_existing_shelves = cursor.fetchall()
+            print(f"🔍 Current shelves for LibrarianID {self.librarian_id}: {all_existing_shelves}")
+            
             conn.close()
             
             if existing_shelf:
@@ -3101,6 +3145,67 @@ class CollapsibleSidebar(QWidget):
                 msg.exec()
                 return
             
+            # Insert new shelf into database
+            print(f"🔄 Attempting to save shelf '{shelf_id}' for LibrarianID: {self.librarian_id}")
+            
+            try:
+                self.db_seeder.seed_data(
+                    tableName="BookShelf",
+                    data=[{"ShelfId": shelf_id, "LibrarianID": self.librarian_id or 1}], 
+                    columnOrder=["ShelfId", "LibrarianID"]
+                )
+                print(f"✅ Successfully saved shelf '{shelf_id}' to database")
+                
+                # Verify it was actually inserted
+                conn, cursor = self.db_seeder.get_connection_and_cursor()
+                cursor.execute("SELECT * FROM BookShelf WHERE ShelfId = ? AND LibrarianID = ?", 
+                            (shelf_id, self.librarian_id or 1))
+                verification = cursor.fetchone()
+                conn.close()
+                
+                if verification:
+                    print(f"✅ Verification successful: Shelf found in database: {verification}")
+                else:
+                    print(f"❌ Verification failed: Shelf not found in database")
+                    raise Exception("Shelf was not properly inserted into database")
+                    
+            except Exception as db_error:
+                print(f"❌ Database error while saving shelf: {db_error}")
+                raise db_error
+            
+            # Show success message
+            success_msg = QMessageBox(dialog)
+            success_msg.setWindowTitle("Success")
+            success_msg.setText(f"Shelf '{shelf_id}' has been added successfully!\n\nYou can now find it in the 'View by Shelf' menu (📚 button) to sort books by this shelf.")
+            success_msg.setIcon(QMessageBox.Information)
+            success_msg.setStyleSheet("""
+                QMessageBox {
+                    background-color: white;
+                    color: black;
+                    font-weight: normal;
+                }
+                QLabel {
+                    color: black;
+                    font-weight: normal;
+                    font-size: 14px;
+                    background-color: transparent;
+                    border: none;
+                }
+                QPushButton {
+                    background-color: #5C4033;
+                    color: white;
+                    padding: 5px 15px;
+                    border: none;
+                    border-radius: 5px;
+                    font-weight: normal;
+                }
+                QPushButton:hover {
+                    background-color: #8B4513;
+                }
+            """)
+            success_msg.exec()
+            
+            print(f"✅ Shelf '{shelf_id}' successfully added and verified in database")
             dialog.accept()
             
         except Exception as e:

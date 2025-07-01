@@ -47,14 +47,14 @@ class DatabaseSeeder:
                     BookTitle VARCHAR NOT NULL,
                     Publisher VARCHAR NOT NULL,
                     BookDescription VARCHAR NOT NULL,
-                    shelfNo VARCHAR(6) NOT NULL,
                     ISBN INTEGER NOT NULL,
                     BookTotalCopies INTEGER NOT NULL,
                     BookAvailableCopies INTEGER,
                     BookCover BLOB,
                     isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER, 
-                    FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID))"""
+                    FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID)
+                    FOREIGN KEY (ShelfID) REFERENCES Shelf(ShelfID))"""
             Author = """CREATE TABLE IF NOT EXISTS BookAuthor(
                     BookCode INTEGER,
                     bookAuthor VARCHAR NOT NULL,
@@ -65,7 +65,9 @@ class DatabaseSeeder:
                     Genre VARCHAR,
                     PRIMARY KEY (BookCode, Genre), 
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
-            return book, Author, Genre
+            Shelf = """CREATE TABLE IF NOT EXISTS BookShelf(
+                    ShelfId VARCHAR(6) PRIMARY KEY NOT NULL)"""
+            return book, Author, Genre, Shelf
         # ----BookTransaction Table ------
         elif tableName == "BookTransaction":
             return """CREATE TABLE IF NOT EXISTS BookTransaction(
@@ -110,10 +112,11 @@ class DatabaseSeeder:
 
         try:
             if tableName == "Book":
-                bookCreate, authorCreate, genreCreate = self.query(tableName)
+                bookCreate, authorCreate, genreCreate, shelfCreate = self.query(tableName)
                 cursor.execute(bookCreate)
                 cursor.execute(authorCreate)
                 cursor.execute(genreCreate)
+                cursor.execute(shelfCreate)
                 conn.commit()
                 print("Book table created")
             else:
@@ -281,6 +284,9 @@ class DatabaseSeeder:
                     query = """SELECT BA.* FROM BookAuthor AS BA 
                             JOIN Book AS BK ON BA.BookCode = BK.BookCode
                             WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?""" 
+                elif tableName == "BookShelf":  # Shelf is the alias for BookShelf
+                    query = """SELECT * FROM BookShelf WHERE ShelfId IN (
+                            SELECT shelfNo FROM Book WHERE isDeleted IS NULL AND LibrarianID = ?)"""
                 else:  # Book_Genre  BG is the alias for Book_Genre
                     query = """SELECT BG.*FROM Book_Genre AS BG
                             JOIN Book AS BK ON BG.BookCode = BK.BookCode
@@ -419,21 +425,40 @@ class DatabaseSeeder:
             conn.close()
     
     # Filter books based on shelf number or sort order
-    def filterBooks(self, filter):
+    def filterBooks(self, filter, librarian_id=None):
         conn, cursor = self.get_connection_and_cursor()
         try:
-            if filter == "ascending": # sort by ascending order
-                query = "SELECT * FROM Book WHERE isDeleted IS NULL ORDER BY BookTitle ASC"
-                cursor.execute(query)
-            elif filter == "descending": # sort by descending order
-                query = "SELECT * FROM Book WHERE isDeleted IS NULL ORDER BY BookTitle DESC"
-                cursor.execute(query)
-            else: # assume filter is a shelf number
-                query = "SELECT * FROM Book WHERE ShelfNo = ? AND isDeleted IS NULL"
-                cursor.execute(query, (filter,))  # use shelf number as filter
+            if filter == "ascendingTitle":  # sort by ascending order
+                query = "SELECT * FROM Book WHERE isDeleted IS NULL AND LibrarianID = ? ORDER BY BookTitle ASC"
+                cursor.execute(query, (librarian_id,))
+            elif filter == "descendingTitle":  # sort by descending order
+                query = "SELECT * FROM Book WHERE isDeleted IS NULL AND LibrarianID = ? ORDER BY BookTitle DESC"
+                cursor.execute(query, (librarian_id,))
+            elif filter == "ascendingAuthor":  # sort by ascending order of author
+                # For author sorting, we need to join with BookAuthor table
+                query = """SELECT DISTINCT b.* FROM Book b 
+                           LEFT JOIN BookAuthor ba ON b.BookCode = ba.BookCode 
+                           WHERE b.isDeleted IS NULL AND b.LibrarianID = ? 
+                           ORDER BY ba.bookAuthor ASC"""
+                cursor.execute(query, (librarian_id,))
+            elif filter == "descendingAuthor":  # sort by descending order of author
+                # For author sorting, we need to join with BookAuthor table
+                query = """SELECT DISTINCT b.* FROM Book b 
+                           LEFT JOIN BookAuthor ba ON b.BookCode = ba.BookCode 
+                           WHERE b.isDeleted IS NULL AND b.LibrarianID = ? 
+                           ORDER BY ba.bookAuthor DESC"""
+                cursor.execute(query, (librarian_id,))
+            elif filter == "mostCopies":  # sort by most copies
+                query = "SELECT * FROM Book WHERE isDeleted IS NULL AND LibrarianID = ? ORDER BY BookTotalCopies DESC"
+                cursor.execute(query, (librarian_id,))
+            elif filter == "leastCopies":  # sort by least copies
+                query = "SELECT * FROM Book WHERE isDeleted IS NULL AND LibrarianID = ? ORDER BY BookTotalCopies ASC"
+                cursor.execute(query, (librarian_id,))
+            else:  # assume filter is a shelf number
+                query = "SELECT * FROM Book WHERE shelfNo = ? AND isDeleted IS NULL AND LibrarianID = ?"
+                cursor.execute(query, (filter, librarian_id))
 
             rows = cursor.fetchall()
-
             columns = [desc[0] for desc in cursor.description]
             records = [dict(zip(columns, row)) for row in rows]
             return records
@@ -443,6 +468,7 @@ class DatabaseSeeder:
             return []
         finally:
             conn.close()
+
 
     # Change the password of a librarian
     def changePassword(self, username, new_password):

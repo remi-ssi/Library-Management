@@ -270,7 +270,6 @@ class BookPreviewDialog(QDialog):
             self.parent_window.show_book_edit_view(self.book_data)
         else:  print("[ERROR] parent_window is None!")
 
-
 class BookEditView(QWidget):
     def __init__(self, book_data, parent_window):
         super().__init__()
@@ -543,7 +542,7 @@ class BookEditView(QWidget):
             # Prepare updates for Book table
             book_updates = {
                 'BookDescription': new_description,
-                'shelfNo': shelf,
+                'BookShelf': shelf,
                 'BookTotalCopies': new_copies,
                 'BookAvailableCopies': new_available_copies
             }
@@ -580,7 +579,7 @@ class BookEditView(QWidget):
             if updated_book:
                 print(f"✅ Verification successful:")
                 print(f"   Description: {updated_book.get('BookDescription')}")
-                print(f"   Shelf: {updated_book.get('shelfNo')}")
+                print(f"   Shelf: {updated_book.get('BookShelf')}")
                 print(f"   Total Copies: {updated_book.get('BookTotalCopies')}")
                 print(f"   Available Copies: {updated_book.get('BookAvailableCopies')}")
             else:
@@ -1142,7 +1141,7 @@ class AddBookDialog(QDialog):
                 'BookTitle': standardized_book['title'],
                 'Publisher': standardized_book.get('publisher', 'Unknown Publisher'),  
                 'BookDescription': standardized_book['description'],
-                'shelfNo': standardized_book['shelf'],
+                'BookShelf': standardized_book['shelf'],  # Use BookShelf to match actual database
                 'ISBN': standardized_book['isbn'],
                 'BookTotalCopies': standardized_book['copies'],
                 'BookAvailableCopies': standardized_book['available_copies'],
@@ -1151,7 +1150,7 @@ class AddBookDialog(QDialog):
             }
 
             # 2. Use seed_data to insert into Book table
-            book_columns = ['BookTitle', 'Publisher', 'BookDescription', 'shelfNo', 'ISBN', 
+            book_columns = ['BookTitle', 'Publisher', 'BookDescription', 'BookShelf', 'ISBN', 
                         'BookTotalCopies', 'BookAvailableCopies', 'BookCover', 'LibrarianID']
             
             try:
@@ -1169,7 +1168,7 @@ class AddBookDialog(QDialog):
                 try:
                     cursor.execute("""
                         SELECT BookCode FROM Book 
-                        WHERE BookTitle = ? AND ISBN = ? AND shelfNo = ?
+                        WHERE BookTitle = ? AND ISBN = ? AND BookShelf = ?
                         ORDER BY BookCode DESC LIMIT 1
                     """, (standardized_book['title'], standardized_book['isbn'], standardized_book['shelf']))
                     
@@ -1356,7 +1355,7 @@ class AddBookDialog(QDialog):
                 'BookTitle': standardized_book['title'],
                 'Publisher': standardized_book.get('publisher', 'Unknown Publisher'), 
                 'BookDescription': standardized_book['description'],
-                'shelfNo': standardized_book['shelf'],
+                'BookShelf': standardized_book['shelf'],  # Use BookShelf to match database
                 'ISBN': standardized_book['isbn'],
                 'BookTotalCopies': standardized_book['copies'],
                 'BookAvailableCopies': standardized_book['available_copies'],
@@ -1365,7 +1364,7 @@ class AddBookDialog(QDialog):
             }
 
             # 2. Use seed_data to insert into Book table
-            book_columns = ['BookTitle', 'Publisher','BookDescription', 'shelfNo', 'ISBN', 
+            book_columns = ['BookTitle', 'Publisher','BookDescription', 'BookShelf', 'ISBN', 
                         'BookTotalCopies', 'BookAvailableCopies', 'BookCover', 'LibrarianID']
             
             try:
@@ -1383,7 +1382,7 @@ class AddBookDialog(QDialog):
                 try:
                     cursor.execute("""
                         SELECT BookCode FROM Book 
-                        WHERE BookTitle = ? AND ISBN = ? AND shelfNo = ?
+                        WHERE BookTitle = ? AND ISBN = ? AND BookShelf = ?
                         ORDER BY BookCode DESC LIMIT 1
                     """, (standardized_book['title'], standardized_book['isbn'], standardized_book['shelf']))
                     
@@ -2252,6 +2251,7 @@ class CollapsibleSidebar(QWidget):
             books = self.db_seeder.get_all_records("Book", self.librarian_id or 1)
             book_authors = self.db_seeder.get_all_records("BookAuthor", self.librarian_id or 1)
             book_genres = self.db_seeder.get_all_records("Book_Genre", self.librarian_id or 1)
+            book_shelf = self.db_seeder.get_all_records("BookShelf", self.librarian_id or 1)
             
             print(f"Found {len(books)} books, {len(book_authors)} authors, {len(book_genres)} genres")
             
@@ -2301,7 +2301,7 @@ class CollapsibleSidebar(QWidget):
                         "isbn": book.get("ISBN", ""),
                         "publisher": book.get("Publisher", "Unknown Publisher"), 
                         "description": book.get("BookDescription", ""),
-                        "shelf": book.get("shelfNo", ""),
+                        "shelf": book.get("BookShelf", ""),  # Changed from BookShelf to BookShelf
                         "copies": book.get("BookTotalCopies", 0),
                         "available_copies": book.get("BookAvailableCopies", 0),
                         "image": book.get("BookCover", "")
@@ -2366,28 +2366,114 @@ class CollapsibleSidebar(QWidget):
         sort_menu.exec(self.sort_button.mapToGlobal(self.sort_button.rect().bottomLeft()))
 
     def sort_books(self, key, ascending=True):
-        """Sort books by the given key"""
-        if key == "author":
-            # Special handling for author since it can be a list
-            def get_first_author(book):
-                authors = book.get("author", [""])
-                if isinstance(authors, list) and authors:
-                    return authors[0].lower()
-                return str(authors).lower()
+        """Sort books by the given key using database sorting"""
+        try:
+            # Map the sorting parameters to the database filter names
+            filter_map = {
+                ("title", True): "ascendingTitle",
+                ("title", False): "descendingTitle", 
+                ("author", True): "ascendingAuthor",
+                ("author", False): "descendingAuthor",
+                ("copies", False): "mostCopies",  # Most copies = descending
+                ("copies", True): "leastCopies"   # Least copies = ascending
+            }
             
-            self.books_data.sort(key=get_first_author, reverse=not ascending)
-        else:
-            # For other fields
-            def get_sort_key(book):
-                value = book.get(key)
-                if isinstance(value, str):
-                    return value.lower()
-                return value or 0  
+            filter_name = filter_map.get((key, ascending))
+            if not filter_name:
+                print(f"Unknown sort key: {key}, ascending: {ascending}")
+                return
             
-            self.books_data.sort(key=get_sort_key, reverse=not ascending)
-        
-        # Refresh the display with sorted books
-        self.populate_books()
+            print(f"Sorting books by {filter_name} for librarian {self.librarian_id}")
+            
+            # Get sorted books from database
+            sorted_books = self.db_seeder.filterBooks(filter_name, self.librarian_id or 1)
+            
+            if not sorted_books:
+                print("No books returned from database sort")
+                # Show message to user if no books found
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    self,
+                    "Sort Books",
+                    "No books found to sort."
+                )
+                return
+            
+            # Get the authors and genres for the sorted books
+            book_authors = self.db_seeder.get_all_records("BookAuthor", self.librarian_id or 1)
+            book_genres = self.db_seeder.get_all_records("Book_Genre", self.librarian_id or 1)
+            books_shelf = self.db_seeder.get_all_records("BookShelf", self.librarian_id or 1)
+            
+            # Process the sorted books data similar to load_books_from_database
+            self.books_data = []
+            
+            for book in sorted_books:
+                try:
+                    book_code = book.get("BookCode")
+                    if not book_code:
+                        continue
+                    
+                    # Find all authors for this book
+                    book_authors_list = [
+                        author["bookAuthor"] for author in book_authors 
+                        if author.get("BookCode") == book_code and author.get("bookAuthor")
+                    ]
+                    
+                    # Find all genres for this book
+                    book_genres_list = [
+                        genre["Genre"] for genre in book_genres 
+                        if genre.get("BookCode") == book_code and genre.get("Genre")
+                    ]
+                    
+                    # Use "Unknown" if no authors/genres found
+                    if not book_authors_list:
+                        book_authors_list = ["Unknown Author"]
+                    if not book_genres_list:
+                        book_genres_list = ["Unknown Genre"]
+                    
+                    # Create book data dictionary
+                    book_data = {
+                        "book_code": book_code,
+                        "title": book.get("BookTitle", "Unknown Title"),
+                        "author": book_authors_list,
+                        "genre": book_genres_list,
+                        "isbn": book.get("ISBN", ""),
+                        "publisher": book.get("Publisher", "Unknown Publisher"), 
+                        "description": book.get("BookDescription", ""),
+                        "shelf": book.get("BookShelf", ""),  # Changed from BookShelf to BookShelf
+                        "copies": book.get("BookTotalCopies", 0),
+                        "available_copies": book.get("BookAvailableCopies", 0),
+                        "image": book.get("BookCover", "")
+                    }
+                    
+                    self.books_data.append(book_data)
+                    
+                except Exception as e:
+                    print(f"Error processing sorted book {book}: {e}")
+                    continue
+            
+            print(f"Successfully sorted {len(self.books_data)} books")
+            
+            # Update the title to show current sort
+            sort_description = {
+                "ascendingTitle": "Title (A-Z)",
+                "descendingTitle": "Title (Z-A)",
+                "ascendingAuthor": "Author (A-Z)", 
+                "descendingAuthor": "Author (Z-A)",
+                "mostCopies": "Most Copies",
+                "leastCopies": "Least Copies"
+            }
+            
+            current_sort = sort_description.get(filter_name, "Books Management")
+            self.title_label.setText(f"Books Management - Sorted by {current_sort}")
+            
+            # Refresh the display with sorted books
+            self.populate_books()
+            
+        except Exception as e:
+            print(f"Error sorting books: {e}")
+            import traceback
+            traceback.print_exc()
 
     def show_shelf_view(self):
         """Show books organized by shelf location"""
@@ -2413,26 +2499,26 @@ class CollapsibleSidebar(QWidget):
             }
         """)
         
-       
-        # HELLO SO SABI NI AI KINUKUHA NAMAN DAW NAITN YUNG PYTHON DICTIONARY SA LOAD BOOKS
-        # SO KAHIT ANG KUNIN NALANG DAW IS YUNG LIST AND LAMBDA FOR SORTING
-        #BUT IF WANT NIYO TANGGALIN GO LANG PUU
-        
-        #REMOVE THIS HANGGANG
-        shelves = set()
-        for book in self.original_books_data:
-            shelf = book.get('shelf', '')
-            if shelf:
-                shelves.add(shelf)
-        
-        # Sort shelves
-        sorted_shelves = sorted(list(shelves))
-        #DITO ANG TATANGGALIN 
+        # Get available shelves from database using a more efficient approach
+        try:
+            # Get unique shelf numbers from the database for this librarian
+            conn, cursor = self.db_seeder.get_connection_and_cursor()
+            cursor.execute("""
+                SELECT DISTINCT BookShelf FROM Book 
+                WHERE isDeleted IS NULL AND LibrarianID = ? AND BookShelf IS NOT NULL AND BookShelf != ''
+                ORDER BY BookShelf
+            """, (self.librarian_id or 1,))
+            shelves_result = cursor.fetchall()
+            sorted_shelves = [row[0] for row in shelves_result if row[0]]
+            conn.close()
+        except Exception as e:
+            print(f"Error getting shelves from database: {e}")
+            sorted_shelves = []
 
-        # HUWAG TONG TATANGGALIN!!!
+        # Add "All Books" option
         shelf_menu.addAction("All Books", lambda: self.display_shelf_books(None))
         
-        #TANGGAL TO IF WANT NIYO
+        # Add individual shelf options
         if sorted_shelves:
             shelf_menu.addSeparator()
             
@@ -2441,7 +2527,6 @@ class CollapsibleSidebar(QWidget):
         else:
             # If no shelves are found
             shelf_menu.addAction("No shelves found", lambda: None).setEnabled(False)
-        #HANGGANG HERE
 
         # Show menu at button position
         shelf_menu.exec(self.shelf_button.mapToGlobal(self.shelf_button.rect().bottomLeft()))
@@ -2449,25 +2534,93 @@ class CollapsibleSidebar(QWidget):
     def display_shelf_books(self, shelf=None):
         """Display books for a specific shelf or all books if shelf is None"""
         if shelf is None:
-            # Show all books
-            self.books_data = self.original_books_data.copy()
+            # Show all books - reload from database
+            self.load_books_from_database()
             self.title_label.setText("Books Management")
         else:
-            # Filter books by shelf
-            self.books_data = [book for book in self.original_books_data if book.get('shelf') == shelf]
-            self.title_label.setText(f"Books on Shelf {shelf}")
+            # Filter books by shelf using database
+            try:
+                print(f"Filtering books by shelf: {shelf}")
+                
+                # Get filtered books from database
+                shelf_books = self.db_seeder.filterBooks(shelf, self.librarian_id or 1)
+                
+                if not shelf_books:
+                    self.books_data = []
+                    self.title_label.setText(f"Books on Shelf {shelf}")
+                    self.populate_books()
+                    
+                    from PySide6.QtWidgets import QMessageBox
+                    QMessageBox.information(
+                        self,
+                        "Shelf View",
+                        f"No books found on shelf {shelf}."
+                    )
+                    return
+                
+                # Get the authors and genres for the filtered books
+                book_authors = self.db_seeder.get_all_records("BookAuthor", self.librarian_id or 1)
+                book_genres = self.db_seeder.get_all_records("Book_Genre", self.librarian_id or 1)
+                book_shelf = self.db_seeder.get_all_records("BookShelf", self.librarian_id or 1)
+                
+                # Process the filtered books data similar to load_books_from_database
+                self.books_data = []
+                
+                for book in shelf_books:
+                    try:
+                        book_code = book.get("BookCode")
+                        if not book_code:
+                            continue
+                        
+                        # Find all authors for this book
+                        book_authors_list = [
+                            author["bookAuthor"] for author in book_authors 
+                            if author.get("BookCode") == book_code and author.get("bookAuthor")
+                        ]
+                        
+                        # Find all genres for this book
+                        book_genres_list = [
+                            genre["Genre"] for genre in book_genres 
+                            if genre.get("BookCode") == book_code and genre.get("Genre")
+                        ]
+                        
+                        # Use "Unknown" if no authors/genres found
+                        if not book_authors_list:
+                            book_authors_list = ["Unknown Author"]
+                        if not book_genres_list:
+                            book_genres_list = ["Unknown Genre"]
+                        
+                        # Create book data dictionary
+                        book_data = {
+                            "book_code": book_code,
+                            "title": book.get("BookTitle", "Unknown Title"),
+                            "author": book_authors_list,
+                            "genre": book_genres_list,
+                            "isbn": book.get("ISBN", ""),
+                            "publisher": book.get("Publisher", "Unknown Publisher"), 
+                            "description": book.get("BookDescription", ""),
+                            "shelf": book.get("BookShelf", ""),  # Changed from BookShelf to BookShelf
+                            "copies": book.get("BookTotalCopies", 0),
+                            "available_copies": book.get("BookAvailableCopies", 0),
+                            "image": book.get("BookCover", "")
+                        }
+                        
+                        self.books_data.append(book_data)
+                        
+                    except Exception as e:
+                        print(f"Error processing shelf book {book}: {e}")
+                        continue
+                
+                self.title_label.setText(f"Books on Shelf {shelf}")
+                print(f"Successfully filtered {len(self.books_data)} books from shelf {shelf}")
+                
+            except Exception as e:
+                print(f"Error filtering books by shelf: {e}")
+                self.books_data = []
+                self.title_label.setText(f"Books on Shelf {shelf}")
         
         # Update display
         self.populate_books()
-        
-        # Show message if no books found
-        if not self.books_data and shelf is not None:
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.information(
-                self,
-                "Shelf View",
-                f"No books found on shelf {shelf}."
-            )
 
     def create_main_books_view(self):
         """Create the main books view with search and grid"""
@@ -2919,12 +3072,3 @@ class CollapsibleSidebar(QWidget):
         if dialog.exec() == QDialog.Accepted:
             # Refresh the display after adding a book
             self.load_books_from_database()
-
-# Run app
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    app.setFont(QFont("Times New Roman", 10))
-    window = CollapsibleSidebar(librarian_id=1)  # Default librarian_id for testing
-    nav_manager._current_window = window  # Set as current window
-    window.show()
-    app.exec()

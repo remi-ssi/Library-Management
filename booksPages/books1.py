@@ -2529,7 +2529,7 @@ class CollapsibleSidebar(QWidget):
                 from PySide6.QtWidgets import QMessageBox
                 QMessageBox.information(
                     self,
-                    "Sort Books",
+                    "Sort Books",   
                     "No books found to sort."
                 )
                 return
@@ -2600,7 +2600,7 @@ class CollapsibleSidebar(QWidget):
             }
             
             current_sort = sort_description.get(filter_name, "Books Management")
-            self.title_label.setText(f"Books Management - Sorted by {current_sort}")
+            self.title_label.setText(f"Sorted by {current_sort}")
             
             # Refresh the display with sorted books
             self.populate_books()

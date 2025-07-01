@@ -5,8 +5,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtGui import QFont
-from .transaction_logic import BorrowBooks
-from tryDatabase import DatabaseSeeder
+
 
 
 class PreviewTransactionForm(QDialog):
@@ -329,10 +328,10 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     
     # Test with multiple books (will show "All books returned")
-    dialog = PreviewCurrentTransaction(transaction_multiple)
+    dialog = PreviewTransactionForm(transaction_multiple)
     result = dialog.exec()
     
     # Test with single book (will show "Book returned")
     if result:
-        dialog2 = PreviewCurrentTransaction(transaction_single)
+        dialog2 = PreviewTransactionForm(transaction_single)
         dialog2.exec()

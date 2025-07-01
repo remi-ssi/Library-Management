@@ -53,8 +53,8 @@ class DatabaseSeeder:
                     BookCover BLOB,
                     isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER, 
-                    FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID)
-                    FOREIGN KEY (ShelfID) REFERENCES Shelf(ShelfID))"""
+                    FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID),
+                    FOREIGN KEY (BookShelf) REFERENCES BookShelf(ShelfId))"""
             Author = """CREATE TABLE IF NOT EXISTS BookAuthor(
                     BookCode INTEGER,
                     bookAuthor VARCHAR NOT NULL,
@@ -66,7 +66,9 @@ class DatabaseSeeder:
                     PRIMARY KEY (BookCode, Genre), 
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
             Shelf = """CREATE TABLE IF NOT EXISTS BookShelf(
-                    ShelfId VARCHAR(6) PRIMARY KEY NOT NULL)"""
+                    ShelfId VARCHAR(6) PRIMARY KEY NOT NULL,
+                    LibrarianID INTEGER,
+                    FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID))"""
             return book, Author, Genre, Shelf
         # ----BookTransaction Table ------
         elif tableName == "BookTransaction":
@@ -278,15 +280,14 @@ class DatabaseSeeder:
         try:
             if tableName == "Librarian":
                 cursor.execute(f"SELECT * FROM {tableName}")
-            elif tableName in ["BookAuthor", "Book_Genre"]:
+            elif tableName in ["BookAuthor", "Book_Genre", "BookShelf"]:
                 # Filter by books that are not deleted and owned by the specified librarian
                 if tableName == "BookAuthor":  # BA is the alias for BookAuthor
                     query = """SELECT BA.* FROM BookAuthor AS BA 
                             JOIN Book AS BK ON BA.BookCode = BK.BookCode
                             WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?""" 
-                elif tableName == "BookShelf":  # Shelf is the alias for BookShelf
-                    query = """SELECT * FROM BookShelf WHERE ShelfId IN (
-                            SELECT shelfNo FROM Book WHERE isDeleted IS NULL AND LibrarianID = ?)"""
+                elif tableName == "BookShelf":  # Get all shelves for this librarian
+                    query = """SELECT * FROM BookShelf WHERE LibrarianID = ? ORDER BY ShelfId"""
                 else:  # Book_Genre  BG is the alias for Book_Genre
                     query = """SELECT BG.*FROM Book_Genre AS BG
                             JOIN Book AS BK ON BG.BookCode = BK.BookCode
@@ -455,7 +456,7 @@ class DatabaseSeeder:
                 query = "SELECT * FROM Book WHERE isDeleted IS NULL AND LibrarianID = ? ORDER BY BookTotalCopies ASC"
                 cursor.execute(query, (librarian_id,))
             else:  # assume filter is a shelf number
-                query = "SELECT * FROM Book WHERE shelfNo = ? AND isDeleted IS NULL AND LibrarianID = ?"
+                query = "SELECT * FROM Book WHERE BookShelf = ? AND isDeleted IS NULL AND LibrarianID = ?"
                 cursor.execute(query, (filter, librarian_id))
 
             rows = cursor.fetchall()
@@ -488,6 +489,6 @@ class DatabaseSeeder:
             return False
         finally:
             conn.close()
-   
+    
 if __name__ == "__main__":
     seeder = DatabaseSeeder()

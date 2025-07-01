@@ -11,13 +11,14 @@ import traceback
 from dotenv import load_dotenv
 from navbar_logic import nav_manager
 from navigation_sidebar import NavigationSidebar
-from PySide6.QtCore import Qt, QSize, QEvent, QPropertyAnimation, QTimer
+from PySide6.QtCore import Qt, QSize, QEvent, QPropertyAnimation, QTimer, QRect
 from PySide6.QtGui import QFont, QIcon, QFont, QPixmap
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QHBoxLayout,
     QLabel, QSizePolicy, QSpacerItem, QLineEdit, QScrollArea, QGridLayout,
     QTabWidget, QTextEdit, QMessageBox, QFormLayout, QDialog, QListWidget,
-    QListWidgetItem, QGroupBox, QSpinBox, QFileDialog, QMenu, QComboBox
+    QListWidgetItem, QGroupBox, QSpinBox, QFileDialog, QMenu, QComboBox,
+    QToolTip
 )
 
 from tryDatabase import DatabaseSeeder
@@ -356,8 +357,74 @@ class BookEditView(QWidget):
         self.copies_input = QLineEdit(str(copies))
         self.copies_input.setStyleSheet(self.get_editable_input_style())
         
-        self.shelf_input = QLineEdit(self.book_data.get('shelf', ''))
-        self.shelf_input.setStyleSheet(self.get_editable_input_style())
+        # Create shelf dropdown instead of text input
+        self.shelf_input = QComboBox()
+        self.shelf_input.setEditable(True)  # Allow custom input if needed
+        self.shelf_input.setStyleSheet("""
+            QComboBox {
+                color: #5C4033;
+                font-size: 16px;
+                padding: 10px;
+                background-color: white;
+                border: 2px solid #dbcfc1;
+                border-radius: 10px;
+            }
+            QComboBox:focus {
+                border-color: #5C4033;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border: 1px solid #5C4033;
+                width: 10px;
+                height: 10px;
+                background-color: #5C4033;
+            }
+        """)
+        
+        # Populate shelf dropdown with available shelves from database
+        try:
+            from tryDatabase import DatabaseSeeder
+            db_seeder = DatabaseSeeder()
+            # Get librarian_id from parent window
+            librarian_id = getattr(self.parent_window, 'librarian_id', 1)
+            shelf_records = db_seeder.get_all_records("BookShelf", librarian_id)
+            available_shelves = [record['ShelfId'] for record in shelf_records if record.get('ShelfId')]
+            
+            # Add available shelves to dropdown
+            if available_shelves:
+                self.shelf_input.addItems(available_shelves)
+            else:
+                # If no shelves exist, add some default options and seed them
+                default_shelves = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
+                self.shelf_input.addItems(default_shelves)
+                # Add default shelves to database
+                for shelf in default_shelves:
+                    try:
+                        db_seeder.seed_data("BookShelf", [{"ShelfId": shelf, "LibrarianID": librarian_id}], ["ShelfId", "LibrarianID"])
+                    except:
+                        pass  # Ignore if shelf already exists
+                
+            # Set current shelf value if it exists
+            current_shelf = self.book_data.get('shelf', '')
+            if current_shelf:
+                index = self.shelf_input.findText(current_shelf)
+                if index >= 0:
+                    self.shelf_input.setCurrentIndex(index)
+                else:
+                    # If current shelf is not in the list, add it and select it
+                    self.shelf_input.addItem(current_shelf)
+                    self.shelf_input.setCurrentText(current_shelf)
+                    
+        except Exception as e:
+            print(f"Error loading shelves: {e}")
+            # Fallback to adding current shelf only
+            current_shelf = self.book_data.get('shelf', 'A1')
+            self.shelf_input.addItem(current_shelf)
+            self.shelf_input.setCurrentText(current_shelf)
         
         self.description_input = QTextEdit(self.book_data.get('description', 'No description available'))
         self.description_input.setMaximumHeight(150)
@@ -495,7 +562,7 @@ class BookEditView(QWidget):
             return
         
         # Validate shelf format
-        shelf = self.shelf_input.text().strip()
+        shelf = self.shelf_input.currentText().strip()  # Changed from self.shelf_input.text()
         if not re.match(r'^[A-Z][0-9]{1,5}$', shelf):
             QMessageBox.warning(self, "Validation Error", "Shelf number must be one letter (A-Z) followed by 1 to 5 digits. (e.g. A1, B12, C345)")
             print(f"❌ Validation failed: Invalid shelf format '{shelf}'")
@@ -1722,11 +1789,68 @@ class BookDetailsDialog(QDialog):
         lib_layout.setVerticalSpacing(20)  # More space between rows
         lib_layout.setHorizontalSpacing(15)
 
-        # Library info fields
-        self.shelf_edit = QLineEdit()
+        # Library info fields - Create shelf dropdown instead of text input
+        self.shelf_edit = QComboBox()
+        self.shelf_edit.setEditable(True)  # Allow custom input if needed
         self.shelf_edit.setPlaceholderText("e.g., A1, B2")
-        self.shelf_edit.setStyleSheet(input_style)
+        self.shelf_edit.setStyleSheet("""
+            QComboBox {
+                color: #5C4033;
+                font-size: 14px;
+                padding: 10px 20px;
+                background-color: white;
+                border: 1px solid #dbcfc1;
+                border-radius: 5px;
+            }
+            QComboBox:focus {
+                border: 1px solid #5C4033;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border: 1px solid #5C4033;
+                width: 8px;
+                height: 8px;
+                background-color: #5C4033;
+            }
+            QComboBox[readOnly="true"] {
+                background-color: #f5f5f5;
+                color: #666666;
+            }
+        """)
         self.shelf_edit.setFixedHeight(35)  # Taller input fields
+
+        # Populate shelf dropdown with available shelves from database
+        try:
+            from tryDatabase import DatabaseSeeder
+            db_seeder = DatabaseSeeder()
+            # Get librarian_id from parent
+            librarian_id = getattr(self.parent, 'librarian_id', 1)
+            shelf_records = db_seeder.get_all_records("BookShelf", librarian_id)
+            available_shelves = [record['ShelfId'] for record in shelf_records if record.get('ShelfId')]
+            
+            # Add available shelves to dropdown
+            if available_shelves:
+                self.shelf_edit.addItems(available_shelves)
+            else:
+                # If no shelves exist, add some default options and seed them
+                default_shelves = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
+                self.shelf_edit.addItems(default_shelves)
+                # Add default shelves to database
+                for shelf in default_shelves:
+                    try:
+                        db_seeder.seed_data("BookShelf", [{"ShelfId": shelf, "LibrarianID": librarian_id}], ["ShelfId", "LibrarianID"])
+                    except:
+                        pass  # Ignore if shelf already exists
+                        
+        except Exception as e:
+            print(f"Error loading shelves in BookDetailsDialog: {e}")
+            # Fallback to default shelves
+            default_shelves = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
+            self.shelf_edit.addItems(default_shelves)
 
         self.copies_spin = QSpinBox()
         self.copies_spin.setMaximum(999)
@@ -1943,6 +2067,17 @@ class BookDetailsDialog(QDialog):
         self.selected_genres = [g.strip() for g in genres if g.strip()]
         self.update_genre_tags()
         self.description_edit.setText(self.book_data.get('description', ''))
+        
+        # Set shelf value in combo box
+        shelf = self.book_data.get('shelf', '')
+        if shelf:
+            index = self.shelf_edit.findText(shelf)
+            if index >= 0:
+                self.shelf_edit.setCurrentIndex(index)
+            else:
+                # If shelf is not in the list, add it and select it
+                self.shelf_edit.addItem(shelf)
+                self.shelf_edit.setCurrentText(shelf)
 
     def upload_image(self):
         file_path, _ = QFileDialog.getOpenFileName(
@@ -2010,7 +2145,7 @@ class BookDetailsDialog(QDialog):
             ('ISBN', lambda: self.isbn_edit.text().strip(), "ISBN is required", None),
             ('Publisher', lambda: self.publisher_edit.text().strip(), "Publisher is required", None),
             ('Description', lambda: self.description_edit.toPlainText().strip(), "Description is required", None),
-            ('Shelf Number', lambda: self.shelf_edit.text().strip(), "Shelf number is required", None),
+            ('Shelf Number', lambda: self.shelf_edit.currentText().strip(), "Shelf number is required", None),
         ]
         
         isbn = re.sub(r'[^0-9X]', '', self.isbn_edit.text().strip().upper())
@@ -2056,7 +2191,7 @@ class BookDetailsDialog(QDialog):
             QMessageBox.warning(self, "Validation Error", "Invalid ISBN")
             return
         
-        shelf = self.shelf_edit.text().strip()
+        shelf = self.shelf_edit.currentText().strip()
         if not re.match(r'^[A-Z][0-9]{1,5}$', shelf):
             QMessageBox.warning(self, "Validation Error", "Shelf number must be one letter (A-Z) followed by 1 to 5 digits. (e.g. A1, B12, C345)")
             return

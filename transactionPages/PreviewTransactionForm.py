@@ -98,12 +98,12 @@ class PreviewTransactionForm(QDialog):
         self.borrowed_date.setReadOnly(True)
         form.addRow("Borrowed Date:", self.borrowed_date)
 
-        # Add remarks field only if remarks exist
-        if transaction.get('remarks') and transaction['remarks'].strip():
-            self.remarks_edit = QTextEdit(transaction['remarks'])
-            self.remarks_edit.setReadOnly(True)
-            self.remarks_edit.setMaximumHeight(80)  # Limit height
-            form.addRow("Remarks:", self.remarks_edit)
+
+        remarks = transaction.get('remarks') or ""    
+        self.remarks_edit = QTextEdit(remarks)
+        self.remarks_edit.setReadOnly(True)
+        self.remarks_edit.setMaximumHeight(80)  # Limit height
+        form.addRow("Remarks:", self.remarks_edit)
 
         layout.addLayout(form)
 

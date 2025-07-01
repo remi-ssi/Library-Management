@@ -624,7 +624,7 @@ class LibraryTransactionSystem(QMainWindow):
                 librarian_id=self.librarian_id
             )
             if success:
-                self.transactions = self.borrow_books.fetch_transaction(self.librarian_id)
+                self.transactions = self.borrow_books.fetch_all_transaction(self.librarian_id)
                 self.display_transactions()
                 self.display_history()
 

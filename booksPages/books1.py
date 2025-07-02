@@ -2815,6 +2815,7 @@ class CollapsibleSidebar(QWidget):
         if confirm == QMessageBox.Yes:
             try:
                 #here insert db
+                self.db_seeder.delete_table(tableName="BookShelf", column="ShelfId", value=shelf, librarian_id=self.librarian_id or 1)
                 QMessageBox.information(self, "Success", f"Shelf '{shelf}' deleted.")
                 self.current_shelf = None
                 self.delete_shelf_button.hide()

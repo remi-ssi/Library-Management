@@ -363,9 +363,12 @@ class DatabaseSeeder:
             conn.close()
 
     #delete a record/row in a specific table
-    def delete_table(self, tableName, column, value):
+    def delete_table(self, tableName, column, value, librarian_id=None):
         conn, cursor = self.get_connection_and_cursor()
         try:
+            if tableName == "BookShelf":
+                query = "UPDATE Book SET isDeleted = CURRENT_TIMESTAMP WHERE BookShelf = ? AND LibrarianID = ?"
+                cursor.execute(query, (value, librarian_id))
             query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ?"
             cursor.execute(query, (value,))
             conn.commit()
@@ -526,6 +529,26 @@ class DatabaseSeeder:
         except Exception as e:
             print(f"✗ Error fetching archived records from {tableName}: {e}")
             return []
+        finally:
+            conn.close()
+
+    def restoreArchive(self, tableName, PKColumn, Librarianid):
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            if tableName == "Book":
+                query = "UPDATE Book SET isDeleted = NULL WHERE BookCode = ? and LibrarianID = ?"
+                cursor.execute(query, (PKColumn, Librarianid))
+            elif tableName == "Member":
+                query = "UPDATE Member SET isDeleted = NULL WHERE MemberID = ? and LibrarianID = ?"
+                cursor.execute(query, (PKColumn, Librarianid))
+            else:
+                query = "UPDATE BookShelf SET isDeleted = NULL WHERE ShelfId = ? and LibrarianID = ?"
+                cursor.execute(query, (PKColumn, Librarianid))
+            
+            conn.commit()
+        except Exception as e:
+            print(f"✗ Error restoring archive from {tableName}: {e}")
+            return False
         finally:
             conn.close()
 

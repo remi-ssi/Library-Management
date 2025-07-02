@@ -36,7 +36,7 @@ class BookPreviewDialog(QDialog):
         
         # Header with book title
         header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(10, 5, 10, 5)
+        header_layout.setContentsMargins(30, 5, 10, 5)
         
         title = QLabel(self.book_data['title'])
         title.setStyleSheet("""
@@ -1526,8 +1526,41 @@ class BookDetailsDialog(QDialog):
         
         # Create main layout
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(30, 50, 30, 30)
+        main_layout.setContentsMargins(30, 20, 30, 30)
         main_layout.setSpacing(20)
+
+            # Add close button at the top right
+        close_button_container = QWidget()
+        close_button_layout = QHBoxLayout(close_button_container)
+        close_button_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Add spacer to push close button to the right
+        close_button_layout.addStretch()
+        
+        # Create X close button
+        self.close_btn = QPushButton("✕")
+        self.close_btn.setFixedSize(40, 40)
+        self.close_btn.setStyleSheet("""
+            QPushButton {
+                color: white;
+                background-color: #CC4125;
+                font-size: 18px;
+                font-weight: bold;
+                border: none;
+                border-radius: 20px;
+            }
+            QPushButton:hover {
+                background-color: #E55B4A;
+            }
+            QPushButton:pressed {
+                background-color: #B71C1C;
+            }
+        """)
+        self.close_btn.clicked.connect(self.reject)
+        self.close_btn.setToolTip("Close")
+        
+        close_button_layout.addWidget(self.close_btn)
+        main_layout.addWidget(close_button_container)
 
         # Create scroll area
         scroll_area = QScrollArea()
@@ -1559,7 +1592,7 @@ class BookDetailsDialog(QDialog):
         content_widget.setMinimumWidth(800)  # Ensure content is wide enough
         content_widget.setStyleSheet("background-color: #f1efe3;")
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(30, 40, 30, 30)
+        content_layout.setContentsMargins(30, 0, 30, 30)
         content_layout.setSpacing(25)  
 
         # Add title
@@ -1969,27 +2002,9 @@ class BookDetailsDialog(QDialog):
             }
         """)
 
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.reject)
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: white;
-                color: #5C4033;
-                padding: 14px 20px;
-                border: 2px solid #5C4033;
-                border-radius: 10px;
-                font-size: 16px;
-                font-weight: bold;
-                min-width: 150px;
-            }
-            QPushButton:hover {
-                background-color: #f0f0f0;
-            }
-        """)
 
         button_layout.addStretch(1)
         button_layout.addWidget(save_btn)
-        button_layout.addWidget(cancel_btn)
         button_layout.addStretch()
         
         content_layout.addLayout(button_layout)
@@ -2352,8 +2367,7 @@ class CollapsibleSidebar(QWidget):
             }
         """)
         
-        
-        #ASK: TATANGGALIN KO NA BA TO GUYS?
+ 
         # Initialize books data PYTHON LIST!
         self.books_data = []
         self.original_books_data = []
@@ -2890,7 +2904,8 @@ class CollapsibleSidebar(QWidget):
                 background-color: white;
             }
         """)
-        
+        self.search_bar.textChanged.connect(self.perform_search)
+
         # SEARCH BUTTON
         self.search_button = QPushButton("🔍")
         self.search_button.setFixedSize(50, 50)

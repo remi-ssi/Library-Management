@@ -2374,7 +2374,7 @@ class CollapsibleSidebar(QWidget):
         
         # Main content area
         self.content_area = QWidget()
-        self.content_area.setStyleSheet("background-color: #f1efe3;")
+        self.content_area.setStyleSheet("background-color: #f5f3ed;")
         
         self.content_layout = QVBoxLayout(self.content_area)
         self.content_layout.setContentsMargins(0, 0, 0, 0)

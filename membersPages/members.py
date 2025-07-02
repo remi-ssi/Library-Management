@@ -800,7 +800,7 @@ class MembersMainWindow(QWidget):
         
         # Main content area
         self.content_area = QWidget()
-        self.content_area.setStyleSheet("background-color: #f1efe3;")
+        self.content_area.setStyleSheet("background-color: #f5f3ed;")
         
         self.content_layout = QVBoxLayout(self.content_area)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
@@ -818,7 +818,7 @@ class MembersMainWindow(QWidget):
         view_widget = QWidget()
         view_layout = QVBoxLayout(view_widget)
         view_layout.setContentsMargins(40, 80, 40, 20)
-        
+       
         # Header section
         header_layout = QHBoxLayout()
         
@@ -848,7 +848,7 @@ class MembersMainWindow(QWidget):
                 color: #5C4033;
                 font-size: 16px;
                 padding: 10px 15px;
-                background-color: #FFFEF0;
+                background-color: #f5f3ed;
                 border: 3px solid #5C4033;
                 border-radius: 10px;
             }
@@ -949,10 +949,11 @@ class MembersMainWindow(QWidget):
     def refresh_members_grid(self):
         """Refresh the members grid display"""
         scroll_widget = QWidget()
+
         grid_layout = QGridLayout(scroll_widget)
         grid_layout.setVerticalSpacing(30)
         grid_layout.setHorizontalSpacing(20)
-        grid_layout.setContentsMargins(20, 60, 29, 30)
+        grid_layout.setContentsMargins(80, 60, 29, 30)
         grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
 
         active_members = self.get_active_members()
@@ -971,7 +972,7 @@ class MembersMainWindow(QWidget):
         container.setFixedSize(280, 240)
         container.setStyleSheet("""
             QWidget {
-                background-color: #FFFEEF;
+                background-color: white;
                 border-radius: 28px;
                 border: 3px solid #964B00;
             }

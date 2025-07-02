@@ -81,7 +81,7 @@ class ArchiveManager(QMainWindow):
         
         # Create content area widget with brown theme
         content_widget = QWidget()
-        content_widget.setStyleSheet("background-color: #f5f3ed;")
+        content_widget.setStyleSheet("background-color: #f1efe3;")
         main_layout.addWidget(content_widget)
         
         # Content layout (vertical)
@@ -92,7 +92,7 @@ class ArchiveManager(QMainWindow):
         # Header with title
         header_widget = QWidget()
         header_widget.setFixedHeight(100)
-        header_widget.setStyleSheet("background-color: #f5f3ed;")
+        header_widget.setStyleSheet("background-color: #f1efe3;")
         content_layout.addWidget(header_widget)
         
         header_layout = QHBoxLayout(header_widget)
@@ -107,7 +107,7 @@ class ArchiveManager(QMainWindow):
         # Tab navigation buttons
         nav_widget = QWidget()
         nav_widget.setFixedHeight(60)
-        nav_widget.setStyleSheet("background-color: #f5f3ed;") 
+        nav_widget.setStyleSheet("background-color: #f1efe3;") 
         content_layout.addWidget(nav_widget)
         
         # FOR HORIZONTAL OF MEMBERS AND BOOKS ARCHIVE
@@ -156,7 +156,7 @@ class ArchiveManager(QMainWindow):
     def create_books_archive_page(self):
         """Create the books archive page"""
         self.books_page = QWidget()
-        self.books_page.setStyleSheet("background-color: #f5f3ed;")
+        self.books_page.setStyleSheet("background-color: #f1efe3;")
         
         layout = QVBoxLayout(self.books_page)
         layout.setContentsMargins(40, 30, 40, 30)
@@ -220,7 +220,7 @@ class ArchiveManager(QMainWindow):
     def create_members_archive_page(self):
         """Create the members archive page"""
         self.members_page = QWidget()
-        self.members_page.setStyleSheet("background-color:#f5f3ed;")
+        self.members_page.setStyleSheet("background-color: #f1efe3;")
         
         
         layout = QVBoxLayout(self.members_page)
@@ -285,7 +285,7 @@ class ArchiveManager(QMainWindow):
     def create_shelf_archive_page(self):
         """Create the shelf archive page"""
         self.shelf_page = QWidget()
-        self.shelf_page.setStyleSheet("background-color: #f5f3ed;")
+        self.shelf_page.setStyleSheet("background-color: #f1efe3;")
         
         layout = QVBoxLayout(self.shelf_page)
         layout.setContentsMargins(40, 30, 40, 30)

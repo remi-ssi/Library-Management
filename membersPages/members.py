@@ -504,6 +504,263 @@ class MemberEditDialog(QDialog):
             except Exception as e:
                 QMessageBox.critical(self, "Database Error", f"Failed to delete member: {str(e)}")
 
+class MemberPreviewDialog(QDialog):
+    def __init__(self, member_data, existing_members, parent=None):
+        super().__init__(parent)
+        self.member_data = member_data.copy()
+        self.existing_members = existing_members
+        self.parent_window = parent
+        self.db_seeder = DatabaseSeeder()
+        
+        self.setWindowTitle("Member Details")
+        self.setFixedSize(450, 500)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #f1efe3;
+            }
+        """)
+        
+        self.init_ui()
+    
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
+        
+        # Title
+        title_label = QLabel("Member Details")
+        title_label.setStyleSheet("""
+            QLabel {
+                color: #5C4033;
+                font-size: 28px;
+                font-weight: bold;
+                margin-bottom: 10px;
+            }
+        """)
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
+        
+        # Member Avatar
+        first_name = self.member_data.get("MemberFN", "")
+        middle_initial = self.member_data.get("MemberMI", "")
+        last_name = self.member_data.get("MemberLN", "")
+        full_name = f"{first_name} {middle_initial} {last_name}".strip()
+        
+        avatar_label = QLabel()
+        avatar_pixmap = create_initials_avatar(full_name, 120)
+        avatar_label.setPixmap(avatar_pixmap)
+        avatar_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(avatar_label)
+        
+        # Member Information Container
+        info_container = QWidget()
+        info_container.setStyleSheet("""
+            QWidget {
+                background-color: #FFFEF0;
+                border-radius: 15px;
+                padding: 5px;
+            }
+        """)
+        
+        info_layout = QVBoxLayout(info_container)
+        info_layout.setSpacing(15)
+        
+        # Member ID
+        member_id_layout = QHBoxLayout()
+        id_label = QLabel("Member ID:")
+        id_label.setStyleSheet(self.get_label_style())
+        id_value = QLabel(str(self.member_data.get("MemberID", "N/A")))
+        id_value.setStyleSheet(self.get_value_style())
+        member_id_layout.addWidget(id_label)
+        member_id_layout.addStretch()
+        member_id_layout.addWidget(id_value)
+        info_layout.addLayout(member_id_layout)
+        
+        # Full Name
+        name_layout = QHBoxLayout()
+        name_label = QLabel("Full Name:")
+        name_label.setStyleSheet(self.get_label_style())
+        name_value = QLabel(full_name)
+        name_value.setStyleSheet(self.get_value_style())
+        name_value.setWordWrap(True)
+        name_layout.addWidget(name_label)
+        name_layout.addStretch()
+        name_layout.addWidget(name_value)
+        info_layout.addLayout(name_layout)
+        
+        # First Name
+        fn_layout = QHBoxLayout()
+        fn_label = QLabel("First Name:")
+        fn_label.setStyleSheet(self.get_label_style())
+        fn_value = QLabel(first_name or "N/A")
+        fn_value.setStyleSheet(self.get_value_style())
+        fn_layout.addWidget(fn_label)
+        fn_layout.addStretch()
+        fn_layout.addWidget(fn_value)
+        info_layout.addLayout(fn_layout)
+        
+        # Middle Name
+        mn_layout = QHBoxLayout()
+        mn_label = QLabel("Middle Name:")
+        mn_label.setStyleSheet(self.get_label_style())
+        mn_value = QLabel(middle_initial or "N/A")
+        mn_value.setStyleSheet(self.get_value_style())
+        mn_layout.addWidget(mn_label)
+        mn_layout.addStretch()
+        mn_layout.addWidget(mn_value)
+        info_layout.addLayout(mn_layout)
+        
+        # Last Name
+        ln_layout = QHBoxLayout()
+        ln_label = QLabel("Last Name:")
+        ln_label.setStyleSheet(self.get_label_style())
+        ln_value = QLabel(last_name or "N/A")
+        ln_value.setStyleSheet(self.get_value_style())
+        ln_layout.addWidget(ln_label)
+        ln_layout.addStretch()
+        ln_layout.addWidget(ln_value)
+        info_layout.addLayout(ln_layout)
+        
+        # Contact Number
+        contact_layout = QHBoxLayout()
+        contact_label = QLabel("Contact:")
+        contact_label.setStyleSheet(self.get_label_style())
+        contact_value = QLabel(str(self.member_data.get("MemberContact", "N/A")))
+        contact_value.setStyleSheet(self.get_value_style())
+        contact_layout.addWidget(contact_label)
+        contact_layout.addStretch()
+        contact_layout.addWidget(contact_value)
+        info_layout.addLayout(contact_layout)
+        
+        
+        layout.addWidget(info_container)
+        
+        # Action Buttons
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(15)
+        
+        # Edit Button
+        edit_btn = QPushButton("✏️ Edit Member")
+        edit_btn.setFixedSize(140, 45)
+        edit_btn.setStyleSheet("""
+            QPushButton {
+                color: white;
+                font-size: 14px;
+                font-weight: bold;
+                background-color: #5C4033;
+                border: none;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #8B4513;
+            }
+        """)
+        edit_btn.clicked.connect(self.edit_member)
+        
+        # Delete Button
+        delete_btn = QPushButton("🗑️ Delete Member")
+        delete_btn.setFixedSize(140, 45)
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                color: white;
+                font-size: 14px;
+                font-weight: bold;
+                background-color: #D32F2F;
+                border: none;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #B71C1C;
+            }
+        """)
+        delete_btn.clicked.connect(self.delete_member)
+        
+        # Close Button
+        close_btn = QPushButton("Close")
+        close_btn.setFixedSize(100, 45)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                color: #5C4033;
+                font-size: 14px;
+                font-weight: bold;
+                background-color: #F5F5F5;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #E0E0E0;
+            }
+        """)
+        close_btn.clicked.connect(self.reject)
+        
+        button_layout.addWidget(close_btn)
+        button_layout.addStretch()
+        button_layout.addWidget(edit_btn)
+        button_layout.addWidget(delete_btn)
+        
+        layout.addLayout(button_layout)
+    
+    def get_label_style(self):
+        return """
+            QLabel {
+                color: #5C4033;
+                font-size: 14px;
+                font-weight: bold;
+                background-color: transparent;
+            }
+        """
+    
+    def get_value_style(self):
+        return """
+            QLabel {
+                color: #8B4513;
+                font-size: 16px;
+                font-weight: normal;
+                background-color: transparent;
+            }
+        """
+    
+    def edit_member(self):
+        """Open the edit dialog"""
+        self.close()  # Close preview dialog
+        edit_dialog = MemberEditDialog(self.member_data, self.existing_members, self.parent_window)
+        result = edit_dialog.exec()
+        
+        if result == QDialog.Accepted:
+            # Refresh the parent window's member list
+            if hasattr(self.parent_window, 'refresh_members_grid'):
+                self.parent_window.members = self.parent_window.db_seeder.get_all_records(tableName="Member", id=self.parent_window.librarian_id)
+                self.parent_window.refresh_members_grid()
+    
+    def delete_member(self):
+        """Delete the member"""
+        first_name = self.member_data.get("MemberFN", "")
+        middle_initial = self.member_data.get("MemberMI", "")
+        last_name = self.member_data.get("MemberLN", "")
+        full_name = f"{first_name} {middle_initial} {last_name}".strip()
+
+        reply = QMessageBox.question(
+            self, 
+            "Confirm Delete", 
+            f"Are you sure you want to delete member {full_name}?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            try:
+                self.db_seeder.delete_table(tableName="Member", column="MemberID", value=self.member_data["MemberID"])
+                QMessageBox.information(self, "Success", f"Member {full_name} deleted successfully!")
+                
+                # Refresh the parent window's member list
+                if hasattr(self.parent_window, 'refresh_members_grid'):
+                    self.parent_window.members = self.parent_window.db_seeder.get_all_records(tableName="Member", id=self.parent_window.librarian_id)
+                    self.parent_window.refresh_members_grid()
+                
+                self.accept()  # Close the preview dialog
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Database Error", f"Failed to delete member: {str(e)}")
+
 class MembersMainWindow(QWidget):
     def __init__(self, librarian_id=1):  # Default librarian_id for testing
         super().__init__()
@@ -827,18 +1084,9 @@ class MembersMainWindow(QWidget):
         return container
     
     def on_member_click(self, member, index):
-        """Handle member container click"""
-        dialog = MemberEditDialog(member, self.members, self)
-        result = dialog.exec()
-
-        if result == QDialog.Accepted or result == 2:  # Accepted or Delete
-            try:
-                self.members = self.db_seeder.get_all_records(tableName="Member", id= self.librarian_id)
-                self.refresh_members_grid()
-                if result == 2:
-                    QMessageBox.information(self, "Success", "Member deleted successfully")
-            except Exception as e:
-                QMessageBox.critical(self, "Database Error", f"Failed to refresh members: {str(e)}")
+        """Handle member container click - now opens preview dialog"""
+        preview_dialog = MemberPreviewDialog(member, self.members, self)
+        preview_dialog.exec()
 
 def create_initials_avatar(name, size=80):
     # Get initials from name

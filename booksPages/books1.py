@@ -2812,7 +2812,6 @@ class CollapsibleSidebar(QWidget):
         )
         if confirm == QMessageBox.Yes:
             try:
-                #here insert db
                 self.db_seeder.delete_table(tableName="BookShelf", column="ShelfId", value=shelf, librarian_id=self.librarian_id or 1)
                 QMessageBox.information(self, "Success", f"Shelf '{shelf}' deleted.")
                 self.current_shelf = None
@@ -3114,8 +3113,7 @@ class CollapsibleSidebar(QWidget):
     def save_new_shelf(self, dialog, shelf_id):
         """Save a new bookshelf to the database"""
         shelf_id = shelf_id.strip()
-        print(f"🔧 save_new_shelf called with shelf_id: '{shelf_id}', LibrarianID: {self.librarian_id}")
-        
+                
         # Validate shelf ID format
         if not re.match(r'^[A-Z][0-9]{1,5}$', shelf_id):
             msg = QMessageBox(dialog)
@@ -3151,20 +3149,10 @@ class CollapsibleSidebar(QWidget):
             return
         
         try:
-            # Check if shelf already exists
-            conn, cursor = self.db_seeder.get_connection_and_cursor()
-            cursor.execute("SELECT * FROM BookShelf WHERE ShelfId = ? AND LibrarianID = ?", 
-                        (shelf_id, self.librarian_id or 1))
-            existing_shelf = cursor.fetchone()
+           # Check for duplicate book in database
+            exist = self.db_seeder.handleDuplication(tableName="BookShelf", librarianID= self.librarian_id, column="ShelfId", value=shelf_id)               
             
-            # Also check all existing shelves for this librarian
-            cursor.execute("SELECT * FROM BookShelf WHERE LibrarianID = ?", (self.librarian_id or 1,))
-            all_existing_shelves = cursor.fetchall()
-            print(f"🔍 Current shelves for LibrarianID {self.librarian_id}: {all_existing_shelves}")
-            
-            conn.close()
-            
-            if existing_shelf:
+            if exist == True:
                 msg = QMessageBox(dialog)
                 msg.setWindowTitle("Duplicate Shelf")
                 msg.setText(f"Shelf ID '{shelf_id}' already exists.")

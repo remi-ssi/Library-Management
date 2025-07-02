@@ -354,8 +354,11 @@ class DatabaseSeeder:
         conn, cursor = self.get_connection_and_cursor()
         try:
             if tableName == "BookShelf":
-                query = "UPDATE Book SET isDeleted = CURRENT_TIMESTAMP WHERE BookShelf = ? AND LibrarianID = ?"
+                # Delete the shelf itself, not books on the shelf
+                query = f"UPDATE BookShelf SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ? AND LibrarianID = ?"
                 cursor.execute(query, (value, librarian_id))
+                conn.commit()
+                print(f"✓ Deleted shelf from BookShelf where {column} = {value} and LibrarianID = {librarian_id}")
 
             elif tableName == "BookTransaction": # hard deleting transaction records
                 query = f"DELETE FROM {tableName} WHERE {column} = ?"
@@ -369,6 +372,7 @@ class DatabaseSeeder:
                 print(f"✓ Deleted from {tableName} where {column} = {value}")
         except Exception as e:
             print(f"✗ Error deleting from {tableName}: {e}")
+            raise e  # Re-raise the exception so the UI can handle it
         finally:
             conn.close()
 

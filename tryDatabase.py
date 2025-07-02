@@ -49,7 +49,7 @@ class DatabaseSeeder:
                     BookDescription VARCHAR NOT NULL,
                     ISBN INTEGER NOT NULL,
                     BookTotalCopies INTEGER NOT NULL,
-                    BookAvailableCopies INTEGER NOT NULL,
+                    BookAvailableCopies INTEGER NO,
                     BookCover BLOB,
                     isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER, 
@@ -289,9 +289,9 @@ class DatabaseSeeder:
                             JOIN Book AS BK ON BA.BookCode = BK.BookCode
                             WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?""" 
                 elif tableName == "BookShelf":  # Get all shelves for this librarian
-                    query = """SELECT * FROM BookShelf WHERE isDeleted IS NUL AND LibrarianID = ? ORDER BY ShelfId"""
+                    query = """SELECT * FROM BookShelf WHERE isDeleted IS NULL AND LibrarianID = ? ORDER BY ShelfId"""
                 else:  # Book_Genre  BG is the alias for Book_Genre
-                    query = """SELECT BG.*FROM Book_Genre AS BG
+                    query = """SELECT BG.* FROM Book_Genre AS BG
                             JOIN Book AS BK ON BG.BookCode = BK.BookCode
                             WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?"""
                 cursor.execute(query, (id,))
@@ -305,13 +305,13 @@ class DatabaseSeeder:
                     AND bt.LibrarianID = ?
                 """
                 cursor.execute(query, (id,))
+            # Filter by records that are not deleted and owned by the specified librarian
+            elif tableName == "BookTransaction":
+                query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
+                cursor.execute(query, (id,))
 
-            else: # for member and book table
-                # Filter by records that are not deleted and owned by the specified librarian
-                if tableName == "BookTransaction":
-                    query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
-                else:
-                    query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
+            else: # for member, shelf, and book table
+                query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
                 cursor.execute(query, (id,))
             
             rows = cursor.fetchall()

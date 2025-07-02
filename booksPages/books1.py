@@ -2634,32 +2634,19 @@ class CollapsibleSidebar(QWidget):
         """)
         
         # Get available shelves from database - include both shelves with books and empty shelves
+        sorted_shelves = []  # Initialize empty list in case of error
         try:
-            # Get unique shelf numbers from books AND all defined shelves for this librarian
-            conn, cursor = self.db_seeder.get_connection_and_cursor()
-            
-            # Get shelves with books
-            cursor.execute("""
-                SELECT DISTINCT BookShelf FROM Book 
-                WHERE isDeleted IS NULL AND LibrarianID = ? AND BookShelf IS NOT NULL AND BookShelf != ''
-            """, (self.librarian_id or 1,))
-            shelves_with_books = [row[0] for row in cursor.fetchall() if row[0]]
-            
-            # Get all defined shelves (including empty ones)
-            cursor.execute("""
-                SELECT DISTINCT ShelfId FROM BookShelf 
-                WHERE LibrarianID = ? AND ShelfId IS NOT NULL AND ShelfId != ''
-            """, (self.librarian_id or 1,))
-            all_shelves = [row[0] for row in cursor.fetchall() if row[0]]
-            
-            conn.close()
-            
-            # Combine and sort all shelves (union of both sets)
-            sorted_shelves = sorted(list(set(shelves_with_books + all_shelves)))
-            
+            bookshelf_records = self.db_seeder.get_all_records("BookShelf", self.librarian_id or 1)
+
+            # Extract ShelfId values from each record
+            shelves_with_books = [row["ShelfId"] for row in bookshelf_records if "ShelfId" in row and row["ShelfId"]]
+
+            sorted_shelves = sorted(set(shelves_with_books))
+            print(f"✓ Found {len(sorted_shelves)} shelves for librarian {self.librarian_id}: {sorted_shelves}")
+
         except Exception as e:
-            print(f"Error getting shelves from database: {e}")
-            sorted_shelves = []
+            print(f"✗ Error fetching or sorting shelves: {e}")
+            sorted_shelves = []  # Ensure we have an empty list on error
 
         # Add "All Books" option
         shelf_menu.addAction("All Books", lambda: self.display_shelf_books(None))
@@ -2670,9 +2657,12 @@ class CollapsibleSidebar(QWidget):
             
             for shelf in sorted_shelves:
                 shelf_menu.addAction(f"Shelf {shelf}", lambda s=shelf: self.display_shelf_books(s))
+            print(f"✓ Added {len(sorted_shelves)} shelves to menu")
         else:
             # If no shelves are found
-            shelf_menu.addAction("No shelves found", lambda: None).setEnabled(False)
+            no_shelves_action = shelf_menu.addAction("No shelves found")
+            no_shelves_action.setEnabled(False)
+            print(f"ℹ No shelves found for librarian {self.librarian_id}")
 
         # Show menu at button position
         shelf_menu.exec(self.shelf_button.mapToGlobal(self.shelf_button.rect().bottomLeft()))

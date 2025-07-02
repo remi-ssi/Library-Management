@@ -111,14 +111,14 @@ class Settings(QMainWindow):
 
         # Create a main container that will hold content and footer
         main_container = QWidget()
-        main_container.setStyleSheet("background-color: #f1efe3;")
+        main_container.setStyleSheet("background-color: #f5f3ed;")
         main_container_layout = QVBoxLayout(main_container)
         main_container_layout.setContentsMargins(0, 0, 0, 0)
         main_container_layout.setSpacing(0)
         
         # Create content widget with margins
         content_widget = QWidget()
-        content_widget.setStyleSheet("background-color: #f1efe3;")
+        content_widget.setStyleSheet("background-color: #f5f3ed;")
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(40, 20, 40, 20)
         content_layout.setSpacing(20)
@@ -157,7 +157,7 @@ class Settings(QMainWindow):
 
     def create_personal_info_section(self):
         section_widget = QWidget()
-        section_widget.setStyleSheet("background-color: #f1efe3;")
+        section_widget.setStyleSheet("background-color: #f5f3ed;")
         section_layout = QVBoxLayout(section_widget)
         section_layout.setContentsMargins(0, 0, 0, 0)
         section_layout.setSpacing(15)
@@ -177,7 +177,7 @@ class Settings(QMainWindow):
         container.setFixedHeight(200)
         container.setStyleSheet("""
             QWidget {
-                background-color: #f5f3e7;
+                background-color: #f5f3ed;
                 border: 3px solid #714423;
                 border-radius: 25px;
                 margin: 0px 20px;
@@ -312,7 +312,7 @@ class Settings(QMainWindow):
 
     def create_about_us_section(self):
         section_widget = QWidget()
-        section_widget.setStyleSheet("background-color: #f1efe3;")
+        section_widget.setStyleSheet("background-color: #f5f3ed;")
         section_layout = QVBoxLayout(section_widget)
         section_layout.setContentsMargins(0, 13, 0, 0)
         section_layout.setSpacing(0)
@@ -465,7 +465,7 @@ class Settings(QMainWindow):
 
     def create_logout_section(self):
         section_widget = QWidget()
-        section_widget.setStyleSheet("background-color: #f1efe3;")
+        section_widget.setStyleSheet("background-color: #f5f3ed;")
         section_layout = QVBoxLayout(section_widget)
         section_layout.setContentsMargins(0, 0, 0, 0)
         section_layout.setSpacing(0)

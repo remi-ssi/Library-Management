@@ -140,7 +140,7 @@ class NavigationSidebar(QWidget):
             btn.setStyleSheet("""
                 QPushButton {
                     text-align: left;
-                    padding-left: 10px;
+                    padding-left: 5px;
                     color: #5C4033;
                     border: none;
                     font-size: 16px;

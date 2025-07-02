@@ -12,11 +12,14 @@ from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont, QMovie, QIcon
 from PySide6.QtWidgets import (
     QApplication, QLineEdit, QLabel, QPushButton, QWidget, QVBoxLayout,
-    QSpacerItem, QSizePolicy, QHBoxLayout, QFrame
+    QSpacerItem, QSizePolicy, QHBoxLayout, QFrame, QMessageBox
 )
 #initialize database from the seeder
 from tryDatabase import DatabaseSeeder
 from navbar_logic import nav_manager
+
+from ResetPasswordDialog import ResetPasswordDialog
+
     
 #The authentication inherits the QWidget
 class Authentication(QWidget): 
@@ -172,6 +175,27 @@ class Authentication(QWidget):
         password_v_layout.addWidget(password_label)
         password_v_layout.addWidget(password_container)  
         password_v_layout.addWidget(self.password_error_label)
+
+        password_v_layout.addSpacing(25)
+
+          # Forgot Password Button
+        forgot_password_btn = QPushButton("Forgot Password?")
+        forgot_password_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                color: #714423;
+                border: none;
+                font-size: 14px;
+                text-decoration: underline;
+            }
+            QPushButton:hover {
+                color: #A67B5B;
+            }
+        """)
+        forgot_password_btn.setCursor(Qt.PointingHandCursor)
+        forgot_password_btn.clicked.connect(self.open_forgot_password)
+
+        password_v_layout.addWidget(forgot_password_btn)
         
         # PARA NASA RIGHT SIDE LANG YUNG YUNG USERNAME AT PASSWORD KASI ANG NASA LEFT IS SI GIF SO MAY MALAKING PARANG PADDING SIYA
         h_layout_user = QHBoxLayout()
@@ -202,6 +226,7 @@ class Authentication(QWidget):
             }
         """)
         login_button.clicked.connect(self.handle_login) 
+
 
         #FOR SIGNUP!!!!
         signup_label = QLabel()
@@ -309,35 +334,29 @@ class Authentication(QWidget):
     def handle_login(self):
         username = self.username_input.text()
         password = self.password_input.text()
-        
-        
-        # Clear all previous errors
+
         self.clear_email_error()
         self.clear_password_error()
         self.clear_general_error()
-        
-        # Validate fields
+
         has_error = False
-        
+
         if not username:
             self.email_error_label.setText("Email field is required")
             self.email_error_label.show()
             has_error = True
-        
+
         if not password:
             self.password_error_label.setText("Password field is required")
             self.password_error_label.show()
             has_error = True
-            
-        # If there are field errors, don't proceed with login
+
         if has_error:
             return
-        
-        # Proceed with login validation
-        if self.db_seeder.verify_librarian_login(username, password):
 
+        if self.db_seeder.verify_librarian_login(username, password):
             librarians = self.db_seeder.get_all_records(tableName="Librarian", id="")
-            librarian = next((lib for lib in librarians if lib ['LibUsername'] == username), None)
+            librarian = next((lib for lib in librarians if lib['LibUsername'] == username), None)
             if librarian:
                 librarian_id = librarian["LibrarianID"]
                 self.set_current_librarian_id(librarian_id)
@@ -355,18 +374,49 @@ class Authentication(QWidget):
             self.general_error_label.setText("Invalid email or password")
             self.general_error_label.show()
 
+    def open_forgot_password(self):
+        email = self.username_input.text().strip()
+
+        if not email:
+            self.email_error_label.setText("Please enter your email to reset password.")
+            self.email_error_label.show()
+            return
+
+        # Optionally validate if email exists in DB
+        if not self.db_seeder.findUsername(email):
+            self.general_error_label.setText("Email not found.")
+            self.general_error_label.show()
+            return
+
+        self.confirm_email_dialog = ConfirmEmailDialog(email, self, purpose="reset")
+        self.confirm_email_dialog.setWindowTitle("Reset Password - Confirm Email")
+        self.confirm_email_dialog.show()
+
     def open_signUp(self):
         # Open the SignUp screen 
         self.signup_window = SignUp()
         self.signup_window.show()
 
+      # "Forgot Password?" link
+        forgot_password_label = QLabel('<a href="#">Forgot password?</a>')
+        forgot_password_label.setTextFormat(Qt.TextFormat.RichText)
+        forgot_password_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        forgot_password_label.setOpenExternalLinks(False)
+        forgot_password_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        forgot_password_label.linkActivated.connect(self.open_forgot_password)
+
+    def proceed_with_password_reset(self, email, otp=None):
+        self.reset_password_dialog = ResetPasswordDialog(email, otp, self.db_seeder)
+        self.reset_password_dialog.show()
+
 class ConfirmEmailDialog(QWidget):
-    def __init__(self, email, parent=None):
+    def __init__(self, email, parent=None, purpose="register"):
         super().__init__(parent)
         self.email = email
         self.parent = parent
+        self.purpose = purpose
         self.initUI()
-        
+
     def initUI(self):
         self.setWindowTitle("Confirm Your Email")
         self.setFixedSize(500, 400)
@@ -514,7 +564,7 @@ class ConfirmEmailDialog(QWidget):
         if self.send_real_email(email, otp):
             # Email sent successfully
             self.close()
-            self.otp_dialog = OTPVerificationDialog(email, self.parent, otp)
+            self.otp_dialog = OTPVerificationDialog(email, self, otp)
             self.otp_dialog.show()
             
             # Center the OTP dialog on screen
@@ -739,30 +789,46 @@ class OTPVerificationDialog(QWidget):
             QMessageBox.warning(self, "Error", f"Failed to resend OTP to {self.email}")
     
     def verify_otp(self):
+        print("verify_otp called")
+        print("self.parent:", self.parent)
+        if hasattr(self.parent, "purpose"):
+            print("self.parent.purpose:", self.parent.purpose)
+        else:
+            print("self.parent has no 'purpose' attribute")
+        if hasattr(self.parent, "proceed_with_signup"):
+            print("self.parent has proceed_with_signup")
+        else:
+            print("self.parent does NOT have proceed_with_signup")
         entered_otp = self.otp_input.text().strip()
-        
+        print(f"Entered OTP: {entered_otp}, Expected OTP: {self.otp}")
         if not entered_otp:
             self.error_label.setText("Please enter the OTP.")
             self.error_label.show()
             return
-        
-        print(f"Comparing entered OTP: {entered_otp} with stored OTP: {self.otp}")
-        
+
         if entered_otp == self.otp:
-            from PySide6.QtWidgets import QMessageBox  # Add this import here
-            QMessageBox.information(self, "Success", "Email verified successfully!")
-            self.close()
-            
-            # Debug print to confirm we're calling proceed_with_signup
-            print("Calling proceed_with_signup on parent:", self.parent)
-            
-            # Make sure parent exists before calling method
-            if self.parent:
-                self.parent.proceed_with_signup()
-                print("proceed_with_signup called successfully")
+            if hasattr(self.parent, "purpose") and self.parent.purpose == "register":
+                print("Register flow detected")
+                from PySide6.QtWidgets import QMessageBox
+                if hasattr(self.parent.parent, "proceed_with_signup"):
+                    print("Calling proceed_with_signup on grandparent")
+                    self.parent.parent.proceed_with_signup()
+                    print("User created:", self.parent.parent.pending_username)
+                    print("All users:", self.parent.parent.db_seeder.get_all_records(tableName="Librarian", id=""))
+                    QMessageBox.information(self, "Account Created", "Account created successfully! Redirecting to login...")
+                    self.close()
+                else:
+                    print("No proceed_with_signup on grandparent!")
+            # Password Reset Flow
+            elif hasattr(self.parent, "purpose") and self.parent.purpose == "reset":
+                if hasattr(self.parent.parent, "proceed_with_password_reset"):
+                    self.close()
+                    self.parent.parent.proceed_with_password_reset(self.email, self.otp)
         else:
-            self.error_label.setText("Invalid OTP. Please try again.")
+            self.error_label.setText("Incorrect OTP. Please try again.")
             self.error_label.show()
+
+
 class SignUp(QWidget):
     def __init__(self):
         super().__init__()
@@ -1052,13 +1118,12 @@ class SignUp(QWidget):
             return
 
         # --- Username/email uniqueness check ---
-        if self.db_seeder.findUsername(username=username):
+        if self.db_seeder.findUsername(username):
             self.error_label.setText("     Email already exists.")
             return
 
         # --- If all checks pass, open the confirm email dialog ---
-        print("Opening ConfirmEmailDialog...")
-        self.confirm_email_dialog = ConfirmEmailDialog(username, self)
+        self.confirm_email_dialog = ConfirmEmailDialog(username, self, purpose="register")
         self.confirm_email_dialog.show()
 
         # Store the user data for later use after verification
@@ -1091,13 +1156,20 @@ class SignUp(QWidget):
                 }
             ],
             columnOrder=["LibUsername", "LibPass", "FName", "LName", "MName"]
-            )
+        )
         
         # Show success message briefly then go back to login
         self.error_label.setStyleSheet("color: green; font-weight: bold;")
         self.error_label.setText("Account created successfully! Redirecting to login...")
-       
-        QTimer.singleShot(2000, self.close)
+
+        print("User created:", username)
+        print("All users:", self.db_seeder.get_all_records(tableName="Librarian", id=""))
+
+        def go_to_login():
+            self.close()
+            # Optionally, open the login window here if needed
+
+        QTimer.singleShot(2000, go_to_login)
 
     def toggle_password_visibility(self, input_field, toggle_button):
         if input_field.echoMode() == QLineEdit.EchoMode.Password:

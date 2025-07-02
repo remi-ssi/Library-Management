@@ -9,6 +9,7 @@ import bcrypt
 class ResetPasswordDialog(QDialog):
     def __init__(self, email, otp=None, db_seeder=None, parent=None, is_change_password=False):
         super().__init__(parent)
+        print("ResetPasswordDialog created for:", email)
         self.email = email
         self.otp = otp
         self.db_seeder = db_seeder
@@ -90,9 +91,9 @@ class ResetPasswordDialog(QDialog):
         # Add the appropriate image
         image_label = QLabel()
         if self.is_change_password:
-            image_label.setPixmap(QIcon("assets/changepass.png").pixmap(120, 120))  
+            image_label.setPixmap(QIcon("assets/changepass.png").pixmap(100, 100))  
         else:
-            image_label.setPixmap(QIcon("assets/changepass.png").pixmap(150, 150))
+            image_label.setPixmap(QIcon("assets/changepass.png").pixmap(100, 100))
         image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(image_label)
         layout.addSpacing(15)
@@ -153,6 +154,7 @@ class ResetPasswordDialog(QDialog):
             self.toggle_confirm_pass_btn.setIcon(QIcon("assets/eye-closed.png"))
 
     def process_password_change(self):
+        print("Reset button clicked")
         # Get current password if in change password mode
         if self.is_change_password:
             current_password = self.current_password_input.text().strip()
@@ -192,11 +194,7 @@ class ResetPasswordDialog(QDialog):
         # Try to change the password
         try:
             if self.db_seeder.changePassword(self.email, new_password):
-                if self.is_change_password:
-                    self.show_success("You've successfully changed your password.")
-                else:
-                    self.show_success("You've successfully reset your password.")
-                
+                self.show_success("You've successfully reset your password.")
                 # Close the dialog after showing success message for 2 seconds
                 QTimer.singleShot(2000, self.close_and_return)
             else:
@@ -205,6 +203,7 @@ class ResetPasswordDialog(QDialog):
             self.show_error(f"Error: {str(e)}")
 
     def show_error(self, message):
+        print("Error message:", repr(message))
         self.message_label.setText(message)
         self.message_label.setStyleSheet("color: red; font-weight: bold;")
         self.message_label.show()

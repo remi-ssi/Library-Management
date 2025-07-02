@@ -451,9 +451,13 @@ class DatabaseSeeder:
             elif filter == "leastCopies":  # sort by least copies
                 query = "SELECT * FROM Book WHERE isDeleted IS NULL AND LibrarianID = ? ORDER BY BookTotalCopies ASC"
                 cursor.execute(query, (librarian_id,))
-            else:  # assume filter is a shelf number
-                query = "SELECT * FROM Book WHERE BookShelf = ? AND isDeleted IS NULL AND LibrarianID = ?"
-                cursor.execute(query, (filter, librarian_id))
+            else:  # assume filter is a shelf number or "No Shelf"
+                if filter == "No Shelf":
+                    query = "SELECT * FROM Book WHERE BookShelf IS NULL AND isDeleted IS NULL AND LibrarianID = ?"
+                    cursor.execute(query, (librarian_id,))
+                else:
+                    query = "SELECT * FROM Book WHERE BookShelf = ? AND isDeleted IS NULL AND LibrarianID = ?"
+                    cursor.execute(query, (filter, librarian_id))
 
             rows = cursor.fetchall()
             columns = [desc[0] for desc in cursor.description]

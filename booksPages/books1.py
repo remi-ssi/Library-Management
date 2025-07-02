@@ -2658,7 +2658,7 @@ class CollapsibleSidebar(QWidget):
 
         # Add "All Books" option
         shelf_menu.addAction("All Books", lambda: self.display_shelf_books(None))
-        
+        shelf_menu.addAction("No Shelf", lambda: self.display_shelf_books("No Shelf"))
         # Add individual shelf options
         if sorted_shelves:
             shelf_menu.addSeparator()
@@ -2695,13 +2695,19 @@ class CollapsibleSidebar(QWidget):
                 
                 if not shelf_books:
                     self.books_data = []
-                    self.title_label.setText(f"Books on Shelf {shelf}")
+                    if shelf == "No Shelf":
+                        self.title_label.setText("Books without Shelf Assignment")
+                        message_text = "No books are currently unassigned to shelves.\n\nBooks without shelf assignments will appear here."
+                    else:
+                        self.title_label.setText(f"Books on Shelf {shelf}")
+                        message_text = f"Shelf '{shelf}' is empty.\n\nTo add books to this shelf, use the '➕ Add Book' option and assign them to shelf '{shelf}'."
+                    
                     self.populate_books()
                     
                     from PySide6.QtWidgets import QMessageBox
                     msg = QMessageBox(self)
                     msg.setWindowTitle("Shelf View")
-                    msg.setText(f"Shelf '{shelf}' is empty.\n\nTo add books to this shelf, use the '➕ Add Book' option and assign them to shelf '{shelf}'.")
+                    msg.setText(message_text)
                     msg.setIcon(QMessageBox.Information)
                     msg.setStyleSheet("""
                         QMessageBox {
@@ -2784,13 +2790,19 @@ class CollapsibleSidebar(QWidget):
                         print(f"Error processing shelf book {book}: {e}")
                         continue
                 
-                self.title_label.setText(f"Books on Shelf {shelf}")
+                if shelf == "No Shelf":
+                    self.title_label.setText("Books without Shelf Assignment")
+                else:
+                    self.title_label.setText(f"Books on Shelf {shelf}")
                 print(f"Successfully filtered {len(self.books_data)} books from shelf {shelf}")
                 
             except Exception as e:
                 print(f"Error filtering books by shelf: {e}")
                 self.books_data = []
-                self.title_label.setText(f"Books on Shelf {shelf}")
+                if shelf == "No Shelf":
+                    self.title_label.setText("Books without Shelf Assignment")
+                else:
+                    self.title_label.setText(f"Books on Shelf {shelf}")
         
         # Update display
         self.populate_books()

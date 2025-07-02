@@ -49,11 +49,11 @@ class DatabaseSeeder:
                     BookDescription VARCHAR NOT NULL,
                     ISBN INTEGER NOT NULL,
                     BookTotalCopies INTEGER NOT NULL,
-                    BookAvailableCopies INTEGER,
+                    BookAvailableCopies INTEGER NOT NULL,
                     BookCover BLOB,
                     isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER, 
-                    BookSHe
+                    BookShelf VARCHAR(6),
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID),
                     FOREIGN KEY (BookShelf) REFERENCES BookShelf(ShelfId))"""
             Author = """CREATE TABLE IF NOT EXISTS BookAuthor(

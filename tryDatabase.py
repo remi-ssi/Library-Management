@@ -545,5 +545,24 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+    def dashboardCount (self, tableName, id):
+        conn, cursor = self.get_connection_and_cursor()
+        if tableName == "Book": 
+            query = "SELECT SUM(BookTotalCopies) FROM Book WHERE isDeleted is NULL AND LibrarianID = ?"
+            result = cursor.execute(query, (id, ))
+            count = result.fetchone()[0]
+            return count if count is not None else 0
+        elif tableName == "Member":
+            query = "SELECT COUNT(*) FROM Member WHERE isDeleted is NULL and LibrarianID = ?"
+            result = cursor.execute(query, (id, ))
+            count = result.fetchone()[0]
+            return count if count is not None else 0
+        elif tableName == "BookTransaction":
+            query = "SELECT COUNT(*) FROM BookTransaction WHERE ReturnedDate is NULL and Status = 'Borrowed' and LibrarianID = ?"
+            result = cursor.execute(query, (id, ))
+            count = result.fetchone()[0]
+            return count if count is not None else 0
+        
+
 if __name__ == "__main__":
     seeder = DatabaseSeeder()

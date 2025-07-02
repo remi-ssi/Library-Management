@@ -9,62 +9,22 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PySide6.QtCore import Qt, QTimer, QSize, Signal, QDate
 from PySide6.QtGui import QFont, QPalette, QColor, QPixmap, QPainter, QIcon
 from navigation_sidebar import NavigationSidebar  
+from tryDatabase import DatabaseSeeder
+from transactionPages.transaction_logic import BorrowBooks
 from navbar_logic import nav_manager
 
 class LibraryDashboard(QMainWindow):
-    def __init__(self, librarian_id=None):  
+    def __init__(self, librarian_id = None):  
         super().__init__()
+        db_path = "bjrsLib.db"
+        self.db_path = db_path
+        self.db_seeder = DatabaseSeeder()
         self.librarian_id = librarian_id  
-        self.init_sample_data()
+        self.borrowed_books= []
         self.init_ui()
         self.setup_timer()
         
-    def init_sample_data(self):
-        # SAMPLE DATA FOR DUE THIS WEEK ^_^
-        today = datetime.now()
-        self.borrowed_books = [
-            {
-                'id': 1,
-                'borrower': 'Alice Johnson',
-                'quantity': '15',
-                'borrowed_date': (today - timedelta(days=10)).strftime('%Y-%m-%d'),
-                'due_date': (today + timedelta(days=4)).strftime('%Y-%m-%d'),
-                'status': 'Active'
-            },
-            {
-                'id': 2,
-                'borrower': 'Bob Smith',
-                'quantity': '8',
-                'borrowed_date': (today - timedelta(days=8)).strftime('%Y-%m-%d'),
-                'due_date': (today + timedelta(days=6)).strftime('%Y-%m-%d'),
-                'status': 'Active'
-            },
-            {
-                'id': 3,
-                'borrower': 'Carol Davis',
-                'quantity': '23',
-                'borrowed_date': (today - timedelta(days=12)).strftime('%Y-%m-%d'),
-                'due_date': (today + timedelta(days=2)).strftime('%Y-%m-%d'),
-                'status': 'Active'
-            },
-            {
-                'id': 4,
-                'borrower': 'David Wilson',
-                'quantity': '12',
-                'borrowed_date': (today - timedelta(days=13)).strftime('%Y-%m-%d'),
-                'due_date': (today + timedelta(days=1)).strftime('%Y-%m-%d'),
-                'status': 'Active'
-            },
-            {
-                'id': 5,
-                'borrower': 'Eva Martinez',
-                'quantity': '7',
-                'borrowed_date': (today - timedelta(days=11)).strftime('%Y-%m-%d'),
-                'due_date': (today + timedelta(days=3)).strftime('%Y-%m-%d'),
-                'status': 'Active'
-            }
-        ]
-        
+    
     def init_ui(self):
         self.setWindowTitle("BJRS Library Management System")
         self.setGeometry(100, 100, 1400, 900)
@@ -174,21 +134,71 @@ class LibraryDashboard(QMainWindow):
         
         return header
     
+    def get_borrow_transactions(self):
+        try:
+            borrow_manager = BorrowBooks()
+            transactions = borrow_manager.fetch_transaction(self.librarian_id) or []
+            
+            transactions_dict = {}
+            for trans in transactions:
+                if trans.get('action') != 'Borrowed':
+                    continue
+                trans_id = trans.get('id')
+                if trans_id not in transactions_dict:
+                    transactions_dict [trans_id]= {
+                        'id': trans_id,
+                        'borrower': trans.get('borrower', 'N/A'),
+                        'borrowed_date': trans.get('date', 'N/A'),
+                        'due_date': trans.get('due_date', 'N/A'),
+                        'status': 'Borrowed',
+                        'books': [],
+                        'quantity': 0
+                    }
+                transactions_dict[trans_id]['books'].append(
+                    {
+                        'title': trans.get('book_title', 'N/A'),
+                        'quantity': trans.get('quantity', 1)
+                    }
+                )
+                transactions_dict[trans_id]['quantity'] += trans.get('quantity', 1)
+            borrowed_books = list(transactions_dict.values())
+            self.borrowed_books = borrowed_books
+            return borrowed_books
+        except ImportError:
+            print(f"Failed to import BorrowBooks")
+            self.borrowed_books = []
+            return []
+        except Exception as e:
+            QMessageBox.warning(self, "Fetch Error", f"Failed to fetch transactions: {str(e)}")
+            self.borrowed_books = []
+            return []
+        
+
+    def refresh_stats_section(self):
+        if hasattr(self, 'stats_widget'):
+            self.stats_widget.setParent(None)
+        self.stats_widget = self.create_stats_section()
+        self.content_layout.insertWidget(1, self.stats_widget)
+    
     def create_stats_section(self): # Container ni Stats 
         stats_widget = QFrame()
         stats_widget.setObjectName("statsContainer")
         layout = QGridLayout(stats_widget)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(20)
-        
+
+        # Ensure borrowed_books is populated and is a list
+        if not isinstance(self.borrowed_books, list):
+            self.borrowed_books = self.get_borrow_transactions()
+
         # Calculate dynamic stats
-        total_books = 1847
-        active_members = 342
-        books_issued = len([book for book in self.borrowed_books if book['status'] == 'Active'])
+        total_books = self.db_seeder.dashboardCount(tableName="Book", id = self.librarian_id) or 0
+        active_members = self.db_seeder.dashboardCount(tableName="Member", id = self.librarian_id) or 0
+        books_issued = self.db_seeder.dashboardCount(tableName="BookTransaction", id=self.librarian_id) or 0 
         due_this_week = len(self.get_books_due_this_week())
         
         stats_data = [
-            ("📚", f"{total_books:,}", "Total Books", "#3b82f6"),
+            ("📚", f"{total_books}", "Total Books", "#3b82f6"),
             ("👥", f"{active_members}", "Active Members", "#10b981"),
             ("📋", f"{books_issued}", "Books Issued", "#f59e0b"),
             ("⏰", f"{due_this_week}", "Due This Week", "#ef4444")
@@ -316,25 +326,33 @@ class LibraryDashboard(QMainWindow):
         today = datetime.now().date()
         week_end = today + timedelta(days=7)
         
+        if not self.borrowed_books:
+            self.borrowed_books = self.get_borrow_transactions()
+
         due_books = []
         for book in self.borrowed_books:
-            if book['status'] == 'Active':
+            try: 
                 due_date = datetime.strptime(book['due_date'], '%Y-%m-%d').date()
                 if today <= due_date <= week_end:
+                    book['status'] = 'Overdue' if due_date < today else 'Borrowed'
                     due_books.append(book)
-        
+            except (ValueError, KeyError):
+                continue
         return due_books
     
     def populate_due_books_table(self):
         """Populate the table with books due this week"""
         due_books = self.get_books_due_this_week()
         self.due_books_table.setRowCount(len(due_books))
-        
+        today = datetime.now().date()
         for row, book in enumerate(due_books):
             # Calculate days left
-            today = datetime.now().date()
-            due_date = datetime.strptime(book['due_date'], '%Y-%m-%d').date()
-            days_left = (due_date - today).days
+            try:
+                due_date = datetime.strptime(book['due_date'], '%Y-%m-%d').date()
+                days_left = (due_date - today).days
+            except (ValueError, KeyError):
+                days_left = 0
+                book['due_date'] = 'N/A'
             
             # Borrower Name
             borrower_item = QTableWidgetItem(book['borrower'])
@@ -342,7 +360,7 @@ class LibraryDashboard(QMainWindow):
             self.due_books_table.setItem(row, 0, borrower_item)
             
             # Quantity
-            quantity_item = QTableWidgetItem(book['quantity'])
+            quantity_item = QTableWidgetItem(str(book.get('quantity', 1)))
             quantity_item.setTextAlignment(Qt.AlignCenter)
             self.due_books_table.setItem(row, 1, quantity_item)
             

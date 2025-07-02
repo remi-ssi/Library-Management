@@ -495,40 +495,26 @@ class DatabaseSeeder:
         conn, cursor = self.get_connection_and_cursor()
         try:
             if tableName == "Book":
-                query = """
-                    SELECT 
-                        Book.BookCode, Book.BookTitle, Book.Publisher, Book.BookDescription,
-                        Book.ISBN, Book.BookTotalCopies, Book.BookAvailableCopies,
-                        Book.BookCover, Book.isDeleted, Book.LibrarianID
-                    FROM Book
-                    WHERE Book.isDeleted IS NOT NULL AND Book.LibrarianID = ?
-                    ORDER BY Book.isDeleted DESC
-                """
+                bookquery = """SELECT * FROM Book WHERE Book.isDeleted IS NOT NULL AND Book.LibrarianID = ? ORDER BY Book.isDeleted DESC"""
+                cursor.execute(bookquery, (id,))
+            elif tableName == "BookAuthor":
+                query = """SELECT BA.* FROM BookAuthor AS BA 
+                        JOIN Book AS BK ON BA.BookCode = BK.BookCode
+                        where BK.isDeleted IS NOT NULL AND BK.LibrarianID = ?"""
+                cursor.execute(query, (id,))
+            elif tableName == "Book_Genre":
+                query = """SELECT BG.* FROM Book_Genre AS BG 
+                        JOIN Book AS BK ON BG.BookCode = BK.BookCode
+                        WHERE BK.isDeleted IS NOT NULL AND BK.LibrarianID = ?"""
                 cursor.execute(query, (id,))
 
             elif tableName == "Member":
                 query = """SELECT * FROM Member WHERE isDeleted IS NOT NULL AND LibrarianID = ? ORDER BY isDeleted DESC"""
                 cursor.execute(query, (id,))
 
-            elif tableName == "BookShelf":
+            else:
                 query = """SELECT * FROM BookShelf WHERE isDeleted IS NOT NULL AND LibrarianID = ? ORDER BY isDeleted DESC"""
                 cursor.execute(query, (id,))
-
-            else:
-                # Default case for other tables - check if they have isDeleted column
-                try:
-                    query = f"""
-                        SELECT * FROM {tableName} 
-                        WHERE isDeleted IS NOT NULL AND LibrarianID = ?
-                        ORDER BY isDeleted DESC
-                    """
-                    cursor.execute(query, (id,))
-                except sqlite3.OperationalError as col_error:
-                    if "no such column: isDeleted" in str(col_error):
-                        print(f"⚠️ Table {tableName} doesn't have isDeleted column - no archived records to retrieve")
-                        return []
-                    else:
-                        raise col_error
 
             rows = cursor.fetchall()
             columns = [desc[0] for desc in cursor.description]

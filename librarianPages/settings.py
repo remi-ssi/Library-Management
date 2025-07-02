@@ -39,7 +39,7 @@ class Settings(QMainWindow):
                     break
             
             if librarian:
-                print(f"✅ Found librarian: {librarian.get('LibUsername')}")
+                print(f" Found librarian: {librarian.get('LibUsername')}")
                 return {
                     'first_name': librarian.get('FName', 'N/A'),
                     'middle_name': librarian.get('MName', '') or '',
@@ -47,8 +47,8 @@ class Settings(QMainWindow):
                     'email': librarian.get('LibUsername', 'N/A')
                 }
             else:
-                print(f"❌ Librarian not found with ID: {self.librarian_id}")
-                print(f"📊 Available librarian IDs: {[lib.get('LibrarianID') for lib in librarians]}")
+                print(f" Librarian not found with ID: {self.librarian_id}")
+                print(f" Available librarian IDs: {[lib.get('LibrarianID') for lib in librarians]}")
                 QMessageBox.critical(self, "Error", f"Librarian not found in database (ID: {self.librarian_id}).")
                 return {
                     'first_name': 'N/A',
@@ -58,7 +58,7 @@ class Settings(QMainWindow):
                 }
                 
         except Exception as e:
-            print(f"❌ Error loading user data: {e}")
+            print(f"Error loading user data: {e}")
             import traceback
             traceback.print_exc()
             QMessageBox.critical(self, "Database Error", f"Failed to load user data: {str(e)}")
@@ -128,6 +128,22 @@ class Settings(QMainWindow):
         content_layout.addWidget(about_us_section)
         logout_section = self.create_logout_section()
         content_layout.addWidget(logout_section)
+        self.change_password_btn = QPushButton("Change Password")
+        self.change_password_btn.setFixedHeight(40)
+        self.change_password_btn.setFixedWidth(150)
+        self.change_password_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #B7966B;
+                color: white;
+                border-radius: 10px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #A67B5B;
+            }
+        """)
+        self.change_password_btn.clicked.connect(self.open_change_password_dialog)
+        content_layout.addWidget(self.change_password_btn)
         content_layout.addStretch()
         
         # Add content to main container
@@ -247,7 +263,7 @@ class Settings(QMainWindow):
         button_layout.setContentsMargins(0, 0, 0, 0)
         button_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        edit_btn = QPushButton("✏️ Edit")
+        edit_btn = QPushButton(" Edit")
         edit_btn.setStyleSheet("""
             QPushButton {
                 background-color: #c00;
@@ -339,7 +355,7 @@ class Settings(QMainWindow):
 
         left_layout = QHBoxLayout()
         left_layout.setSpacing(15)
-        icon_label = QLabel("ℹ️")
+        icon_label = QLabel("ℹ")
         icon_label.setFont(QFont("Times New Roman", 20))
         icon_label.setStyleSheet("color: white; background-color: transparent; border: none;")
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -382,12 +398,12 @@ class Settings(QMainWindow):
         footer_layout.setContentsMargins(20, 0, 20, 0)
         
         # Contact information
-        contact_label = QLabel("📞 Contact Us: (+639)92 642 3076")
+        contact_label = QLabel(" Contact Us: (+639)92 642 3076")
         contact_label.setFont(QFont("Times New Roman", 10))
         contact_label.setStyleSheet("color: #714423; background-color: transparent; border: none;")
         
         # Version information
-        version_label = QLabel("📱 App Version: v1.0.0")
+        version_label = QLabel(" App Version: v1.0.0")
         version_label.setFont(QFont("Times New Roman", 10))
         version_label.setStyleSheet("color: #714423; background-color: transparent; border: none;")
         
@@ -415,10 +431,10 @@ class Settings(QMainWindow):
         containers_layout.setContentsMargins(20, 0, 20, 0)
         containers_layout.setSpacing(15)
 
-        contact_container = self.create_info_container("📞", "Contact Us", "(+639)92 642 3076")
+        contact_container = self.create_info_container("", "Contact Us", "(+639)92 642 3076")
         containers_layout.addWidget(contact_container)
         containers_layout.addSpacing(35)
-        version_container = self.create_info_container("📱", "App Version", "v1.0.0")
+        version_container = self.create_info_container("", "App Version", "v1.0.0")
         containers_layout.addWidget(version_container)
 
         section_layout.addLayout(containers_layout)
@@ -506,6 +522,16 @@ class Settings(QMainWindow):
             from Authentication import Authentication
             self.auth_window = Authentication()
             self.auth_window.show()
+
+    def open_change_password_dialog(self):
+        from ResetPasswordDialog import ResetPasswordDialog  # Import if not already
+        dialog = ResetPasswordDialog(
+            email=self.user_data['email'],
+            db_seeder=self.db_seeder,
+            parent=self,
+            is_change_password=True
+        )
+        dialog.exec()
 
 class EditPersonalInfoDialog(QDialog):
     def __init__(self, user_data, librarian_id, parent=None):
@@ -730,7 +756,7 @@ class AboutUsDialog(QDialog):
         • Profile customization
         • Secure data handling
 
-        Developed with ❤️ using Python and PySide6
+        Developed with  using Python and PySide6
 
         Thank you for using our Library Management System!
         """)

@@ -483,74 +483,34 @@ class DatabaseSeeder:
             cursor.execute("UPDATE Librarian SET LibPass = ? WHERE LibUsername = ?", (hashed_password, username))
             conn.commit()
             if cursor.rowcount > 0:
-                print(f"✓ Password for {username} updated successfully.")
+                print(f" Password for {username} updated successfully.")
                 return True
             else:
-                print(f"⚠️ No rows updated for {username}. Username may not exist.")
+                print(f" No rows updated for {username}. Username may not exist.")
                 return False
         except Exception as e:
-            print(f"✗ Error changing password for {username}: {e}")
+            print(f" Error changing password for {username}: {e}")
             return False
         finally:
             conn.close()
     
-    def archiveTable(self, tableName, id):
-        conn, cursor = self.get_connection_and_cursor()
-        try:
-            if tableName == "Book":
-                bookquery = """SELECT * FROM Book WHERE Book.isDeleted IS NOT NULL AND Book.LibrarianID = ? ORDER BY Book.isDeleted DESC"""
-                cursor.execute(bookquery, (id,))
-            elif tableName == "BookAuthor":
-                query = """SELECT BA.* FROM BookAuthor AS BA 
-                        JOIN Book AS BK ON BA.BookCode = BK.BookCode
-                        where BK.isDeleted IS NOT NULL AND BK.LibrarianID = ?"""
-                cursor.execute(query, (id,))
-            elif tableName == "Book_Genre":
-                query = """SELECT BG.* FROM Book_Genre AS BG 
-                        JOIN Book AS BK ON BG.BookCode = BK.BookCode
-                        WHERE BK.isDeleted IS NOT NULL AND BK.LibrarianID = ?"""
-                cursor.execute(query, (id,))
 
-            elif tableName == "Member":
-                query = """SELECT * FROM Member WHERE isDeleted IS NOT NULL AND LibrarianID = ? ORDER BY isDeleted DESC"""
-                cursor.execute(query, (id,))
-
-            else:
-                query = """SELECT * FROM BookShelf WHERE isDeleted IS NOT NULL AND LibrarianID = ? ORDER BY isDeleted DESC"""
-                cursor.execute(query, (id,))
-
-            rows = cursor.fetchall()
-            columns = [desc[0] for desc in cursor.description]
-            records = [dict(zip(columns, row)) for row in rows]
-            
-            print(f"✓ Retrieved {len(records)} archived records from {tableName}")
-            return records
-
-        except Exception as e:
-            print(f"✗ Error fetching archived records from {tableName}: {e}")
-            return []
-        finally:
-            conn.close()
-
-    def restoreArchive(self, tableName, PKColumn, Librarianid):
-        conn, cursor = self.get_connection_and_cursor()
-        try:
-            if tableName == "Book":
-                query = "UPDATE Book SET isDeleted = NULL WHERE BookCode = ? and LibrarianID = ?"
-                cursor.execute(query, (PKColumn, Librarianid))
-            elif tableName == "Member":
-                query = "UPDATE Member SET isDeleted = NULL WHERE MemberID = ? and LibrarianID = ?"
-                cursor.execute(query, (PKColumn, Librarianid))
-            else:
-                query = "UPDATE BookShelf SET isDeleted = NULL WHERE ShelfId = ? and LibrarianID = ?"
-                cursor.execute(query, (PKColumn, Librarianid))
-            
-            conn.commit()
-        except Exception as e:
-            print(f"✗ Error restoring archive from {tableName}: {e}")
-            return False
-        finally:
-            conn.close()
+    #Ito inadd ko rems hehe 
+    def verify_current_password(self, email, current_password):
+        import sqlite3
+        import bcrypt
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT LibPass FROM Librarian WHERE LibUsername = ?", (email,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            stored_hash = row[0]
+            # Make sure stored_hash is bytes
+            if isinstance(stored_hash, str):
+                stored_hash = stored_hash.encode('utf-8')
+            return bcrypt.checkpw(current_password.encode("utf-8"), stored_hash)
+        return False
 
 if __name__ == "__main__":
     seeder = DatabaseSeeder()

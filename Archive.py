@@ -181,24 +181,6 @@ class ArchiveManager(QMainWindow):
         self.books_search.textChanged.connect(self.search_archived_books)
         search_layout.addWidget(self.books_search)
         
-        restore_btn = QPushButton("Restore Selected")
-        restore_btn.setStyleSheet("""
-            QPushButton {
-                color: #5e3e1f;
-                font-size: 14px;
-                font-weight: bold;
-                background-color: #fff;
-                border: 2px solid #e8d8bd;
-                border-radius: 10px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #5e3e1f;
-                color: #fff;
-            }
-        """)
-        restore_btn.clicked.connect(self.restore_selected_books)
-        search_layout.addWidget(restore_btn)
         
         layout.addLayout(search_layout)
         
@@ -264,24 +246,6 @@ class ArchiveManager(QMainWindow):
         self.members_search.textChanged.connect(self.search_archived_members)
         search_layout.addWidget(self.members_search)
         
-        restore_btn = QPushButton("Restore Selected")
-        restore_btn.setStyleSheet("""
-            QPushButton {
-                color: #5e3e1f;
-                font-size: 14px;
-                font-weight: bold;
-                background-color: #fff;
-                border: 2px solid #e8d8bd;
-                border-radius: 10px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #5e3e1f;
-                color: #fff;
-            }
-        """)
-        restore_btn.clicked.connect(self.restore_selected_members)
-        search_layout.addWidget(restore_btn)
         
         layout.addLayout(search_layout)
         
@@ -346,24 +310,6 @@ class ArchiveManager(QMainWindow):
         self.shelf_search.textChanged.connect(self.search_archived_shelves)
         search_layout.addWidget(self.shelf_search)
         
-        restore_btn = QPushButton("Restore Selected")
-        restore_btn.setStyleSheet("""
-            QPushButton {
-                color: #5e3e1f;
-                font-size: 14px;
-                font-weight: bold;
-                background-color: #fff;
-                border: 2px solid #e8d8bd;
-                border-radius: 10px;
-                padding: 8px 16px;
-            }
-            QPushButton:hover {
-                background-color: #5e3e1f;
-                color: #fff;
-            }
-        """)
-        restore_btn.clicked.connect(self.restore_selected_shelves)
-        search_layout.addWidget(restore_btn)
         
         layout.addLayout(search_layout)
        
@@ -528,6 +474,8 @@ class ArchiveManager(QMainWindow):
                     border-radius: 4px;
                 }
             """)
+
+            checkbox.toggled.connect(lambda checked, r=row: self.on_book_checkbox_toggled(checked, r))
             
             # Center the checkbox
             checkbox_widget = QWidget()
@@ -580,6 +528,8 @@ class ArchiveManager(QMainWindow):
                     border-radius: 4px;
                 }
             """)
+
+            checkbox.toggled.connect(lambda checked, r=row: self.on_member_checkbox_toggled(checked, r))
             
             # Center the checkbox
             checkbox_widget = QWidget()
@@ -638,6 +588,8 @@ class ArchiveManager(QMainWindow):
                     border-radius: 4px;
                 }
             """)
+
+            checkbox.toggled.connect(lambda checked, r=row: self.on_shelf_checkbox_toggled(checked, r))
             
             # Center the checkbox
             checkbox_widget = QWidget()
@@ -726,96 +678,7 @@ class ArchiveManager(QMainWindow):
         
         self.display_archived_shelves(filtered_shelves)
 
-    def restore_selected_books(self):
-        """Restore selected books from archive"""
-        selected_indices = []
-        
-        # Find selected books 
-        for row in range(self.books_table.rowCount()):
-            checkbox_widget = self.books_table.cellWidget(row, 7)
-            if checkbox_widget:
-                checkbox = checkbox_widget.findChild(QCheckBox)
-                if checkbox and checkbox.isChecked():
-                    selected_indices.append(row)
-        
-        if not selected_indices:
-            QMessageBox.information(self, "No Selection", "Please select books to restore.")
-            return
-            
-        # Confirm restore
-        confirm = QMessageBox.question(
-            self, 
-            "Confirm Restore",
-            f"Are you sure you want to restore {len(selected_indices)} selected books?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if confirm == QMessageBox.Yes:
-            # Implement actual restore logic with database remicakes para magreload
-            QMessageBox.information(self, "Success", f"{len(selected_indices)} books restored successfully.")
-            self.load_archived_books()  # Reload the list
 
-    def restore_selected_members(self):
-        """Restore selected members from archive"""
-        selected_indices = []
-        
-        # Find selected members
-        for row in range(self.members_table.rowCount()):
-            checkbox_widget = self.members_table.cellWidget(row, 5)
-            if checkbox_widget:
-                checkbox = checkbox_widget.findChild(QCheckBox)
-                if checkbox and checkbox.isChecked():
-                    selected_indices.append(row)
-        
-        if not selected_indices:
-            QMessageBox.information(self, "No Selection", "Please select members to restore.")
-            return
-            
-        # Confirm restore
-        confirm = QMessageBox.question(
-            self, 
-            "Confirm Restore",
-            f"Are you sure you want to restore {len(selected_indices)} selected members?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if confirm == QMessageBox.Yes:
-            # TODO: Implement actual restore logic with database
-            QMessageBox.information(self, "Success", f"{len(selected_indices)} members restored successfully.")
-            self.load_archived_members()  # Reload the list
-    
-    def restore_selected_shelves(self):
-        """Restore selected shelves from archive"""
-        selected_indices = []
-        
-        # Find selected shelves
-        for row in range(self.shelf_table.rowCount()):
-            checkbox_widget = self.shelf_table.cellWidget(row, 2)
-            if checkbox_widget:
-                checkbox = checkbox_widget.findChild(QCheckBox)
-                if checkbox and checkbox.isChecked():
-                    selected_indices.append(row)
-        
-        if not selected_indices:
-            QMessageBox.information(self, "No Selection", "Please select shelves to restore.")
-            return
-            
-        # Confirm restore
-        confirm = QMessageBox.question(
-            self, 
-            "Confirm Restore",
-            f"Are you sure you want to restore {len(selected_indices)} selected shelves?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if confirm == QMessageBox.Yes:
-            # TODO: Implement actual restore logic with database
-            QMessageBox.information(self, "Success", f"{len(selected_indices)} shelves restored successfully.")
-            self.load_archived_shelves()  # Reload the list
-    
     def setup_table_style(self, table):
         """Apply styling to table widget"""
         table.setStyleSheet("""
@@ -849,6 +712,83 @@ class ArchiveManager(QMainWindow):
                 border-right: none;
             }
         """)
+    def on_book_checkbox_toggled(self, checked, row):
+        """Handle book checkbox toggle"""
+        if checked:
+            # Get book details for confirmation
+            book_code = self.books_table.item(row, 1).text()
+            book_title = self.books_table.item(row, 2).text()
+            
+            # Show confirmation dialog
+            confirm = QMessageBox.question(
+                self, 
+                "Confirm Restore",
+                f"Are you sure you want to restore the book:\n\n{book_code} - {book_title}?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if confirm == QMessageBox.Yes:
+                # DB LOGIC HERE PU
+                QMessageBox.information(self, "Success", f"Book '{book_title}' restored successfully.")
+                self.load_archived_books()  # Reload the list
+            else:
+                # Uncheck the checkbox if user cancelled
+                checkbox_widget = self.books_table.cellWidget(row, 8)
+                checkbox = checkbox_widget.findChild(QCheckBox)
+                checkbox.setChecked(False)
+
+    def on_member_checkbox_toggled(self, checked, row):
+        """Handle member checkbox toggle"""
+        if checked:
+            # Get member details for confirmation
+            member_id = self.members_table.item(row, 1).text()
+            first_name = self.members_table.item(row, 2).text()
+            last_name = self.members_table.item(row, 4).text()
+            
+            # Show confirmation dialog
+            confirm = QMessageBox.question(
+                self, 
+                "Confirm Restore",
+                f"Are you sure you want to restore the member:\n\n{member_id} - {first_name} {last_name}?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if confirm == QMessageBox.Yes:
+                #  DB LOGIC HERE PU
+                QMessageBox.information(self, "Success", f"Member '{first_name} {last_name}' restored successfully.")
+                self.load_archived_members()  # Reload the list
+            else:
+                # Uncheck the checkbox if user cancelled
+                checkbox_widget = self.members_table.cellWidget(row, 6)
+                checkbox = checkbox_widget.findChild(QCheckBox)
+                checkbox.setChecked(False)
+
+    def on_shelf_checkbox_toggled(self, checked, row):
+        """Handle shelf checkbox toggle"""
+        if checked:
+            # Get shelf details for confirmation
+            shelf_id = self.shelf_table.item(row, 1).text()
+            
+            # Show confirmation dialog
+            confirm = QMessageBox.question(
+                self, 
+                "Confirm Restore",
+                f"Are you sure you want to restore the shelf:\n\nShelf ID: {shelf_id}?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if confirm == QMessageBox.Yes:
+                # DB LOGIC HERE
+                QMessageBox.information(self, "Success", f"Shelf '{shelf_id}' restored successfully.")
+                self.load_archived_shelves()  # Reload the list
+            else:
+                # Uncheck the checkbox if user cancelled
+                checkbox_widget = self.shelf_table.cellWidget(row, 3)
+                checkbox = checkbox_widget.findChild(QCheckBox)
+                checkbox.setChecked(False)
 
 # Run the application if executed directly
 if __name__ == "__main__":

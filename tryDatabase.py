@@ -138,14 +138,14 @@ class DatabaseSeeder:
         conn, cursor = self.get_connection_and_cursor()
         conn.execute("PRAGMA foreign_keys = ON;")
 
-        #Calls check_table to see if the table is already in the database.
         if not self.check_table(tableName): 
             print(f"{tableName} not found.")
             if not self.create_table(tableName):
                 print(f"Failed to create {tableName}")
-                return
+                return None
 
         try:
+            last_id = None
             for i in data:
                 values = []
                 for col in columnOrder:
@@ -157,7 +157,9 @@ class DatabaseSeeder:
                 columns = ', '.join(columnOrder)
 
                 cursor.execute(f"INSERT INTO {tableName} ({columns}) VALUES ({placeholders})", values)
-                # If seeding BookTransaction, also add BookCode to TransactionDetails if present
+                if tableName == "BookTransaction":
+                    last_id = cursor.lastrowid  # Capture the TransactionID
+                # If seeding BookTransaction with BookCode, add to TransactionDetails
                 if tableName == "BookTransaction" and "BookCode" in i:
                     book_code = i["BookCode"]
                     transaction_id = cursor.lastrowid
@@ -167,8 +169,10 @@ class DatabaseSeeder:
                     )
             conn.commit()
             print(f"✓ Seeded {len(data)} rows into {tableName}")
+            return last_id if tableName == "BookTransaction" else None
         except Exception as e:
             print(f"Error seeding data into {tableName}: {e}")
+            return None
         finally:
             conn.close()
 
@@ -276,14 +280,13 @@ class DatabaseSeeder:
             if tableName == "Librarian":
                 cursor.execute(f"SELECT * FROM {tableName}")
             elif tableName in ["BookAuthor", "Book_Genre", "BookShelf"]:
-                # Filter by books that are not deleted and owned by the specified librarian
-                if tableName == "BookAuthor":  # BA is the alias for BookAuthor
+                if tableName == "BookAuthor":
                     query = """SELECT BA.* FROM BookAuthor AS BA 
                             JOIN Book AS BK ON BA.BookCode = BK.BookCode
-                            WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?""" 
-                elif tableName == "BookShelf":  # Get all shelves for this librarian
+                            WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?"""
+                elif tableName == "BookShelf":
                     query = """SELECT * FROM BookShelf WHERE isDeleted IS NULL AND LibrarianID = ? ORDER BY ShelfId"""
-                else:  # Book_Genre  BG is the alias for Book_Genre
+                else:  # Book_Genre
                     query = """SELECT BG.* FROM Book_Genre AS BG
                             JOIN Book AS BK ON BG.BookCode = BK.BookCode
                             WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?"""
@@ -296,24 +299,17 @@ class DatabaseSeeder:
                     WHERE bt.LibrarianID = ?
                 """
                 cursor.execute(query, (id,))
-            # Filter by records that are not deleted and owned by the specified librarian
             elif tableName == "BookTransaction":
-                query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
+                query = f"SELECT * FROM {tableName} WHERE LibrarianID = ? ORDER BY TransactionID DESC"
                 cursor.execute(query, (id,))
-
-            else: # for member, shelf, and book table
+            else:  # Member and Book tables
                 query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
                 cursor.execute(query, (id,))
             
             rows = cursor.fetchall()
-
-            # Get column names from the cursor description
             columns = [desc[0] for desc in cursor.description]
-
-            # Convert rows to list of dictionaries
             records = [dict(zip(columns, row)) for row in rows]
-
-            return records  # Return the list to display in the UI
+            return records
         except Exception as e:
             print(f"✗ Error fetching records from {tableName}: {e}")
             return []

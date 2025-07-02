@@ -775,6 +775,7 @@ class LibraryTransactionSystem(QMainWindow):
                 QMessageBox.critical(self, "Database Error", f"Failed to delete transaction: {str(e)}")
    
     def setup_table_style(self, table):
+        
         table.setStyleSheet("""
             QTableWidget {
                 background-color: white;

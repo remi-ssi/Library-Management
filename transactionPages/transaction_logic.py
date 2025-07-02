@@ -72,8 +72,8 @@ class BorrowBooks:
 
             formatted_transactions = []
             for trans in transactions:
-                # fetch all except for deleted transactions
-                trans_details = [d for d in details if d["TransactionID"] == trans["TransactionID"] and d["isDeleted"] is None]
+                # fetch all
+                trans_details = [d for d in details if d["TransactionID"] == trans["TransactionID"] ]
                 for detail in trans_details:
                     formatted_transactions.append({
                         "id": trans["TransactionID"],
@@ -162,7 +162,7 @@ class BorrowBooks:
                     )
             return True
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to update transaction")
+            QMessageBox.warning(self, "Error", f"Failed to delete transaction")
             return False
 
         
@@ -245,7 +245,7 @@ class BorrowBooks:
     def return_book(self, transaction_id, librarian_id, returned_date=None, remarks=None):
         try:
             transactions = self.db_seeder.get_all_records(tableName="BookTransaction", id=librarian_id)
-            transaction = next((t for t in transactions if t["TransactionID"] == transaction_id and t["isDeleted"] is None), None)
+            transaction = next((t for t in transactions if t["TransactionID"] == transaction_id), None)
             if not transaction:
                 QMessageBox.warning(None, "Error", f"Transaction #{transaction_id} not found or already deleted.")
                 return False
@@ -254,7 +254,7 @@ class BorrowBooks:
                 return False
 
             details = self.db_seeder.get_all_records(tableName="TransactionDetails", id=librarian_id)
-            trans_details = [d for d in details if d["TransactionID"] == transaction_id and d["isDeleted"] is None]
+            trans_details = [d for d in details if d["TransactionID"] == transaction_id]
             if not trans_details:
                 QMessageBox.warning(None, "Error", f"No valid transaction details found for Transaction #{transaction_id}.")
                 return False

@@ -510,19 +510,18 @@ class AddTransactionForm(QDialog):
         if not borrower_name:
             QMessageBox.warning(self, "Input Error", "Please enter the borrower's name.")
             return
-            
+                
         books_data = self.get_books_data()
         if not books_data:
             QMessageBox.warning(self, "Input Error", "Please add at least one book.")
             return
-        
+            
         # Get all members
         members = self.borrow_books.db_seeder.get_all_records(tableName="Member", id=self.librarian_id)
         
         # Improved member matching that handles middle initials
         member_id = None
         for m in members:
-            # Construct full name with middle initial if present
             full_name = f"{m['MemberFN']} {m.get('MemberMI', '')} {m['MemberLN']}".replace("  ", " ").strip()
             if full_name.lower() == borrower_name.lower():
                 member_id = m["MemberID"]
@@ -532,7 +531,7 @@ class AddTransactionForm(QDialog):
             QMessageBox.warning(self, "Input Error", "Borrower not found in the member list.")
             return
         
-        # Rest of your validation and transaction creation logic...
+        # Verify book availability
         books = self.borrow_books.db_seeder.get_all_records(tableName="Book", id=self.librarian_id)
         book_dict = {book["BookTitle"]: book for book in books}
 
@@ -546,19 +545,19 @@ class AddTransactionForm(QDialog):
             if book_dict[book_title]["BookAvailableCopies"] < quantity:
                 QMessageBox.warning(self, "Input Error", f"Not enough copies of '{book_title}' available.")
                 return
-            
+        
         # Create the transaction
         transaction_data = [{
             "TransactionType": "Borrow",
             "BorrowedDate": self.borrow_date_edit.date().toString("yyyy-MM-dd"),
             "Status": self.status_combo.currentText(),
-            "Remarks": self.remarks_edit.toPlainText() or None,
+            "Remarks": self.remarks_edit.toPlainText().strip() or None,
             "LibrarianID": self.librarian_id,
-            "MemberID": member_id,  # Use the found member_id
+            "MemberID": member_id,
         }]
 
-        # Seed the transaction data
-        self.borrow_books.db_seeder.seed_data(
+        # Seed the transaction data and get TransactionID
+        transaction_id = self.borrow_books.db_seeder.seed_data(
             tableName="BookTransaction",
             data=transaction_data,
             columnOrder=[
@@ -566,13 +565,9 @@ class AddTransactionForm(QDialog):
                 "LibrarianID", "MemberID"
             ]
         )
-        
-        # Get the newly created transaction ID
-        transactions = self.borrow_books.db_seeder.get_all_records(tableName="BookTransaction", id=self.librarian_id)
-        transaction_id = max(t["TransactionID"] for t in transactions) if transactions else None
 
         if not transaction_id:
-            QMessageBox.warning(self, "Error", "Failed to retrieve TransactionID after insertion.")
+            QMessageBox.warning(self, "Error", "Failed to create transaction.")
             return
         
         # Add transaction details for each book

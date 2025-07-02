@@ -18,6 +18,11 @@ class ArchiveManager(QMainWindow):
         self.db_seeder = DatabaseSeeder()
         self.librarian_id = librarian_id
         
+        self.setStyleSheet("""
+            ArchiveManager {
+                background-color: #f1efe3;
+            }
+        """)
         # Define button styles as class attributes
         self.button_base_style = """
             QPushButton {

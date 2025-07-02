@@ -2345,6 +2345,13 @@ class CollapsibleSidebar(QWidget):
         self.db_seeder = DatabaseSeeder()
         self.setWindowTitle("Library Management System")
         self.showMaximized()
+
+        self.setStyleSheet("""
+            CollapsibleSidebar {
+                background-color: #f1efe3;
+            }
+        """)
+        
         
         #ASK: TATANGGALIN KO NA BA TO GUYS?
         # Initialize books data PYTHON LIST!

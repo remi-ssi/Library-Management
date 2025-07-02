@@ -20,6 +20,11 @@ class Settings(QMainWindow):
         self.user_data = self.load_user_data()
         self.personal_info_labels = {}
         self.setWindowTitle("Accounts and Settings")
+        self.setStyleSheet("""
+            Settings {
+                background-color: #f1efe3;
+            }
+        """)
         self.setup_ui()
         self.showMaximized()
 

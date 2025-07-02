@@ -512,6 +512,12 @@ class MembersMainWindow(QWidget):
         self.setGeometry(100, 100, 1200, 800)
         self.showMaximized()
 
+        self.setStyleSheet("""
+            MembersMainWindow {
+                background-color: #f1efe3;
+            }
+        """)
+
         # Initialize members data
         self.db_seeder = DatabaseSeeder()
         self.members = self.db_seeder.get_all_records(tableName="Member", id= self.librarian_id)

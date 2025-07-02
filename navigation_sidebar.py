@@ -46,6 +46,15 @@ class NavigationSidebar(QWidget):
 
     def __init__(self, navigation_items=None):
         super().__init__()
+
+        self.setStyleSheet("""
+        NavigationSidebar {
+            background-color: #5C4033;
+        }
+        QWidget {
+            background-color: #5C4033;
+            color: white;
+        }""")
         
         # Default navigation items if none provided
         if navigation_items is None:
@@ -67,7 +76,7 @@ class NavigationSidebar(QWidget):
         # Set fixed width for collapsed state
         self.setFixedWidth(60)
         self.setStyleSheet("""
-            background-color: #dbcfc1;
+            background-color: #f1efe3;
             border-radius: 10px;
         """)
         
@@ -258,6 +267,7 @@ if __name__ == "__main__":
             super().__init__()
             self.setWindowTitle("Navigation Sidebar Test")
             self.setFixedSize(800, 600)
+            self.setStyleSheet("""background-color: #f1efe3;""")
             
             # Create main widget
             main_widget = QWidget()

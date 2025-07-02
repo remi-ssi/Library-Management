@@ -153,6 +153,12 @@ class LibraryTransactionSystem(QMainWindow):
         self.transactions = []
         self.setup_ui()
 
+        self.setStyleSheet("""
+            LibraryTransactionSystem {
+                background-color: #f1efe3;
+            }
+        """)
+
     def setup_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)      

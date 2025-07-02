@@ -553,15 +553,20 @@ class DatabaseSeeder:
     def handleDuplication(self, tableName, librarianID, column, value):
         conn, cursor = self.get_connection_and_cursor()
         try:
-            query = f"SELECT {column} FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
+            query = f"SELECT {column} FROM {tableName} WHERE LibrarianID = ?"
             cursor.execute(query, (librarianID,))
             results = cursor.fetchall()
-            for items in results:
-                if items[0] == value:
+            
+            # Check all results for the specific value
+            for item in results:
+                if item[0] == value:
                     print(f"Duplicate found in {tableName} for {column} = {value}")
                     return True
-                else:
-                    return False
+            
+            # If we've checked all items and found no duplicate
+            print(f"No duplicate found in {tableName} for {column} = {value}")
+            return False
+            
         except Exception as e:
             print(f"✗ Error checking duplication in {tableName}: {e}")
             return False

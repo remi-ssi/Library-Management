@@ -49,10 +49,11 @@ class DatabaseSeeder:
                     BookDescription VARCHAR NOT NULL,
                     ISBN INTEGER NOT NULL,
                     BookTotalCopies INTEGER NOT NULL,
-                    BookAvailableCopies INTEGER,
+                    BookAvailableCopies INTEGER NO,
                     BookCover BLOB,
                     isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER, 
+                    BookShelf VARCHAR(6),
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID),
                     FOREIGN KEY (BookShelf) REFERENCES BookShelf(ShelfId))"""
             Author = """CREATE TABLE IF NOT EXISTS BookAuthor(
@@ -281,9 +282,9 @@ class DatabaseSeeder:
                             JOIN Book AS BK ON BA.BookCode = BK.BookCode
                             WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?""" 
                 elif tableName == "BookShelf":  # Get all shelves for this librarian
-                    query = """SELECT * FROM BookShelf WHERE LibrarianID = ? ORDER BY ShelfId"""
+                    query = """SELECT * FROM BookShelf WHERE isDeleted IS NULL AND LibrarianID = ? ORDER BY ShelfId"""
                 else:  # Book_Genre  BG is the alias for Book_Genre
-                    query = """SELECT BG.*FROM Book_Genre AS BG
+                    query = """SELECT BG.* FROM Book_Genre AS BG
                             JOIN Book AS BK ON BG.BookCode = BK.BookCode
                             WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?"""
                 cursor.execute(query, (id,))
@@ -295,13 +296,13 @@ class DatabaseSeeder:
                     WHERE bt.LibrarianID = ?
                 """
                 cursor.execute(query, (id,))
+            # Filter by records that are not deleted and owned by the specified librarian
+            elif tableName == "BookTransaction":
+                query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
+                cursor.execute(query, (id,))
 
-            else: # for member and book table
-                # Filter by records that are not deleted and owned by the specified librarian
-                if tableName == "BookTransaction":
-                    query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
-                else:
-                    query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
+            else: # for member, shelf, and book table
+                query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
                 cursor.execute(query, (id,))
             
             rows = cursor.fetchall()
@@ -353,9 +354,12 @@ class DatabaseSeeder:
             conn.close()
 
     #delete a record/row in a specific table
-    def delete_table(self, tableName, column, value):
+    def delete_table(self, tableName, column, value, librarian_id=None):
         conn, cursor = self.get_connection_and_cursor()
         try:
+            if tableName == "BookShelf":
+                query = "UPDATE Book SET isDeleted = CURRENT_TIMESTAMP WHERE BookShelf = ? AND LibrarianID = ?"
+                cursor.execute(query, (value, librarian_id))
             query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ?"
             cursor.execute(query, (value,))
             conn.commit()
@@ -491,40 +495,26 @@ class DatabaseSeeder:
         conn, cursor = self.get_connection_and_cursor()
         try:
             if tableName == "Book":
-                query = """
-                    SELECT 
-                        Book.BookCode, Book.BookTitle, Book.Publisher, Book.BookDescription,
-                        Book.ISBN, Book.BookTotalCopies, Book.BookAvailableCopies,
-                        Book.BookCover, Book.isDeleted, Book.LibrarianID
-                    FROM Book
-                    WHERE Book.isDeleted IS NOT NULL AND Book.LibrarianID = ?
-                    ORDER BY Book.isDeleted DESC
-                """
+                bookquery = """SELECT * FROM Book WHERE Book.isDeleted IS NOT NULL AND Book.LibrarianID = ? ORDER BY Book.isDeleted DESC"""
+                cursor.execute(bookquery, (id,))
+            elif tableName == "BookAuthor":
+                query = """SELECT BA.* FROM BookAuthor AS BA 
+                        JOIN Book AS BK ON BA.BookCode = BK.BookCode
+                        where BK.isDeleted IS NOT NULL AND BK.LibrarianID = ?"""
+                cursor.execute(query, (id,))
+            elif tableName == "Book_Genre":
+                query = """SELECT BG.* FROM Book_Genre AS BG 
+                        JOIN Book AS BK ON BG.BookCode = BK.BookCode
+                        WHERE BK.isDeleted IS NOT NULL AND BK.LibrarianID = ?"""
                 cursor.execute(query, (id,))
 
             elif tableName == "Member":
                 query = """SELECT * FROM Member WHERE isDeleted IS NOT NULL AND LibrarianID = ? ORDER BY isDeleted DESC"""
                 cursor.execute(query, (id,))
 
-            elif tableName == "BookShelf":
+            else:
                 query = """SELECT * FROM BookShelf WHERE isDeleted IS NOT NULL AND LibrarianID = ? ORDER BY isDeleted DESC"""
                 cursor.execute(query, (id,))
-
-            else:
-                # Default case for other tables - check if they have isDeleted column
-                try:
-                    query = f"""
-                        SELECT * FROM {tableName} 
-                        WHERE isDeleted IS NOT NULL AND LibrarianID = ?
-                        ORDER BY isDeleted DESC
-                    """
-                    cursor.execute(query, (id,))
-                except sqlite3.OperationalError as col_error:
-                    if "no such column: isDeleted" in str(col_error):
-                        print(f"⚠️ Table {tableName} doesn't have isDeleted column - no archived records to retrieve")
-                        return []
-                    else:
-                        raise col_error
 
             rows = cursor.fetchall()
             columns = [desc[0] for desc in cursor.description]
@@ -536,6 +526,26 @@ class DatabaseSeeder:
         except Exception as e:
             print(f"✗ Error fetching archived records from {tableName}: {e}")
             return []
+        finally:
+            conn.close()
+
+    def restoreArchive(self, tableName, PKColumn, Librarianid):
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            if tableName == "Book":
+                query = "UPDATE Book SET isDeleted = NULL WHERE BookCode = ? and LibrarianID = ?"
+                cursor.execute(query, (PKColumn, Librarianid))
+            elif tableName == "Member":
+                query = "UPDATE Member SET isDeleted = NULL WHERE MemberID = ? and LibrarianID = ?"
+                cursor.execute(query, (PKColumn, Librarianid))
+            else:
+                query = "UPDATE BookShelf SET isDeleted = NULL WHERE ShelfId = ? and LibrarianID = ?"
+                cursor.execute(query, (PKColumn, Librarianid))
+            
+            conn.commit()
+        except Exception as e:
+            print(f"✗ Error restoring archive from {tableName}: {e}")
+            return False
         finally:
             conn.close()
 

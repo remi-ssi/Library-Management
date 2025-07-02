@@ -7,13 +7,24 @@ from PySide6.QtCore import QDate, Qt
 from PySide6.QtGui import QFont
 from .transaction_logic import BorrowBooks
 from tryDatabase import DatabaseSeeder
+from datetime import datetime, timedelta
 
 class HistoryTransactionPreviewForm(QDialog):
-    def __init__(self, transaction, parent=None):
+    def __init__(self, transaction, librarian_id, parent=None):
         super().__init__(parent)
         self.setWindowTitle("History Preview Transaction")
         self.setFixedSize(1000, 600)  # Increased height for remarks
         self.transaction = transaction
+        self.librarian_id = librarian_id
+        self.db_seeder=DatabaseSeeder()
+        
+        #fetch transaction by TransactionID
+        transaction_id = transaction.get('id')
+        if transaction_id:
+            self.transaction = self.fetch_transaction_by_id(transaction_id)
+        else:
+            self.transaction = transaction #fallback to passed transaction
+
 
         self.setStyleSheet("""
             QDialog {
@@ -114,9 +125,13 @@ class HistoryTransactionPreviewForm(QDialog):
         borrowed_date.setReadOnly(True)
         form.addRow("Borrowed Date:", borrowed_date)
 
-        remarks = self.transaction.get('remarks') or ""
-        remarks_edit = QTextEdit(remarks)
+        # transaction remarks
+        remarks_edit = QTextEdit()
         remarks_edit.setReadOnly(True)
+        if self.transaction.get('remarks'):
+            remarks_edit.setPlainText(self.transaction['remarks'])
+        else:
+            remarks_edit.setPlainText("No remarks available")
         remarks_edit.setMaximumHeight(80)  # Limit height
         form.addRow("Remarks:", remarks_edit)
 
@@ -136,6 +151,32 @@ class HistoryTransactionPreviewForm(QDialog):
         self.setup_books_table(books_table)
         layout.addWidget(books_table)
 
+    def fetch_transaction_by_id(self, transaction_id):
+        transactions = self.db_seeder.get_transaction_with_details(librarian_id = self.librarian_id)
+        trans_records = [t for t in transactions if t['TransactionID']== transaction_id]
+        if not trans_records:
+            print(f"No transaction Records found for TransactionID {transaction_id}")
+            return {}
+        first_trans = trans_records[0]
+        books = [
+            {
+                'title': trans['BookTitle'],
+                'quantity': trans["Quantity"]
+            }
+            for trans in transactions
+        ]
+
+        transaction = {
+            'id': first_trans['TransactionID'],
+            'borrower': first_trans['borrower'],
+            'date': first_trans['BorrowedDate'],
+            'returned_date': first_trans['ReturnedDate'] or '',
+            'action': first_trans['Status'],
+            'remarks': first_trans['Remarks'] or '',
+            'due_date': (datetime.strptime(first_trans['BorrowedDate'], "%Y-%m-%d") + timedelta(days=14)).strftime("%Y-%m-%d"),
+            'books': books
+        }
+        return transaction
     def setup_books_table(self, books_table):
         # Handle both single book and multiple books formats (same as the working form)
         books = []
@@ -190,7 +231,7 @@ if __name__ == "__main__":
     }
     
     # Create and show the dialog
-    dialog = HistoryPreviewTransaction(sample_transaction)
+    dialog = HistoryTransactionPreviewForm(sample_transaction)
     dialog.show()
     
     sys.exit(app.exec())

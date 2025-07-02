@@ -2,36 +2,37 @@ from datetime import datetime, timedelta
 from tryDatabase import DatabaseSeeder
 from PySide6.QtWidgets import QMessageBox
 
-class BorrowBooks:
-    def __init__ (self, db_path="bjrsLib.db"):
+class BorrowBooks: 
+    def __init__ (self, db_path="bjrsLib.db"): 
         # Initialize the database seeder
         self.db_path = db_path
         self.db_seeder = DatabaseSeeder(db_path)
         
-    def fetch_books(self, librarian_id):
+    def fetch_books(self, librarian_id): #gets all books for the librarian 
         try:
             books=self.db_seeder.get_all_records(tableName="Book", id=librarian_id)
-            return [book["BookTitle"] for book in books]
+            return [book["BookTitle"] for book in books] #return list of book title
         except Exception as e:
             print(f"Error fetching books: {e}")
             
             QMessageBox.warning(None, "Error", "Failed to fetch books.")
-            return []
+            return [] #empty list if error
     
     #FETCH ONLY BORROWED TRANSACTIONS
     def fetch_transaction(self, librarian_id):
         try:
-            transactions = self.db_seeder.get_all_records(tableName="BookTransaction", id=librarian_id)
+            #retrieve records from tables
+            transactions = self.db_seeder.get_all_records(tableName="BookTransaction", id=librarian_id) 
             details = self.db_seeder.get_all_records(tableName="TransactionDetails", id=librarian_id)
             members = self.db_seeder.get_all_records(tableName="Member", id=librarian_id)
             books = self.db_seeder.get_all_records(tableName="Book", id=librarian_id)
 
-            member_dict = {m["MemberID"]: f"{m['MemberLN']}, {m['MemberFN']}" for m in members}
+            member_dict = {m["MemberID"]: f"{m['MemberLN']}, {m['MemberFN']} {m.get('MemberMI', '')} ".strip() for m in members}
             book_dict = {b["BookCode"]: b["BookTitle"] for b in books}
 
             formatted_transactions = []
             for trans in transactions:
-                if trans.get("Status") != "Borrowed": #skip transactions that are not borrowed
+                if trans.get("Status") != "Borrowed": #only process the transactions marked as borrowed
                     continue
                 #find all details associated with the transaction
                 trans_details = [d for d in details if d["TransactionID"] == trans["TransactionID"]]
@@ -47,10 +48,10 @@ class BorrowBooks:
                         #calculate due date (14 days before due)
                         "due_date": (datetime.strptime(trans["BorrowedDate"], "%Y-%m-%d") + timedelta(days=14)).strftime("%Y-%m-%d"),
                         "returned_date": trans.get("ReturnedDate", ""), # returned date if available
-                        "quantity": detail.get("Quantity", 1),
+                        "quantity": detail.get("Quantity", 1), #Defaults to 1 if not initialized
                         "remarks": trans.get("Remarks", "")
                     })
-            return formatted_transactions
+            return formatted_transactions # returns list of dict
         except Exception as e:
             print(f"Error fetching transaction data: {e}")
             QMessageBox.warning(None, "Error", "Failed to fetch transaction data.")
@@ -65,12 +66,13 @@ class BorrowBooks:
             members = self.db_seeder.get_all_records(tableName="Member", id=librarian_id)
             books = self.db_seeder.get_all_records(tableName="Book", id=librarian_id)
 
-            member_dict = {m["MemberID"]: f"{m['MemberLN']}, {m['MemberFN']}" for m in members}
-            book_dict = {b["BookCode"]: b["BookTitle"] for b in books}
+            #get member name, check if middle name exists
+            member_dict = {m["MemberID"]: f"{m['MemberFN']} {m.get('MemberMi', '')} {m['MemberLN']}".strip() for m in members}
+            book_dict = {b["BookCode"]: b["BookTitle"] for b in books} #fetch books with book code
 
             formatted_transactions = []
             for trans in transactions:
-                #only include not deleted 
+                # fetch all except for deleted transactions
                 trans_details = [d for d in details if d["TransactionID"] == trans["TransactionID"] and d["isDeleted"] is None]
                 for detail in trans_details:
                     formatted_transactions.append({
@@ -94,91 +96,82 @@ class BorrowBooks:
     #UPDATE EXISTING TRANSACTION
     def update_transaction(self, transaction_id, borrower_name, books_data, borrow_date, due_date, status, librarian_id):
         try:
-            #find member by name
-            members = self.db_seeder.get_all_records(tableName="Member", id=librarian_id)
-            member = next((m for m in members if f"{m['MemberLN']}, {m['MemberFN']}" == borrower_name), None)
-            if not member:
-                QMessageBox.warning(None, "Error", "Borrower not found.")
-                return False
-            member_id = member["MemberID"]
-
-            transactions = self.db_seeder.get_all_records(tableName="BookTransaction", id=librarian_id)
-            transaction = next((t for t in transactions if t["TransactionID"] == transaction_id and t["isDeleted"] is None), None)
-            if not transaction:
-                QMessageBox.warning(None, "Error", f"Transaction #{transaction_id} not found.")
-                return False
-
-            #get books to check availability
-            books = self.db_seeder.get_all_records(tableName="Book", id=librarian_id)
-            book_dict = {book["BookTitle"]: book for book in books}
-
-            details = self.db_seeder.get_all_records(tableName="TransactionDetails", id=librarian_id)
-            trans_details = [d for d in details if d["TransactionID"] == transaction_id and d.get("isDeleted") is None]
-            for detail in trans_details:
-                book = next((b for b in books if b["BookCode"] == detail["BookCode"]), None)
-                if book:
-                    #increase copies when return
-                    self.db_seeder.update_table(
-                        tableName="Book",
-                        updates={"BookAvailableCopies": book["BookAvailableCopies"] + detail["Quantity"]},
-                        column="BookCode",
-                        value=detail["BookCode"]
-                    )
-            #remove old transaction details
-            self.db_seeder.delete_table("TransactionDetails", "TransactionID", transaction_id)
+            #get the transaction using join
+            transaction_data = self.db_seeder.get_transaction_with_details(librarian_id= librarian_id)
             
-            #update transaction record
+            #find the specific transaction. match the transaction id
+            transaction = next((t for t in transaction_data if t["TransactionID"]== transaction_id), None)
+            if not transaction: #if transaction id not found
+                QMessageBox.warning(self, "Error", f"Transaction not found...")
+                return False
+            #get members from query
+            members = {f"{t['MemberFN']} {t.get('MemberMI', '')} {t['MemberLN']}".strip(): t['MemberID'] for t in transaction_data}
+            member_id = members.get(borrower_name)
+            if not member_id:
+                QMessageBox.warning(self, "Error", f"Member not found...")
+                return False
+            #get books from query
+            books = {t['BookTitle']: {
+                "BookCode": t['BookCode'],
+                "BookAvailableCopies": t.get("BookAvailableCopies", 0)
+            } for t in transaction_data}
+
+            transaction_details = [t for t in transaction_data if t["TransactionID"] == transaction_id]
+
+            for detail in transaction_details:
+                self.db_seeder.update_table(
+                    tableName = "Book",
+                    updates = {"BookAvailableCopies ": detail["BookAvailableCopies"] + detail["Quantity"]},
+                    column = "BookCode",
+                    value = detail["BookCode"]
+                )
+            self.db_seeder.delete_table("TransactionDetails", "TransactionID", transaction_id)
             self.db_seeder.update_table(
-                tableName="BookTransaction",
-                updates={
-                    "BorrowedDate": borrow_date.toString("yyyy-MM-dd") if isinstance(borrow_date, QDate) else borrow_date,
+                tableName = "BookTransaction",
+                updates = {
+                    "BorrowedDate": borrow_date.toString("yyyy-MM-dd") if isinstance (borrow_date, QDate) else borrow_date,
                     "Status": status,
                     "ReturnedDate": datetime.now().strftime("%Y-%m-%d") if status == "Returned" else None,
                     "MemberID": member_id
                 },
-                column="TransactionID",
-                value=transaction_id
+                column = "TransactionID",
+                value = transaction_id
             )
-            #process new book selection
             for book_data in books_data:
                 book_title = book_data["book"]
-                quantity = book_data.get("quantity", 1)
-                book = book_dict.get(book_title)
-                #check book availability
+                quantity = book_data.get('quantity', 1)
+                book = books.get(book_title)
                 if not book or book["BookAvailableCopies"] < quantity:
-                    QMessageBox.warning(None, "Error", f"Book '{book_title}' not available or insufficient copies.")
+                    QMessageBox.warning(None, "Error", f"Book not available of insufficient copies")
                     return False
-                book_code = book["BookCode"]
-                details_data = [{
-                    "Quantity": quantity,
-                    "TransactionID": transaction_id,
-                    "BookCode": book_code,
-                }]
-                details_columns = ["Quantity", "TransactionID", "BookCode"]
-                self.db_seeder.seed_data(
-                    tableName="TransactionDetails",
-                    data=details_data,
-                    columnOrder=details_columns
+                
+                self.db_seeder.seed_data(tableName="TransactionDetails",
+                            data = [{
+                                "Quantity": quantity,
+                                "TransactionID": transaction_id,
+                                "BookCode" : book["BookCode"]
+                            }],
+                            columnOrder= ["Quantity", "TransactionID", "BookCode"]
                 )
-                #update book availability
-                self.db_seeder.update_table(
-                    tableName="Book",
-                    updates={"BookAvailableCopies": book["BookAvailableCopies"] - quantity if status == "Borrowed" else book["BookAvailableCopies"]},
-                    column="BookCode",
-                    value=book["BookCode"]
-                )
+
+                if status == "Borrowed":
+                    self.db_seeder.update_table(tableName = "Book",
+                            updates = {"BookAvailableCopies" + book["BookAvailableCopies"] - quantity},
+                            column = "BookCode",
+                            value = book["BookCode"]
+                    )
             return True
         except Exception as e:
-            print(f"Error updating transaction: {e}")
-            QMessageBox.warning(None, "Error", "Failed to update transaction.")
+            QMessageBox.warning(self, "Error", f"Failed to update transaction")
             return False
 
+        
     #CREATE NEW TRANSACTION
     def add_transaction(self, borrower_name, books_data, borrow_date, due_date, status, librarian_id, member_id=None):
         try: 
             #get memebr id from name
             members = self.db_seeder.get_all_records(tableName ="Member", id=librarian_id)
-            member = next ((m for m in members if f"{m['MemberFN']} {m['MemberLN']}" == borrower_name), None)
+            member = next ((m for m in members if f"{m['MemberFN']} {m.get('MemberMI', '')} {m['MemberLN']}".strip().lower()== borrower_name.lower()), None)
             if not member:
                 QMessageBox.warning(None, "Error", "Borrower not found.")
                 return False
@@ -246,6 +239,7 @@ class BorrowBooks:
             print(f"Error adding transaction: {e}")
             QMessageBox.warning(None, "Error", "Failed to add transaction.")
             return False
+        
     
     #MARK BORROWED BOOK AS RETURNED
     def return_book(self, transaction_id, librarian_id, returned_date=None, remarks=None):

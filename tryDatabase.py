@@ -80,7 +80,6 @@ class DatabaseSeeder:
                     ReturnedDate TIMESTAMP DEFAULT NULL,
                     Status VARCHAR(20) NOT NULL,
                     Remarks VARCHAR(100) DEFAULT NULL,
-                    isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER,
                     MemberID INTEGER,
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID),
@@ -89,7 +88,6 @@ class DatabaseSeeder:
             return """CREATE TABLE IF NOT EXISTS TransactionDetails (
                     DetailsID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     Quantity INTEGER NOT NULL,
-                    isDeleted TIMESTAMP DEFAULT NULL,
                     TransactionID INTEGER,
                     BookCode INTEGER,
                     FOREIGN KEY (TransactionID) REFERENCES BookTransaction (TransactionID),
@@ -186,8 +184,6 @@ class DatabaseSeeder:
                 JOIN Member m ON t.MemberID = m.MemberID
                 JOIN Book b ON td.BookCode = b.BookCode
                 WHERE t.Status = 'Borrowed'
-                AND t.isDeleted IS NULL
-                AND td.isDeleted IS NULL
                 AND b.isDeleted IS NULL
                 AND m.isDeleted IS NULL
                 AND t.LibrarianID = ?
@@ -215,8 +211,6 @@ class DatabaseSeeder:
                 JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
                 JOIN Member m ON t.MemberID = m.MemberID
                 JOIN Book b ON td.BookCode = b.BookCode
-                WHERE t.isDeleted IS NULL
-                AND td.isDeleted IS NULL
                 AND b.isDeleted IS NULL
                 AND m.isDeleted IS NULL
             """
@@ -250,9 +244,7 @@ class DatabaseSeeder:
                 JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
                 JOIN Member m ON t.MemberID = m.MemberID
                 JOIN Book b ON td.BookCode = b.BookCode
-                WHERE t.isDeleted IS NULL
-                AND td.isDeleted IS NULL
-                AND b.isDeleted IS NULL
+                WHERE b.isDeleted IS NULL
                 AND m.isDeleted IS NULL
                 AND t.LibrarianID = ?
                 ORDER BY t.BorrowedDate DESC
@@ -266,6 +258,7 @@ class DatabaseSeeder:
                 rec['action'] = rec.get('TransactionType', '')
                 rec['transaction_type'] = rec.get('TransactionType', '')
                 rec['date'] = rec.get('BorrowedDate', '')
+                rec['remarks'] = rec.get('remarks', '')
                 rec['returned_date'] = rec.get('ReturnedDate', '') 
                 rec['quantity'] = rec.get('Quantity', 1)
             return records
@@ -299,9 +292,7 @@ class DatabaseSeeder:
                     SELECT td.* 
                     FROM TransactionDetails td
                     JOIN BookTransaction bt ON td.TransactionID = bt.TransactionID
-                    WHERE td.isDeleted IS NULL 
-                    AND bt.isDeleted IS NULL 
-                    AND bt.LibrarianID = ?
+                    WHERE bt.LibrarianID = ?
                 """
                 cursor.execute(query, (id,))
 
@@ -373,6 +364,20 @@ class DatabaseSeeder:
             print(f"✗ Error deleting from {tableName}: {e}")
         finally:
             conn.close()
+
+    # hard deleting transaction records
+    def hard_delete (self, tableName, column, value):
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            query = f"DELETE FROM {tableName} WHERE {column} = ?"
+            cursor.execute(query, (value, ))
+            conn.commit()
+            print(f"✓ Deleted from {tableName} where {column} = {value}")
+        except Exception as e:
+            print(f"✗ Error deleting from {tableName}: {e} ")
+        finally:
+            conn.close()
+
 
     # Verify librarian login credentials
     # This method checks if the provided username and password match the stored credentials in the database.

@@ -515,6 +515,7 @@ class MembersMainWindow(QWidget):
         # Initialize members data
         self.db_seeder = DatabaseSeeder()
         self.members = self.db_seeder.get_all_records(tableName="Member", id= self.librarian_id)
+        self.original_members = self.members.copy()  # Keep original data for search functionality
         
         # DEBUG: Check what we got
         print("Fetched members:", self.members)
@@ -580,6 +581,8 @@ class MembersMainWindow(QWidget):
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText("Search members...")
         self.search_bar.setFixedSize(300, 50)
+        self.search_bar.textChanged.connect(lambda text: self.searchMembers(text))  # Search as user types
+        self.search_bar.returnPressed.connect(lambda: self.searchMembers(self.search_bar.text()))  # Search on Enter
         self.search_bar.setStyleSheet("""
             QLineEdit {
                 color: #5C4033;
@@ -612,6 +615,27 @@ class MembersMainWindow(QWidget):
                 color: white;
             }
         """)
+        search_btn.clicked.connect(lambda: self.searchMembers(self.search_bar.text()))
+        
+        # Clear search button
+        clear_btn = QPushButton("✕")
+        clear_btn.setFixedSize(50, 50)
+        clear_btn.setToolTip("Clear Search")
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                color: #CC4125;
+                font-size: 20px;
+                font-weight: bold;
+                background-color: #F5F5F5;
+                border: 3px solid #CC4125;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #CC4125;
+                color: white;
+            }
+        """)
+        clear_btn.clicked.connect(self.clear_search)
         
         # Add member button
         add_btn = QPushButton("➕")
@@ -634,6 +658,7 @@ class MembersMainWindow(QWidget):
         
         search_layout.addWidget(self.search_bar)
         search_layout.addWidget(search_btn)
+        search_layout.addWidget(clear_btn)
         search_layout.addWidget(add_btn)
         
         header_layout.addWidget(title_label)
@@ -671,8 +696,31 @@ class MembersMainWindow(QWidget):
         
         if result == QDialog.Accepted:
             self.members = self.db_seeder.get_all_records(tableName="Member", id= self.librarian_id)
+            self.original_members = self.members.copy()  # Update original data
             self.refresh_members_grid()
+
+    def clear_search(self):
+        """Clear the search and restore all members"""
+        self.search_bar.clear()
+        self.members = self.original_members.copy()
+        self.refresh_members_grid()
+
+    def searchMembers(self, search_text):
+        """Search members based on the input text"""
+        search_text = search_text.strip().lower()
+        if not search_text:
+            self.clear_search()
+            return
         
+        filtered_members = []
+        for member in self.original_members:  # Search from original data
+            full_name = f"{member.get('MemberFN', '')} {member.get('MemberMI', '')} {member.get('MemberLN', '')}".strip().lower()
+            if search_text in full_name:
+                filtered_members.append(member)
+        
+        self.members = filtered_members
+        self.refresh_members_grid() 
+
     def get_active_members(self):
         """Get only active member accounts"""
         if not self.members:
@@ -828,6 +876,7 @@ class MembersMainWindow(QWidget):
         if result == QDialog.Accepted or result == 2:  # Accepted or Delete
             try:
                 self.members = self.db_seeder.get_all_records(tableName="Member", id= self.librarian_id)
+                self.original_members = self.members.copy()  # Update original data
                 self.refresh_members_grid()
                 if result == 2:
                     QMessageBox.information(self, "Success", "Member deleted successfully")

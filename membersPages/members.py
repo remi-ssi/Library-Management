@@ -74,7 +74,7 @@ class AddMemberDialog(QDialog):
         self.setFixedSize(400, 500)
         self.setStyleSheet("""
             QDialog {
-                background-color: #f1efe3;
+                background-color: #f5f3ed;
             }
         """)
         
@@ -191,7 +191,7 @@ class AddMemberDialog(QDialog):
                 color: #5C4033;
                 font-size: 14px;
                 padding: 8px;
-                background-color: #FFFEF0;
+                background-color: #f5f3ed;
                 border: 2px solid #5C4033;
                 border-radius: 6px;
             }
@@ -286,7 +286,7 @@ class MemberEditDialog(QDialog):
         self.setFixedSize(400, 500)
         self.setStyleSheet("""
             QDialog {
-                background-color: #f1efe3;
+                background-color: #f5f3ed;
             }
         """)
         
@@ -406,7 +406,7 @@ class MemberEditDialog(QDialog):
                 color: #5C4033;
                 font-size: 14px;
                 padding: 8px;
-                background-color: #FFFEF0;
+                background-color: #f5f3ed;
                 border: 2px solid #5C4033;
                 border-radius: 6px;
             }
@@ -516,7 +516,7 @@ class MemberPreviewDialog(QDialog):
         self.setFixedSize(450, 500)
         self.setStyleSheet("""
             QDialog {
-                background-color: #f1efe3;
+                background-color: #f5f3ed;
             }
         """)
         
@@ -556,14 +556,14 @@ class MemberPreviewDialog(QDialog):
         info_container = QWidget()
         info_container.setStyleSheet("""
             QWidget {
-                background-color: #FFFEF0;
+                background-color: #E5DBD3;
                 border-radius: 15px;
                 padding: 5px;
             }
         """)
         
         info_layout = QVBoxLayout(info_container)
-        info_layout.setSpacing(15)
+        info_layout.setSpacing(5)
         
         # Member ID
         member_id_layout = QHBoxLayout()
@@ -675,24 +675,7 @@ class MemberPreviewDialog(QDialog):
         """)
         delete_btn.clicked.connect(self.delete_member)
         
-        # Close Button
-        close_btn = QPushButton("Close")
-        close_btn.setFixedSize(100, 45)
-        close_btn.setStyleSheet("""
-            QPushButton {
-                color: #5C4033;
-                font-size: 14px;
-                font-weight: bold;
-                background-color: #F5F5F5;
-                border-radius: 10px;
-            }
-            QPushButton:hover {
-                background-color: #E0E0E0;
-            }
-        """)
-        close_btn.clicked.connect(self.reject)
-        
-        button_layout.addWidget(close_btn)
+        button_layout.setContentsMargins(0, 20, 0, 0)
         button_layout.addStretch()
         button_layout.addWidget(edit_btn)
         button_layout.addWidget(delete_btn)

@@ -765,7 +765,7 @@ class LibraryTransactionSystem(QMainWindow):
 
         if reply == QMessageBox.Yes:
             try:
-                self.borrow_books.db_seeder.hard_delete(tableName="BookTransaction", column="TransactionID", value=transaction['id'] )
+                self.borrow_books.db_seeder.delete_table(tableName="BookTransaction", column="TransactionID", value=transaction['id'] )
                 QMessageBox.information(self, "Success", f"Transaction {transaction} deleted successfully!")
                 self.transactions = self.borrow_books.fetch_all_transactions(self.librarian_id)
                 self.display_transactions()

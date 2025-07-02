@@ -163,7 +163,7 @@ class HistoryTransactionPreviewForm(QDialog):
                 'title': trans['BookTitle'],
                 'quantity': trans["Quantity"]
             }
-            for trans in transactions
+            for trans in trans_records
         ]
 
         transaction = {

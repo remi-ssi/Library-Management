@@ -360,24 +360,16 @@ class DatabaseSeeder:
             cursor.execute(query, (value,))
             conn.commit()
             print(f"✓ Deleted from {tableName} where {column} = {value}")
+
+            if tableName == "BookTransaction": # hard deleting transaction records
+                query = f"DELETE FROM {tableName} WHERE {column} = ?"
+                cursor.execute(query, (value, ))
+                conn.commit()
+                print(f"Transaction permanently deleted from {tableName} WHERE {column} = {value}")
         except Exception as e:
             print(f"✗ Error deleting from {tableName}: {e}")
         finally:
             conn.close()
-
-    # hard deleting transaction records
-    def hard_delete (self, tableName, column, value):
-        conn, cursor = self.get_connection_and_cursor()
-        try:
-            query = f"DELETE FROM {tableName} WHERE {column} = ?"
-            cursor.execute(query, (value, ))
-            conn.commit()
-            print(f"✓ Deleted from {tableName} where {column} = {value}")
-        except Exception as e:
-            print(f"✗ Error deleting from {tableName}: {e} ")
-        finally:
-            conn.close()
-
 
     # Verify librarian login credentials
     # This method checks if the provided username and password match the stored credentials in the database.

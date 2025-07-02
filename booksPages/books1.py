@@ -1025,6 +1025,11 @@ class AddBookDialog(QDialog):
         if not title or not author or not isbn:
             QMessageBox.information(self, "Search Error", "Please fill all required fields: Title, Author, and ISBN")
             return
+        
+        # Check for duplicate book in database
+        if not self.db_seeder.handleDuplication(tableName="Book", librarianID= self.librarian_id, column="ISBN", value=isbn):
+            QMessageBox.information(self, "Duplicate Book", "This book already exists in the database.")
+            return
 
         # Validate ISBN 
         if isbn and not self.validate_isbn(isbn):
@@ -1175,7 +1180,6 @@ class AddBookDialog(QDialog):
         close_btn.raise_()
         close_btn.clicked.connect(details_dialog.reject)
         
-
         # Now execute the dialog to make it modal
         result = details_dialog.exec_()
         
@@ -2189,6 +2193,11 @@ class BookDetailsDialog(QDialog):
             QMessageBox.warning(self, "Validation Error", "Invalid ISBN")
             return
         
+        # Check for duplicate book in database
+        if not self.db_seeder.handleDuplication(tableName="Book", librarianID= self.librarian_id, column="ISBN", value=isbn):
+            QMessageBox.information(self, "Duplicate Book", "This book already exists in the database.")
+            return
+        
         shelf = self.shelf_edit.currentText().strip()
         if not re.match(r'^[A-Z][0-9]{1,5}$', shelf):
             QMessageBox.warning(self, "Validation Error", "Shelf number must be one letter (A-Z) followed by 1 to 5 digits. (e.g. A1, B12, C345)")
@@ -2230,7 +2239,6 @@ class BookDetailsDialog(QDialog):
             QMessageBox.warning(self, "Error", f"Unexpected Error: {e}")
             print(f"Unexpected Error: {e}")
             
-
     def handle_genre_input(self, text):
         """Handle genre input changes"""
         if not text.strip():

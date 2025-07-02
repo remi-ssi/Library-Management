@@ -356,16 +356,17 @@ class DatabaseSeeder:
             if tableName == "BookShelf":
                 query = "UPDATE Book SET isDeleted = CURRENT_TIMESTAMP WHERE BookShelf = ? AND LibrarianID = ?"
                 cursor.execute(query, (value, librarian_id))
-            query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ?"
-            cursor.execute(query, (value,))
-            conn.commit()
-            print(f"✓ Deleted from {tableName} where {column} = {value}")
 
-            if tableName == "BookTransaction": # hard deleting transaction records
+            elif tableName == "BookTransaction": # hard deleting transaction records
                 query = f"DELETE FROM {tableName} WHERE {column} = ?"
                 cursor.execute(query, (value, ))
                 conn.commit()
                 print(f"Transaction permanently deleted from {tableName} WHERE {column} = {value}")
+            else: # for books and other tables
+                query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ?"
+                cursor.execute(query, (value,))
+                conn.commit()
+                print(f"✓ Deleted from {tableName} where {column} = {value}")
         except Exception as e:
             print(f"✗ Error deleting from {tableName}: {e}")
         finally:
@@ -541,6 +542,24 @@ class DatabaseSeeder:
             conn.commit()
         except Exception as e:
             print(f"✗ Error restoring archive from {tableName}: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def handleDuplication(self, tableName, librarianID, column, value):
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            query = f"SELECT {column} FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
+            cursor.execute(query, (librarianID,))
+            results = cursor.fetchall()
+            for items in results:
+                if items[0] == value:
+                    print(f"Duplicate found in {tableName} for {column} = {value}")
+                    return True
+                else:
+                    return False
+        except Exception as e:
+            print(f"✗ Error checking duplication in {tableName}: {e}")
             return False
         finally:
             conn.close()

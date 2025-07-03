@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, QDate, Signal
 from PySide6.QtGui import QFont
 from .transaction_logic import BorrowBooks
 from tryDatabase import DatabaseSeeder
+from datetime import datetime
 
 class BookSelectionWidget(QWidget):
     """Widget for selecting a book and its quantity"""
@@ -507,6 +508,9 @@ class AddTransactionForm(QDialog):
     
     def accept(self):
         borrower_name = self.borrower_edit.text().strip()
+        due_date = self.due_date_edit.date().toString("yyyy-MM-dd")
+        borrow_date = self.borrow_date_edit.date().toString("yyyy-MM-dd")
+
         if not borrower_name:
             QMessageBox.warning(self, "Input Error", "Please enter the borrower's name.")
             return
@@ -526,9 +530,12 @@ class AddTransactionForm(QDialog):
             if full_name.lower() == borrower_name.lower():
                 member_id = m["MemberID"]
                 break
-        
         if not member_id:
             QMessageBox.warning(self, "Input Error", "Borrower not found in the member list.")
+            return
+        
+        if datetime.strptime(due_date, "%Y-%m-%d") < datetime.strptime(borrow_date, "%Y-%m-%d"):
+            QMessageBox.warning(self, "Input Error", "Due date cannot be before borrow date")
             return
         
         # Verify book availability
@@ -578,6 +585,7 @@ class AddTransactionForm(QDialog):
 
             details_data = [{
                 "Quantity": quantity,
+                "DueDate": due_date,
                 "TransactionID": transaction_id,
                 "BookCode": book_code,
             }]
@@ -585,7 +593,7 @@ class AddTransactionForm(QDialog):
             self.borrow_books.db_seeder.seed_data(
                 tableName="TransactionDetails",
                 data=details_data,
-                columnOrder=["Quantity", "TransactionID", "BookCode"]
+                columnOrder=["Quantity", "TransactionID", "DueDate", "BookCode"]
             )
             
             # Update book availability
@@ -606,9 +614,9 @@ class AddTransactionForm(QDialog):
         return {
             "borrower_name": borrower_name,
             "books_data": self.get_books_data(),
-            "borrow_date": self.borrow_date_edit.toString("yyyy-MM-dd"),
+            "borrow_date": self.borrow_date_edit.date().toString("yyyy-MM-dd"),
             "remarks": self.remarks_edit,
-            "due_date": self.due_date_edit.toString("yyyy-MM-dd"),
+            "due_date": self.due_date_edit.date().toString("yyyy-MM-dd"),
             "status": self.status_combo.currentText()
         }
 
@@ -633,10 +641,3 @@ if __name__ == "__main__":
         print("Remarks:", dialog.get_remarks() or "None")
     else:
         print("Transaction cancelled by user")
-    # IMPORTANT: Pass the actual librarian_id from navbar_logic or parent window here
-    # Example: dialog = AddTransactionForm(librarian_id=passed_librarian_id)
-    # For demo/testing, uncomment and set a real librarian_id if needed
-    # librarian_id = ...
-    # dialog = AddTransactionForm(librarian_id=librarian_id)
-    print("This form requires librarian_id to be passed from the navigation logic.")
-    # Remove or update this block in production usage.

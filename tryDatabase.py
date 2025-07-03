@@ -89,9 +89,10 @@ class DatabaseSeeder:
             return """CREATE TABLE IF NOT EXISTS TransactionDetails (
                     DetailsID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     Quantity INTEGER NOT NULL,
+                    DueDate TIMESTAMP NOT NULL,
                     TransactionID INTEGER,
                     BookCode INTEGER,
-                    FOREIGN KEY (TransactionID) REFERENCES BookTransaction (TransactionID),
+                    FOREIGN KEY (TransactionID) REFERENCES BookTransaction (TransactionID) ON DELETE CASCADE,
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
        
     #check if the table exists in the database
@@ -164,7 +165,7 @@ class DatabaseSeeder:
                     book_code = i["BookCode"]
                     transaction_id = cursor.lastrowid
                     cursor.execute(
-                        "INSERT INTO TransactionDetails (Quantity, TransactionID, BookCode) VALUES (?, ?, ?)",
+                        "INSERT INTO TransactionDetails (Quantity, TransactionID, DueDate, BookCode) VALUES (?, ?, ?, ?)",
                         (i.get("Quantity", 1), transaction_id, book_code)
                     )
             conn.commit()
@@ -183,7 +184,7 @@ class DatabaseSeeder:
             query = """
                 SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                        m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
-                       b.BookCode, b.BookTitle, td.Quantity
+                       b.BookCode, b.BookTitle, td.Quantity, td.DueDate
                 FROM BookTransaction t
                 JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
                 JOIN Member m ON t.MemberID = m.MemberID
@@ -211,7 +212,7 @@ class DatabaseSeeder:
             query = """
                 SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
-                    b.BookCode, b.BookTitle, td.Quantity
+                    b.BookCode, b.BookTitle, td.Quantity, td.DueDate
                 FROM BookTransaction t
                 JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
                 JOIN Member m ON t.MemberID = m.MemberID
@@ -244,7 +245,7 @@ class DatabaseSeeder:
             query = """
                 SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
-                    b.BookCode, b.BookTitle, td.Quantity
+                    b.BookCode, b.BookTitle, td.Quantity, td.DueDate
                 FROM BookTransaction t
                 JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
                 JOIN Member m ON t.MemberID = m.MemberID
@@ -266,6 +267,7 @@ class DatabaseSeeder:
                 rec['remarks'] = rec.get('remarks', '')
                 rec['returned_date'] = rec.get('ReturnedDate', '') 
                 rec['quantity'] = rec.get('Quantity', 1)
+                rec['due_date'] = rec.get('DueDate', '')
             return records
         except Exception as e:
             print(f"✗ Error fetching all transactions: {e}")
@@ -355,6 +357,7 @@ class DatabaseSeeder:
         try:
             if tableName == "BookTransaction": # hard deleting transaction records
                 query = f"DELETE FROM {tableName} WHERE {column} = ?"
+                query = f"DELETE FRO"
                 cursor.execute(query, (value, ))
                 conn.commit()
                 print(f"Transaction permanently deleted from {tableName} WHERE {column} = {value}")

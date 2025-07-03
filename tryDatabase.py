@@ -562,7 +562,6 @@ class DatabaseSeeder:
             result = cursor.execute(query, (id, ))
             count = result.fetchone()[0]
             return count if count is not None else 0
-        
 
 if __name__ == "__main__":
     seeder = DatabaseSeeder()

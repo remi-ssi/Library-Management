@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import QDate
 from functools import partial
-from .AddTransactionForm import AddTransactionForm
 from .AddTransactionForm import AddTransactionForm  # PARA MA-IMPORT UNG TRANSACTION FORM 
 from .PreviewTransactionForm import PreviewTransactionForm # PARA MA-IMPORT UNG PREVIEW NG TRANSACTION
 from .HistoryPreviewForm import HistoryTransactionPreviewForm # PARA MA-IMPORT UNG PREVIEW NG HISTORY 

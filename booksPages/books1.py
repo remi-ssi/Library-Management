@@ -591,16 +591,27 @@ class BookEditView(QWidget):
             old_available = self.book_data.get('available_copies', 0)
             new_total_copies = int(copies_text)  # User is setting total copies
             
-            # Keep available copies the same or adjust if total is lower
-            new_available_copies = old_available
-            if new_total_copies < old_available:
-                new_available_copies = new_total_copies  # Can't have more available than total
+            # Calculate how many copies are currently borrowed
+            borrowed_copies = old_total_copies - old_available
+            
+            # New available copies = new total - borrowed copies
+            new_available_copies = new_total_copies - borrowed_copies
+            
+            # Make sure available copies is never negative
+            if new_available_copies < 0:
+                new_available_copies = 0
+                borrowed_copies = new_total_copies  # All copies are borrowed
             
             print(f"📊 Copies update:")
             print(f"   Total copies: {old_total_copies} → {new_total_copies}")
+            print(f"   Borrowed copies: {borrowed_copies}")
             print(f"   Available copies: {old_available} → {new_available_copies}")
-            if new_total_copies < old_available:
-                print(f"   ⚠️ Available copies adjusted down to match new total")
+            if new_available_copies < 0:
+                print(f"   ⚠️ Available copies adjusted to 0 (all copies borrowed)")
+            elif new_total_copies > old_total_copies:
+                print(f"   ✅ Available copies increased with total copies")
+            elif new_total_copies < old_total_copies:
+                print(f"   ⚠️ Available copies decreased with total copies")
             
             # Get current description from UI
             new_description = self.description_input.toPlainText().strip()

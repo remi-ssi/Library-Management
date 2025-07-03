@@ -73,6 +73,17 @@ class Settings(QMainWindow):
                 'last_name': 'N/A',
                 'email': 'N/A'
             }
+    def open_edit_dialog(self):
+        """Open the edit personal information dialog"""
+        dialog = EditPersonalInfoDialog(self.user_data, self.librarian_id, self)
+        if dialog.exec() == QDialog.Accepted:
+            updated_data = dialog.get_updated_data()
+            self.update_personal_info_display(updated_data)
+            full_name = f"{updated_data['first_name']} {updated_data['middle_name']} {updated_data['last_name']}".strip()
+            QMessageBox.information(self, "Success",
+                                    f"Personal information updated successfully!\n\n"
+                                    f"Name: {full_name}\n"
+                                    f"Email: {updated_data['email']}")
 
     def setup_ui(self):
         main_widget = QWidget()
@@ -124,15 +135,23 @@ class Settings(QMainWindow):
         content_layout.setSpacing(20)
         content_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+
         # Add all your content widgets
         header = self.create_header()
         content_layout.addWidget(header)
+
         self.personal_info_section = self.create_personal_info_section()
         content_layout.addWidget(self.personal_info_section)
+
         about_us_section = self.create_about_us_section()
         content_layout.addWidget(about_us_section)
+
+        # Add Logout section (centered)
         logout_section = self.create_logout_section()
         content_layout.addWidget(logout_section)
+
+
+        # Stretch to push content to top
         content_layout.addStretch()
         
         # Add content to main container
@@ -160,21 +179,51 @@ class Settings(QMainWindow):
         section_widget.setStyleSheet("background-color: #f5f3ed;")
         section_layout = QVBoxLayout(section_widget)
         section_layout.setContentsMargins(0, 0, 0, 0)
-        section_layout.setSpacing(15)
+        section_layout.setSpacing(0)
+
+        # Header + Edit button on top
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(40, 20, 40, 10)
+        header_layout.setSpacing(10)
 
         title_label = QLabel("PERSONAL INFO")
         title_label.setFont(QFont("Times New Roman", 18, QFont.Bold))
-        title_label.setContentsMargins(40, 20, 0, 0)
         title_label.setStyleSheet("color: #5C4033; border: none; background-color: transparent;")
-        section_layout.addWidget(title_label)
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
 
+        edit_btn = QPushButton("✏️ Edit")
+        edit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #c00;
+                color: white;
+                border: none;
+                padding: 12px 20px;
+                border-radius: 10px;
+                font-weight: bold;
+                font-size: 14px;
+                font-family: 'Times New Roman';
+            }
+            QPushButton:hover {
+                background-color: #ff0606;
+            }
+        """)
+        edit_btn.setFixedSize(100, 40)
+        edit_btn.clicked.connect(self.open_edit_dialog)
+        header_layout.addWidget(edit_btn)
+
+        section_layout.addLayout(header_layout)
+        
+
+        # Add container with personal info + change password
         container = self.create_personal_info_container()
         section_layout.addWidget(container)
+
         return section_widget
+
 
     def create_personal_info_container(self):
         container = QWidget()
-        container.setFixedHeight(200)
         container.setStyleSheet("""
             QWidget {
                 background-color: #f5f3ed;
@@ -186,7 +235,7 @@ class Settings(QMainWindow):
 
         main_layout = QVBoxLayout(container)
         main_layout.setContentsMargins(25, 20, 25, 20)
-        main_layout.setSpacing(0)
+        main_layout.setSpacing(10)
 
         content_layout = QHBoxLayout()
         content_layout.setSpacing(20)
@@ -245,36 +294,32 @@ class Settings(QMainWindow):
             field_layout.addStretch()
             info_layout.addLayout(field_layout)
 
-        button_container = QWidget()
-        button_container.setStyleSheet("background-color: transparent; border: none;")
-        button_container.setFixedWidth(180)
-        button_layout = QVBoxLayout(button_container)
-        button_layout.setContentsMargins(0, 0, 0, 0)
-        button_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        content_layout.addWidget(info_container)
+        main_layout.addLayout(content_layout)
 
-        edit_btn = QPushButton("✏️ Edit")
-        edit_btn.setStyleSheet("""
+        # Add Change Password button aligned bottom-right
+        password_button_layout = QHBoxLayout()
+        password_button_layout.setContentsMargins(0, 10, 0, 0)
+        password_button_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+        self.change_password_btn = QPushButton("Change Password")
+        self.change_password_btn.setFixedSize(180, 40)
+        self.change_password_btn.setStyleSheet("""
             QPushButton {
-                background-color: #c00;
+                background-color: #B7966B;
                 color: white;
-                border: none;
-                padding: 12px 20px;
-                border-radius: 10px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'Times New Roman';
+                border-radius: 10px; 
+                font-size: 16px;
             }
             QPushButton:hover {
-                background-color: #ff0606;
+                background-color: #A67B5B;
             }
         """)
-        edit_btn.setFixedSize(150, 45)
-        edit_btn.clicked.connect(self.open_edit_dialog)
-        button_layout.addWidget(edit_btn)
+        self.change_password_btn.clicked.connect(self.open_change_password_dialog)
 
-        content_layout.addWidget(info_container)
-        content_layout.addWidget(button_container)
-        main_layout.addLayout(content_layout)
+        password_button_layout.addWidget(self.change_password_btn)
+        main_layout.addLayout(password_button_layout)
+
         return container
 
     def open_edit_dialog(self):
@@ -467,42 +512,39 @@ class Settings(QMainWindow):
         section_widget = QWidget()
         section_widget.setStyleSheet("background-color: #f5f3ed;")
         section_layout = QVBoxLayout(section_widget)
-        section_layout.setContentsMargins(0, 0, 0, 0)
-        section_layout.setSpacing(0)
-
-        button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(20, 50, 20, 10)
-        button_layout.setSpacing(0)
-        button_layout.addStretch()
+        section_layout.setContentsMargins(0, 50, 0, 10)
+        section_layout.setSpacing(10)
+        section_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         logout_button = QPushButton("Logout")
-        logout_button.setFixedSize(120, 40)
+        logout_button.setFixedSize(150, 45)
         logout_button.setCursor(Qt.CursorShape.PointingHandCursor)
         logout_button.setStyleSheet("""
             QPushButton {
                 background-color: #dc3545;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius: 10px;
                 font-family: 'Times New Roman';
-                font-size: 15px;
+                font-size: 16px;
                 font-weight: bold;
-                padding: 8px 12px;
+                padding: 10px 20px;
             }
             QPushButton:hover {
                 background-color: #c82333;
             }
         """)
         logout_button.clicked.connect(self.handle_logout)
-        button_layout.addWidget(logout_button)
-        section_layout.addLayout(button_layout)
+
+        section_layout.addWidget(logout_button)
         return section_widget
+
 
     def handle_logout(self):
         reply = QMessageBox.question(
             self,
             "Logout Confirmation",
-            "Are you sure you want to logout?",
+            "Would you like to logout now?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -511,6 +553,38 @@ class Settings(QMainWindow):
             from Authentication import Authentication
             self.auth_window = Authentication()
             self.auth_window.show()
+
+            
+    def open_change_password_dialog(self):
+        from ResetPasswordDialog import ResetPasswordDialog
+        email = self.user_data.get('email', '')
+        dialog = ResetPasswordDialog(
+            email=email,
+            db_seeder=self.db_seeder,
+            parent=self,
+            is_change_password=True
+        )
+        dialog.password_changed_and_logout.connect(self.handle_logout)
+        dialog.exec()
+
+    def close_and_return(self):
+        self.close()
+
+        if self.is_change_password:
+            parent = self.parent()
+            print("is_change_password =", self.is_change_password)
+            print("Parent object =", parent)
+
+            if parent and hasattr(parent, 'logout_and_show_login'):
+                print("Calling logout_and_show_login()...")
+                parent.logout_and_show_login()
+            else:
+                print("No parent or logout_and_show_login not found.")
+        else:
+            if self.parent():
+                self.parent().show()
+
+
 
 class EditPersonalInfoDialog(QDialog):
     def __init__(self, user_data, librarian_id, parent=None):

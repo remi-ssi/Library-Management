@@ -1,19 +1,21 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QIcon
 import re
 import bcrypt
 
 class ResetPasswordDialog(QDialog):
+    password_changed_and_logout = Signal()
+
     def __init__(self, email, otp=None, db_seeder=None, parent=None, is_change_password=False):
         super().__init__(parent)
         print("ResetPasswordDialog created for:", email)
         self.email = email
         self.otp = otp
         self.db_seeder = db_seeder
-        self.is_change_password = is_change_password  # Flag to determine if it's change password from settings
+        self.is_change_password = is_change_password  
 
         # Set title and image based on the mode
         if self.is_change_password:
@@ -193,14 +195,26 @@ class ResetPasswordDialog(QDialog):
 
         # Try to change the password
         try:
-            if self.db_seeder.changePassword(self.email, new_password):
-                self.show_success("You've successfully reset your password.")
-                # Close the dialog after showing success message for 2 seconds
-                QTimer.singleShot(2000, self.close_and_return)
-            else:
-                self.show_error("Failed to update password. Please try again.")
+                if self.db_seeder.changePassword(self.email, new_password):
+                    self.show_success("You've successfully reset your password.")
+
+                    if self.is_change_password:
+                        self.close_and_return()  # Immediately logout and return to login
+                    else:
+                        # Show confirmation dialog AFTER successful password change (for reset mode only)
+                        response = QMessageBox.question(
+                            self,
+                            "Password Changed",
+                            "Your password was successfully changed. Would you like to log in again now?",
+                            QMessageBox.Yes | QMessageBox.No
+                        )
+                        if response == QMessageBox.Yes:
+                            self.close_and_return()
+                        # If No, just leave the dialog open
+                else:
+                    self.show_error("Failed to update password. Please try again.")
         except Exception as e:
-            self.show_error(f"Error: {str(e)}")
+                self.show_error(f"Error: {str(e)}")
 
     def show_error(self, message):
         print("Error message:", repr(message))
@@ -215,20 +229,12 @@ class ResetPasswordDialog(QDialog):
 
     def close_and_return(self):
         self.close()
-        
         if self.is_change_password:
-            # For change password, redirect to login for security
-            if hasattr(self.parent(), 'logout_and_show_login'):
-                self.parent().logout_and_show_login()
-            else:
-                # Fallback: close parent and try to find login window
-                self.parent().close()
-                # You might need to emit a signal or call a specific method to show login
-                # This depends on your app structure
+            self.password_changed_and_logout.emit()
         else:
-            # For reset password, show the login window
             if self.parent():
                 self.parent().show()
+                
 
     def create_password_field(self, placeholder, icon_btn):
         container = QFrame()
@@ -246,3 +252,38 @@ class ResetPasswordDialog(QDialog):
         icon_btn.raise_()
 
         return container, line_edit
+
+    def handle_logout(self):
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Logout Confirmation")
+        msg_box.setText("Are you sure you want to logout?")
+        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg_box.setDefaultButton(QMessageBox.No)
+        # Set custom stylesheet
+        msg_box.setStyleSheet("""
+            QMessageBox {
+                background-color: #e8d8bd;
+                color: #5e3e1f;
+                font-size: 16px;
+            }
+            QLabel {
+                color: #5e3e1f;
+            }
+            QPushButton {
+                background-color: #B7966B;
+                color: #fff;
+                border-radius: 8px;
+                min-width: 80px;
+                min-height: 30px;
+                font-size: 15px;
+            }
+            QPushButton:hover {
+                background-color: #A67B5B;
+            }
+        """)
+        reply = msg_box.exec()
+        if reply == QMessageBox.Yes:
+            self.close()
+            from Authentication import Authentication
+            self.auth_window = Authentication()
+            self.auth_window.show()

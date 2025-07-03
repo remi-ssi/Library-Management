@@ -497,7 +497,7 @@ class DatabaseSeeder:
     def changePassword(self, username, new_password):
         conn, cursor = self.get_connection_and_cursor()
         try:
-            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             cursor.execute("UPDATE Librarian SET LibPass = ? WHERE LibUsername = ?", (hashed_password, username))
             conn.commit()
             if cursor.rowcount > 0:
@@ -511,6 +511,25 @@ class DatabaseSeeder:
             return False
         finally:
             conn.close()
+
+
+     #Ito inadd ko rems hehe 
+    def verify_current_password(self, email, current_password):
+        import sqlite3
+        import bcrypt
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT LibPass FROM Librarian WHERE LibUsername = ?", (email,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            stored_hash = row[0]
+            # Make sure stored_hash is bytes
+            if isinstance(stored_hash, str):
+                stored_hash = stored_hash.encode('utf-8')
+            return bcrypt.checkpw(current_password.encode("utf-8"), stored_hash)
+        return False
+
     
     def archiveTable(self, tableName, id):
         conn, cursor = self.get_connection_and_cursor()

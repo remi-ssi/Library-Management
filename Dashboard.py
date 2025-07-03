@@ -12,6 +12,9 @@ from navigation_sidebar import NavigationSidebar
 from tryDatabase import DatabaseSeeder
 from transactionPages.transaction_logic import BorrowBooks
 from navbar_logic import nav_manager
+import sys
+import io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 class LibraryDashboard(QMainWindow):
     def __init__(self, librarian_id=None):  

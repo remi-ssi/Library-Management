@@ -107,7 +107,7 @@ class TransactionCard(QFrame):
             due_date = datetime.strptime(self.transaction['due_date'], "%Y-%m-%d")
             today = datetime.now()
             if due_date < today:
-                status_label = QLabel("OVERDUE")
+                status_label = QLabel("Overdue")
                 status_label.setStyleSheet("""
                     background-color: #5e3e1f;
                     color: white;
@@ -117,7 +117,7 @@ class TransactionCard(QFrame):
                     font-size: 10px;
                 """)
             else:
-                status_label = QLabel("Overdue")
+                status_label = QLabel("BORROWED")
                 status_label.setStyleSheet("""
                     background-color: #8B4513;
                     color: white;
@@ -435,10 +435,19 @@ class LibraryTransactionSystem(QMainWindow):
         self.trans_table.setRowCount(0)
         self.trans_table.setRowCount(len(transactions_to_display))
         for row, trans in enumerate(transactions_to_display):
-            due_date = datetime.strptime(trans['due_date'], "%Y-%m-%d")
-            today = datetime.now()
-            status = "Overdue" if due_date < today else "Borrowed"
-
+            status =  "Borrowed"
+            if trans.get('due_date') and trans['due_date'] != 'N/A':
+                try:
+                    due_date = datetime.strptime(trans['due_date'], "%Y-%m-%d")
+                    today = datetime.now()
+                    status = "Overdue" if due_date < today else "Borrowed"
+                except ValueError as e:
+                    print(f"Invalid due date format for transaction {trans['id']}: {trans['due_date']} - Error: {str(e)}")
+                    status = "Borrowed"
+            else:
+                print(f"Missing due_date for transaction {trans_id}")
+                status = "Borrowed"
+            
             book_titles = ", ".join([f"{book['title']} (x{book['quantity']})" for book in trans['books']])
             total_quantity = sum(book['quantity'] for book in trans['books'])
             values = [
@@ -459,8 +468,6 @@ class LibraryTransactionSystem(QMainWindow):
                         item.setForeground(QColor("#c0392b"))
                     elif status == "Borrowed":
                         item.setForeground(QColor("#27ae60"))
-                    elif status == "Returned":
-                        item.setForeground(QColor("#8B4513"))
                 self.trans_table.setItem(row, col, item)
 
             # --- Delete button ---

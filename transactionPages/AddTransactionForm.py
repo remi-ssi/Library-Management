@@ -1,12 +1,12 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox,
-    QDateEdit, QPushButton, QWidget, QSizePolicy, QSpinBox, QScrollArea, QFrame, QTextEdit, QMessageBox
+    QDateEdit, QPushButton, QWidget, QSizePolicy, QSpinBox, QScrollArea, QTextEdit, QMessageBox
 )
 from PySide6.QtCore import Qt, QDate, Signal
 from PySide6.QtGui import QFont
 from .transaction_logic import BorrowBooks
-from tryDatabase import DatabaseSeeder
 from datetime import datetime
+import sqlite3
 
 class BookSelectionWidget(QWidget):
     """Widget for selecting a book and its quantity"""
@@ -17,7 +17,7 @@ class BookSelectionWidget(QWidget):
         self.books_list = books_list
         
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10,10,10,10)
+        layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(30)
         
         # Number label
@@ -122,10 +122,10 @@ class BookSelectionWidget(QWidget):
         if show_remove_button:
             self.remove_btn = QPushButton("X")
             self.remove_btn.setFont(QFont("Times New Roman", 12, QFont.Bold))
-            self.remove_btn.setFixedSize(25,25)
+            self.remove_btn.setFixedSize(25, 25)
             self.remove_btn.setStyleSheet("""
-                 QPushButton {
-                    margin-right:5px;
+                QPushButton {
+                    margin-right: 5px;
                     color: #dc3545;
                     font-size: 15px;
                     font-weight: bold;
@@ -153,7 +153,6 @@ class BookSelectionWidget(QWidget):
                 min-width: 40px;
             }
         """)
-
         
         # Qty label
         qty_label = QLabel("Qty:")
@@ -196,13 +195,11 @@ class AddTransactionForm(QDialog):
         if not self.books_list:
             QMessageBox.warning(self, "Error", "No books available in the library.")
             self.close()
-            
+        
         self.book_widgets = []
         
         self.setWindowTitle("Add New Transaction")
         self.setStyleSheet("background-color: #f5f1e6;")
-        
-        from PySide6.QtCore import Qt
         self.setWindowState(Qt.WindowMaximized)
 
         main_layout = QVBoxLayout(self)
@@ -252,7 +249,6 @@ class AddTransactionForm(QDialog):
                     background: white;
                     color: #4a3a28;
                 }
-
                 QComboBox QAbstractItemView {
                     background: #fffaf2;
                     color: #4a3a28;
@@ -260,25 +256,20 @@ class AddTransactionForm(QDialog):
                     selection-color: #000000;
                     border: 1px solid #e8d8bd;
                 }
-
                 QComboBox::item {
                     padding: 6px 10px;
                 }
-
                 QComboBox::drop-down {
                     border: none;
                 }
-
                 QDateEdit {
-                    padding-right: 24px; #spaces for buttons
+                    padding-right: 24px;
                 }
-
                 QDateEdit::up-button, QDateEdit::down-button {
                     width: 0px;
                     height: 0px;
                     border: none;
                 }
-
                 QTextEdit {
                     min-height: 60px;
                     max-height: 80px;
@@ -289,20 +280,23 @@ class AddTransactionForm(QDialog):
             row.addWidget(widget)
             return row
 
+        # Member ID
+        self.member_id_edit = QLineEdit()
+        self.member_id_edit.setPlaceholderText("Enter Member ID")
+        form_layout.addLayout(add_form_row("Member ID:", self.member_id_edit))
+
         # Borrower Name
         self.borrower_edit = QLineEdit()
-        self.borrower_edit.setPlaceholderText("Enter Borrower Name")
-        form_layout.addLayout(add_form_row("Borrower:", self.borrower_edit))
+        self.borrower_edit.setPlaceholderText("Enter Borrower Name (e.g., John A. Doe)")
+        form_layout.addLayout(add_form_row("Borrower Name:", self.borrower_edit))
 
-        # Books Section - Give it more space
+        # Books Section
         books_section = QWidget()
         books_layout = QVBoxLayout(books_section)
         books_layout.setContentsMargins(0, 0, 0, 0)
         
         # Books header with add button
         books_header = QHBoxLayout()
-        
-        # Books label: centered, no border
         books_label = QLabel("Books")
         books_label.setFont(QFont("Times New Roman", 14, QFont.Bold))
         books_label.setAlignment(Qt.AlignCenter)
@@ -314,10 +308,8 @@ class AddTransactionForm(QDialog):
                 padding: 6px 12px;
             }
         """)
-
-        # Plus button
         self.add_book_btn = QPushButton("+")
-        self.add_book_btn.setFixedSize(40,40)
+        self.add_book_btn.setFixedSize(40, 40)
         self.add_book_btn.setStyleSheet("""
             QPushButton {
                 margin-top:10px;
@@ -335,8 +327,6 @@ class AddTransactionForm(QDialog):
             }
         """)
         self.add_book_btn.clicked.connect(self.add_book_widget)
-
-        # Layout: label centered, button right
         books_header.addStretch()
         books_header.addWidget(books_label)
         books_header.addStretch()
@@ -345,24 +335,19 @@ class AddTransactionForm(QDialog):
         # Container for book widgets
         self.books_container = QWidget()
         self.books_container_layout = QVBoxLayout(self.books_container)
-        self.books_container_layout.setContentsMargins(0,0,0,0)
+        self.books_container_layout.setContentsMargins(0, 0, 0, 0)
         self.books_container_layout.setSpacing(15)
         
-        # Create the scroll area with increased minimum height
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setFrameShape(QScrollArea.NoFrame) 
-
-        
+        self.scroll_area.setFrameShape(QScrollArea.NoFrame)
         books_layout.addLayout(books_header)
         books_layout.addWidget(self.scroll_area)
-     
         self.scroll_area.setWidget(self.books_container)
         
-        # Add the books section with stretch factor to give it more space
-        form_layout.addWidget(books_section, 2)  # Give books section more weight
+        form_layout.addWidget(books_section, 2)
         
-        # Add first book widget by default
+        # Add first book widget
         self.add_book_widget(show_remove=False)
 
         # Borrow Date
@@ -380,24 +365,24 @@ class AddTransactionForm(QDialog):
         self.status_combo.addItems(["Borrowed", "Returned"])
         form_layout.addLayout(add_form_row("Status:", self.status_combo))
 
-        # Remarks - Make it more compact
+        # Remarks
         self.remarks_edit = QTextEdit()
         self.remarks_edit.setPlaceholderText("Enter any additional remarks or notes (optional)")
-        self.remarks_edit.setMaximumHeight(60)  # Limit the height more strictly
-        self.remarks_edit.setMinimumHeight(60)  # Set a fixed height
+        self.remarks_edit.setMaximumHeight(60)
+        self.remarks_edit.setMinimumHeight(60)
         form_layout.addLayout(add_form_row("Remarks:", self.remarks_edit))
 
         # Buttons
         button_row = QHBoxLayout()
         button_row.setSpacing(15)
         
-        # Cancel button
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setFont(QFont("Times New Roman", 13, QFont.Bold))
         self.cancel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #white;
-                color:#5e3e1f ;
+                color:#5e3e1f;
+                border: 2px solid #e8d8bd;
                 border-radius: 16px;
                 padding: 12px 30px;
                 min-width: 120px;
@@ -408,7 +393,6 @@ class AddTransactionForm(QDialog):
             }
         """)
         
-        # Add Transaction button
         self.add_btn = QPushButton("Add Transaction")
         self.add_btn.setFont(QFont("Times New Roman", 13, QFont.Bold))
         self.add_btn.setStyleSheet("""
@@ -437,28 +421,20 @@ class AddTransactionForm(QDialog):
         self.cancel_btn.clicked.connect(self.reject)
 
     def add_book_widget(self, show_remove=True):
-        """Add a new book selection widget"""
-        # If this is not the first widget, always show remove button
         if len(self.book_widgets) > 0:
             show_remove = True
-            
         book_widget = BookSelectionWidget(
-            self.books_list, 
+            self.books_list,
             show_remove_button=show_remove
         )
         book_widget.remove_requested.connect(self.remove_book_widget)
         book_widget.set_number(len(self.book_widgets) + 1)
-        
         self.book_widgets.append(book_widget)
         self.books_container_layout.addWidget(book_widget)
-    
         book_widget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-
-        # Para sa delete buttons if maraming books 
         self.update_remove_button_visibility()
 
     def remove_book_widget(self, widget):
-        """Remove a book selection widget"""
         if len(self.book_widgets) > 1:
             self.book_widgets.remove(widget)
             widget.deleteLater()
@@ -466,12 +442,10 @@ class AddTransactionForm(QDialog):
             self.update_remove_button_visibility()
 
     def update_book_numbers(self):
-        """Update the row numbers after removal"""
         for i, widget in enumerate(self.book_widgets):
             widget.set_number(i + 1)
 
     def update_remove_button_visibility(self):
-        """Show/hide remove buttons based on number of book widgets"""
         show_remove = len(self.book_widgets) > 1
         for widget in self.book_widgets:
             if hasattr(widget, 'remove_btn'):
@@ -481,7 +455,6 @@ class AddTransactionForm(QDialog):
                     widget.remove_btn.hide()
 
     def get_books_data(self):
-        """Get all books and their quantities"""
         books_data = []
         for widget in self.book_widgets:
             books_data.append({
@@ -490,52 +463,43 @@ class AddTransactionForm(QDialog):
             })
         return books_data
     
-    def parse_borrower_name(self):
-        full_name = self.borrower_edit.text().strip()
-        parts = full_name.split()
-        if len(parts) < 2:
-            return None #invalid format
-        if len(parts) >=3 :
-            first_name = parts[0]
-            last_name = parts[-1]
-            middle_name = " ".join(parts[1:-1]) if len(parts) > 2 else ""
-            borrower_name = f"{first_name} {middle_name} {last_name}".strip()
-        else:
-            borrower_name = f"{parts[0]} {parts[1]}"
-        print(f"Parsed borrower name: {borrower_name}")
-        return borrower_name
+    def parse_borrower_name(self, member_id, full_name):
+        members = self.borrow_books.db_seeder.get_all_records(tableName="Member", id=self.librarian_id)
+        member = next((m for m in members if m["MemberID"] == int(member_id)), None)
+        if not member:
+            return None, None
+        expected_name = f"{member['MemberFN']} {member.get('MemberMI', '')} {member['MemberLN']}".replace("  ", " ").strip()
+        if full_name.lower() != expected_name.lower():
+            return None, None
+        return member_id, expected_name
 
-    
     def accept(self):
+        member_id = self.member_id_edit.text().strip()
         borrower_name = self.borrower_edit.text().strip()
         due_date = self.due_date_edit.date().toString("yyyy-MM-dd")
         borrow_date = self.borrow_date_edit.date().toString("yyyy-MM-dd")
 
+        if not member_id or not member_id.isdigit():
+            QMessageBox.warning(self, "Input Error", "Please enter a valid Member ID (numeric).")
+            return
+
         if not borrower_name:
             QMessageBox.warning(self, "Input Error", "Please enter the borrower's name.")
             return
-                
+
+        # Validate MemberID and Borrower Name
+        validated_member_id, validated_name = self.parse_borrower_name(member_id, borrower_name)
+        if not validated_member_id:
+            QMessageBox.warning(self, "Input Error", "Member ID does not match the provided borrower name.")
+            return
+
         books_data = self.get_books_data()
         if not books_data:
             QMessageBox.warning(self, "Input Error", "Please add at least one book.")
             return
-            
-        # Get all members
-        members = self.borrow_books.db_seeder.get_all_records(tableName="Member", id=self.librarian_id)
-        
-        # Improved member matching that handles middle initials
-        member_id = None
-        for m in members:
-            full_name = f"{m['MemberFN']} {m.get('MemberMI', '')} {m['MemberLN']}".replace("  ", " ").strip()
-            if full_name.lower() == borrower_name.lower():
-                member_id = m["MemberID"]
-                break
-        if not member_id:
-            QMessageBox.warning(self, "Input Error", "Borrower not found in the member list.")
-            return
-        
+
         if datetime.strptime(due_date, "%Y-%m-%d") < datetime.strptime(borrow_date, "%Y-%m-%d"):
-            QMessageBox.warning(self, "Input Error", "Due date cannot be before borrow date")
+            QMessageBox.warning(self, "Input Error", "Due date cannot be before borrow date.")
             return
         
         # Verify book availability
@@ -545,7 +509,6 @@ class AddTransactionForm(QDialog):
         for book_data in books_data:
             book_title = book_data["book"]
             quantity = book_data["quantity"]
-
             if book_title not in book_dict:
                 QMessageBox.warning(self, "Input Error", f"Book '{book_title}' not found in the library.")
                 return
@@ -555,69 +518,81 @@ class AddTransactionForm(QDialog):
         
         # Create the transaction
         transaction_data = [{
-            "TransactionType": "Borrow",
-            "BorrowedDate": self.borrow_date_edit.date().toString("yyyy-MM-dd"),
+            "BorrowedDate": borrow_date,
             "Status": self.status_combo.currentText(),
             "Remarks": self.remarks_edit.toPlainText().strip() or None,
             "LibrarianID": self.librarian_id,
-            "MemberID": member_id,
+            "MemberID": int(validated_member_id),
         }]
 
-        # Seed the transaction data and get TransactionID
-        transaction_id = self.borrow_books.db_seeder.seed_data(
-            tableName="BookTransaction",
-            data=transaction_data,
-            columnOrder=[
-                "TransactionType", "BorrowedDate", "Status", "Remarks", 
-                "LibrarianID", "MemberID"
-            ]
-        )
+        try:
+            transaction_id = self.borrow_books.db_seeder.seed_data(
+                tableName="BookTransaction",
+                data=transaction_data,
+                columnOrder=["BorrowedDate", "Status", "Remarks", "LibrarianID", "MemberID"]
+            )
 
-        if not transaction_id:
-            QMessageBox.warning(self, "Error", "Failed to create transaction.")
+            if not transaction_id:
+                QMessageBox.warning(self, "Error", "Failed to create transaction. Check database logs for details.")
+                print(f"Transaction creation failed: {transaction_data}")
+                return
+            
+            # Add transaction details for each book
+            for book_data in books_data:
+                book_title = book_data["book"]
+                quantity = book_data["quantity"]
+                book_code = book_dict[book_title]["BookCode"]
+
+                details_data = [{
+                    "Quantity": quantity,
+                    "DueDate": due_date,
+                    "TransactionID": transaction_id,
+                    "BookCode": book_code,
+                }]
+                
+                success = self.borrow_books.db_seeder.seed_data(
+                    tableName="TransactionDetails",
+                    data=details_data,
+                    columnOrder=["Quantity", "DueDate", "TransactionID", "BookCode"]
+                )
+                
+                if not success:
+                    QMessageBox.warning(self, "Error", f"Failed to add details for book '{book_title}'.")
+                    self.borrow_books.db_seeder.delete_table("BookTransaction", "TransactionID", transaction_id, self.librarian_id)
+                    return
+                
+                # Update book availability
+                self.borrow_books.db_seeder.update_table(
+                    tableName="Book",
+                    updates={"BookAvailableCopies": book_dict[book_title]["BookAvailableCopies"] - quantity},
+                    column="BookCode",
+                    value=book_code
+                )
+
+            QMessageBox.information(self, "Success", "Transaction added successfully.")
+            super().accept()
+
+        except sqlite3.Error as e:
+            QMessageBox.warning(self, "Error", f"Database error: {str(e)}")
+            print(f"Transaction creation error: {str(e)}, Data: {transaction_data}")
+            if transaction_id:
+                self.borrow_books.db_seeder.delete_table("BookTransaction", "TransactionID", transaction_id, self.librarian_id)
             return
-        
-        # Add transaction details for each book
-        for book_data in books_data:
-            book_title = book_data["book"]
-            quantity = book_data["quantity"]
-            book_code = book_dict[book_title]["BookCode"]
-
-            details_data = [{
-                "Quantity": quantity,
-                "DueDate": due_date,
-                "TransactionID": transaction_id,
-                "BookCode": book_code,
-            }]
-            
-            self.borrow_books.db_seeder.seed_data(
-                tableName="TransactionDetails",
-                data=details_data,
-                columnOrder=["Quantity", "TransactionID", "DueDate", "BookCode"]
-            )
-            
-            # Update book availability
-            self.borrow_books.db_seeder.update_table(
-                tableName="Book",
-                updates={"BookAvailableCopies": book_dict[book_title]["BookAvailableCopies"] - quantity},
-                column="BookCode",
-                value=book_code
-            )
-
-        QMessageBox.information(self, "Success", "Transaction added successfully.")
-        super().accept()  # Close the dialog with Accepted status
 
     def get_transaction_data(self):
-        borrower_name = self.parse_borrower_name()
-        if not borrower_name:
+        member_id = self.member_id_edit.text().strip()
+        borrower_name = self.borrower_edit.text().strip()
+        validated_member_id, validated_name = self.parse_borrower_name(member_id, borrower_name)
+        if not validated_member_id:
             return None
         return {
-            "borrower_name": borrower_name,
+            "member_id": validated_member_id,
+            "borrower_name": validated_name,
             "books_data": self.get_books_data(),
             "borrow_date": self.borrow_date_edit.date().toString("yyyy-MM-dd"),
-            "remarks": self.remarks_edit,
             "due_date": self.due_date_edit.date().toString("yyyy-MM-dd"),
-            "status": self.status_combo.currentText()
+            "status": self.status_combo.currentText(),
+            "remarks": self.remarks_edit.toPlainText().strip() or None
         }
 
 if __name__ == "__main__":
@@ -625,12 +600,12 @@ if __name__ == "__main__":
     from PySide6.QtWidgets import QApplication
 
     app = QApplication(sys.argv)
-    books = ["1984", "To Kill a Mockingbird", "Pride and Prejudice"]
-    dialog = AddTransactionForm(books)
+    dialog = AddTransactionForm(librarian_id=1)  # Replace with actual librarian_id
     result = dialog.exec()
     
     if result == QDialog.Accepted:
         print("Transaction Added:")
+        print("Member ID:", dialog.member_id_edit.text())
         print("Borrower:", dialog.borrower_edit.text())
         print("Books borrowed:")
         for book_data in dialog.get_books_data():
@@ -638,6 +613,6 @@ if __name__ == "__main__":
         print("Borrowed:", dialog.borrow_date_edit.date().toString("yyyy-MM-dd"))
         print("Due:", dialog.due_date_edit.date().toString("yyyy-MM-dd"))
         print("Status:", dialog.status_combo.currentText())
-        print("Remarks:", dialog.get_remarks() or "None")
+        print("Remarks:", dialog.remarks_edit.toPlainText() or "None")
     else:
         print("Transaction cancelled by user")

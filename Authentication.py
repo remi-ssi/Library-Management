@@ -8,24 +8,25 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
-from dotenv import load_dotenv  
-from PySide6.QtCore import Qt, QSize, QTimer
+from dotenv import load_dotenv  #load .env file (email)
+from PySide6.QtCore import Qt, QSize, QTimer #GUI framework
 from PySide6.QtGui import QFont, QMovie, QIcon
 from PySide6.QtWidgets import (
     QApplication, QLineEdit, QLabel, QPushButton, QWidget, QVBoxLayout,
     QSpacerItem, QSizePolicy, QHBoxLayout, QFrame, QMessageBox
 )
 #initialize database from the seeder
-from tryDatabase import DatabaseSeeder
-from navbar_logic import nav_manager
+from tryDatabase import DatabaseSeeder #for interaction with database
+from navbar_logic import nav_manager #manages page navigation
 
-from ResetPasswordDialog import ResetPasswordDialog
+from ResetPasswordDialog import ResetPasswordDialog # forgot password dialog
 
  
 #The authentication inherits the QWidget
 class Authentication(QWidget): 
     _current_librarian_id = None
 
+    #method to store librarian id and can be accessed globally
     @classmethod
     def set_current_librarian_id(cls, librarian_id):
         """Set the current librarian ID after login."""
@@ -361,15 +362,15 @@ class Authentication(QWidget):
             librarians = self.db_seeder.get_all_records(tableName="Librarian", id="")
             librarian = next((lib for lib in librarians if lib['LibUsername'] == email), None)
             if librarian:
-                librarian_id = librarian["LibrarianID"]
+                librarian_id = librarian["LibrarianID"] #saves librarian ID
                 self.set_current_librarian_id(librarian_id)
                 nav_manager.set_librarian_id(librarian_id)
                 print("Log in successful: ", librarian_id)
-                self.dashboard_window = Dashboard.LibraryDashboard()
-                self.dashboard_window.librarian_id = librarian_id
+                self.dashboard_window = Dashboard.LibraryDashboard() #creates dashboard window
+                self.dashboard_window.librarian_id = librarian_id #assigns librarianID to dashboard
                 nav_manager._current_window = self.dashboard_window
                 self.dashboard_window.show()
-                self.close()
+                self.close() #close login window after 
             else:
                 self.general_error_label.setText("Librarian Not Found...")
                 self.general_error_label.show()
@@ -409,7 +410,7 @@ class Authentication(QWidget):
         forgot_password_label.linkActivated.connect(self.open_forgot_password)
 
     def proceed_with_password_reset(self, email, otp=None):
-        self.reset_password_dialog = ResetPasswordDialog(email, otp, self.db_seeder)
+        self.reset_password_dialog = ResetPasswordDialog(email, otp, self.db_seeder) #Open dialog
         self.reset_password_dialog.show()
 
 class ConfirmEmailDialog(QWidget):
@@ -560,7 +561,7 @@ class ConfirmEmailDialog(QWidget):
         
         # Generate OTP
         import random
-        otp = str(random.randint(100000, 999999))
+        otp = str(random.randint(100000, 999999)) #6-digit OTP without zeros
         
         # Send email with OTP
         if self.send_real_email(email, otp):
@@ -582,13 +583,13 @@ class ConfirmEmailDialog(QWidget):
     def send_real_email(self, recipient_email, otp):
         try:
 
-            load_dotenv("email.env")
+            load_dotenv("email.env") #access the email env file
             
             # Get email credentials from environment variables
-            sender_email = os.getenv("EMAIL_ADDRESS")
-            sender_password = os.getenv("EMAIL_PASSWORD")
+            sender_email = os.getenv("EMAIL_ADDRESS") #gets the value of the variable from env
+            sender_password = os.getenv("EMAIL_PASSWORD") #gets the value of the variable from env
             
-            if not sender_email or not sender_password:
+            if not sender_email or not sender_password: 
                 print("Email credentials not found in environment variables")
                 return False
                 
@@ -703,7 +704,6 @@ class OTPVerificationDialog(QWidget):
         """)
         
      
-        
         # Error label
         self.error_label = QLabel("")
         self.error_label.setStyleSheet("color: red; font-weight: bold; font-size: 14px;")

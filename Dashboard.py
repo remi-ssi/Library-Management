@@ -28,17 +28,14 @@ class LibraryDashboard(QMainWindow):
         self.init_ui()
         self.setup_timer()
         
-        # Initial data load after UI is ready
         QTimer.singleShot(100, self.refresh_all_data)
 
     def init_ui(self):
-        """Initialize UI - keeping your original layout exactly the same"""
         self.setWindowTitle("BJRS Library Management System")
         self.setGeometry(100, 100, 1400, 900)
         self.setMinimumSize(1300, 700)
         self.showMaximized()
         
-        # Main widget and layout
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         
@@ -46,26 +43,21 @@ class LibraryDashboard(QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Sidebar - unchanged
         self.sidebar = NavigationSidebar()
         self.sidebar.on_navigation_clicked = lambda item_name: nav_manager.handle_navigation(item_name, self.librarian_id)
         main_layout.addWidget(self.sidebar)
         
-        # Content area - unchanged
         content_widget = QWidget()
         self.content_layout = QVBoxLayout(content_widget)
         self.content_layout.setContentsMargins(20, 20, 20, 20)
         self.content_layout.setSpacing(20)
         
-        # Header - unchanged
         header = self.create_header()
         self.content_layout.addWidget(header)
         
-        # Stats section - unchanged
         stats = self.create_stats_section()
         self.content_layout.addWidget(stats)
         
-        # Due books section - unchanged
         due_books = self.create_due_books_section()
         self.content_layout.addWidget(due_books)
         
@@ -74,39 +66,30 @@ class LibraryDashboard(QMainWindow):
         self.apply_styles()
 
     def refresh_all_data(self):
-        """Refresh all data while maintaining original UI"""
         try:
-            # Get fresh data
             self.borrowed_books = self.get_borrow_transactions()
             
-            # Find and remove the existing stats widget if it exists
             for i in reversed(range(self.content_layout.count())):
                 widget = self.content_layout.itemAt(i).widget()
                 if widget and widget.objectName() == "statsContainer":
                     widget.setParent(None)
                     break
                     
-            # Create and add new stats widget
             stats_widget = self.create_stats_section()
-            self.content_layout.insertWidget(1, stats_widget)  # Assuming stats should be at position 1
+            self.content_layout.insertWidget(1, stats_widget)
                 
-            # Refresh table
             self.populate_due_books_table()
             
-            # Update clock
             self.update_datetime()
             
         except Exception as e:
             print(f"Error refreshing data: {e}")
 
-        def showEvent(self, event):
-            """Handle window show - keeping your original behavior"""
-            super().showEvent(event)
-            self.refresh_all_data()
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.refresh_all_data()
 
-    
     def create_header(self):
-        # Your original create_header implementation
         header = QFrame()
         header.setObjectName("headerFrame")
         header.setFixedHeight(120)
@@ -139,38 +122,52 @@ class LibraryDashboard(QMainWindow):
         return header
 
     def get_borrow_transactions(self):
-        # Your original get_borrow_transactions implementation
         try:
             borrow_manager = BorrowBooks()
             transactions = borrow_manager.fetch_transaction(self.librarian_id) or []
             
+            today = datetime.now().date()
             transactions_dict = {}
+            
             for trans in transactions:
                 if trans.get('action') != 'Borrowed':
                     continue
+                    
                 trans_id = trans.get('id')
+                due_date_str = trans.get('due_date', '')
+                
+                try:
+                    # Calculate days left properly
+                    due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date() if due_date_str else None
+                    days_left = (due_date - today).days if due_date else 0
+                except (ValueError, TypeError) as e:
+                    print(f"Error parsing due date for transaction {trans_id}: {e}")
+                    days_left = 0
+                    
                 if trans_id not in transactions_dict:
                     transactions_dict[trans_id] = {
                         'id': trans_id,
                         'borrower': trans.get('borrower', 'N/A'),
                         'borrowed_date': trans.get('date', 'N/A'),
-                        'due_date': trans.get('due_date', 'N/A'),
-                        'status': 'Borrowed',
+                        'due_date': due_date_str,
+                        'days_left': days_left,  # Store calculated days left
+                        'status': 'Borrowed',  # Default status
                         'books': [],
                         'quantity': 0
                     }
+                    
                 transactions_dict[trans_id]['books'].append({
                     'title': trans.get('book_title', 'N/A'),
                     'quantity': trans.get('quantity', 1)
                 })
                 transactions_dict[trans_id]['quantity'] += trans.get('quantity', 1)
+                
             return list(transactions_dict.values())
         except Exception as e:
             QMessageBox.warning(self, "Fetch Error", f"Failed to fetch transactions: {str(e)}")
             return []
 
     def create_stats_section(self):
-        # Your original create_stats_section implementation
         stats_widget = QFrame()
         stats_widget.setObjectName("statsContainer")
         layout = QGridLayout(stats_widget)
@@ -199,7 +196,6 @@ class LibraryDashboard(QMainWindow):
         return stats_widget
 
     def create_stat_card(self, icon, number, label, color):
-        # Your original create_stat_card implementation
         card = QFrame()
         card.setObjectName("statCard")
         card.setFixedHeight(100)
@@ -245,7 +241,6 @@ class LibraryDashboard(QMainWindow):
         return card
 
     def create_due_books_section(self):
-        # Your original create_due_books_section implementation
         section = QFrame()
         section.setObjectName("sectionCard")
         
@@ -267,7 +262,6 @@ class LibraryDashboard(QMainWindow):
         return section
 
     def setup_due_books_table(self):
-        # Your original setup_due_books_table implementation
         headers = ["Borrower Name", "Quantity", "Borrowed Date", "Due Date", "Days Left"]
         
         self.due_books_table.setColumnCount(len(headers))
@@ -295,29 +289,27 @@ class LibraryDashboard(QMainWindow):
         self.due_books_table.verticalHeader().hide()
 
     def get_books_due_this_week(self):
-        # Your original get_books_due_this_week implementation
         if not self.borrowed_books:
             self.borrowed_books = self.get_borrow_transactions()
         
-        today = datetime.now().date()
         active_books = []
         
         for book in self.borrowed_books:
             try:
-                due_date = datetime.strptime(book['due_date'], '%Y-%m-%d').date()
-                days_left = (due_date - today).days
-                
-                active_books.append({
-                    **book,
-                    'days_left': days_left,
-                    'status': 'Overdue' if days_left < 0 else 'Borrowed'
-                })
-            except (ValueError, KeyError):
-                continue    
+                days_left = book.get('days_left', 0)
+                # Only include books due within 7 days or overdue
+                if days_left <= 7:
+                    active_books.append({
+                        **book,
+                        'status': 'Overdue' if days_left < 0 else 'Borrowed'  # Only < 0 is overdue
+                    })
+            except (ValueError, KeyError) as e:
+                print(f"Error processing book {book.get('id')}: {e}")
+                continue
+        
         return active_books
 
     def populate_due_books_table(self):
-        # Your original populate_due_books_table implementation
         active_books = self.get_books_due_this_week()
         
         self.due_books_table.setRowCount(0)
@@ -340,7 +332,7 @@ class LibraryDashboard(QMainWindow):
             due_item.setTextAlignment(Qt.AlignCenter)
             
             days_left = book.get('days_left', 0)
-            if days_left < 0:
+            if days_left < 0:  # Only < 0 is overdue
                 due_item.setBackground(QColor("#fee2e2"))
                 due_item.setForeground(QColor("#dc2626"))
             elif days_left <= 3:
@@ -348,10 +340,9 @@ class LibraryDashboard(QMainWindow):
                 due_item.setForeground(QColor("#d97706"))
             self.due_books_table.setItem(row, 3, due_item)
             
-            days_text = str(abs(days_left)) if days_left < 0 else str(days_left)
-            if days_left < 0:
-                days_text = f"Overdue ({days_text})"
-                
+            # Show "Overdue" only when days_left < 0
+            days_text = "Overdue" if days_left < 0 else str(days_left)
+            
             days_item = QTableWidgetItem(days_text)
             days_item.setTextAlignment(Qt.AlignCenter)
             if days_left < 0:
@@ -363,20 +354,17 @@ class LibraryDashboard(QMainWindow):
             self.due_books_table.setItem(row, 4, days_item)
 
     def setup_timer(self):
-        # Your original setup_timer implementation
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_datetime)
         self.timer.start(60000)
         self.update_datetime()
 
     def update_datetime(self):
-        # Your original update_datetime implementation
         now = datetime.now()
         formatted_time = now.strftime("%A, %B %d, %Y at %I:%M %p")
         self.datetime_label.setText(formatted_time)
 
     def apply_styles(self):
-        # Your original apply_styles implementation
         style = """
         QMainWindow {
             background-color: #f1efe3;

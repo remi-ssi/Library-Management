@@ -801,7 +801,7 @@ class OTPVerificationDialog(QWidget):
         else:
             print("self.parent does NOT have proceed_with_signup")
         entered_otp = self.otp_input.text().strip()
-        print(f"Entered OTP: {entered_otp}, Expected OTP: {self.otp}")
+        # print(f"Entered OTP: {entered_otp}, Expected OTP: {self.otp}")
         if not entered_otp:
             self.error_label.setText("Please enter the OTP.")
             self.error_label.show()
@@ -1144,6 +1144,8 @@ class SignUp(QWidget):
         # Hash the password
         hashedPass = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
         
+        self.db_seeder.create_table("Librarian")
+
         # Create the account in the database
         self.db_seeder.seed_data(
             tableName="Librarian",

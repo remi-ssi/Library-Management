@@ -30,19 +30,19 @@ class DatabaseSeeder:
 
         # ----Member Table ------
         elif tableName == "Member":
-            return """CREATE TABLE IF NOT EXISTS Member(
+            return """CREATE TABLE Member(
                     MemberID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     MemberLN VARCHAR(20) NOT NULL,
                     MemberMI VARCHAR(20),
                     MemberFN VARCHAR (20) NOT NULL,
-                    MemberContact INTEGER(11) NOT NULL,
+                    MemberContact TEXT(11) NOT NULL,
                     CreatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
                     isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER,
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID)
                     )"""
         elif tableName == "Book":
-            book =  """CREATE TABLE IF NOT EXISTS Book(
+            book =  """CREATE TABLE Book(
                     BookCode INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     BookTitle VARCHAR NOT NULL,
                     Publisher VARCHAR NOT NULL,
@@ -56,17 +56,17 @@ class DatabaseSeeder:
                     BookShelf VARCHAR(6),
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID),
                     FOREIGN KEY (BookShelf) REFERENCES BookShelf(ShelfId))"""
-            Author = """CREATE TABLE IF NOT EXISTS BookAuthor(
+            Author = """CREATE TABLE BookAuthor(
                     BookCode INTEGER,
                     bookAuthor VARCHAR NOT NULL,
                     PRIMARY KEY (BookCode, bookAuthor),
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
-            Genre = """CREATE TABLE IF NOT EXISTS Book_Genre(
+            Genre = """CREATE TABLE Book_Genre(
                     BookCode INTEGER,
                     Genre VARCHAR,
                     PRIMARY KEY (BookCode, Genre), 
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
-            Shelf = """CREATE TABLE IF NOT EXISTS BookShelf(
+            Shelf = """CREATE TABLE BookShelf(
                     ShelfId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     ShelfName VARCHAR(6) NOT NULL,
                     LibrarianID INTEGER,
@@ -75,7 +75,7 @@ class DatabaseSeeder:
             return book, Author, Genre, Shelf
         # ----BookTransaction Table ------
         elif tableName == "BookTransaction":
-            return """CREATE TABLE IF NOT EXISTS BookTransaction(
+            return """CREATE TABLE BookTransaction(
                     TransactionID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     TransactionType VARCHAR(20) NOT NULL,
                     BorrowedDate TIMESTAMP NOT NULL,
@@ -87,7 +87,7 @@ class DatabaseSeeder:
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID),
                     FOREIGN KEY (MemberID) REFERENCES Member (MemberID))"""
         elif tableName == "TransactionDetails":
-            return """CREATE TABLE IF NOT EXISTS TransactionDetails (
+            return """CREATE TABLE TransactionDetails (
                     DetailsID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     Quantity INTEGER NOT NULL,
                     DueDate TIMESTAMP NOT NULL,
@@ -97,19 +97,6 @@ class DatabaseSeeder:
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
         else:
             return
-       
-    #check if the table exists in the database
-    def check_table(self, tableName):
-        conn, cursor = self.get_connection_and_cursor()
-        try:
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (tableName,))
-            return bool(cursor.fetchone()) #if it retrieves one row/instance, it returns true
-        except Exception as e:
-            print(f"Error checking table {tableName}: {e}")
-            return False
-        #close the database
-        finally:
-            conn.close() 
 
     #create a table if it doest exists in the database
     def create_table(self, tableName):
@@ -141,13 +128,6 @@ class DatabaseSeeder:
     def seed_data(self, tableName, data, columnOrder, hashPass=None):
         conn, cursor = self.get_connection_and_cursor()
         conn.execute("PRAGMA foreign_keys = ON;")
-
-        if not self.check_table(tableName): 
-            print(f"{tableName} not found.")
-            if not self.create_table(tableName):
-                print(f"Failed to create {tableName}")
-                return None
-
         try:
             last_id = None
             for i in data:
@@ -360,7 +340,6 @@ class DatabaseSeeder:
         try:
             if tableName == "BookTransaction": # hard deleting transaction records
                 query = f"DELETE FROM {tableName} WHERE {column} = ?"
-                query = f"DELETE FRO"
                 cursor.execute(query, (value, ))
                 conn.commit()
                 print(f"Transaction permanently deleted from {tableName} WHERE {column} = {value}")
@@ -623,6 +602,14 @@ class DatabaseSeeder:
 
     def dashboardCount (self, tableName, id):
         conn, cursor = self.get_connection_and_cursor()
+        self.create_table("Book")
+        self.create_table("Member")
+        self.create_table("BookTransaction")
+        self.create_table("BookShelf")
+        self.create_table("BookAuthor")
+        self.create_table("Book_Genre")
+        self.create_table("TransactionDetails")
+
         if tableName == "Book": 
             query = "SELECT SUM(BookTotalCopies) FROM Book WHERE isDeleted is NULL AND LibrarianID = ?"
             result = cursor.execute(query, (id, ))

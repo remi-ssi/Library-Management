@@ -584,7 +584,7 @@ class EditPersonalInfoDialog(QDialog):
 
         self.email_input = QLineEdit()
         self.email_input.setText(self.user_data.get('email', ''))
-        self.email_input.setPlaceholderText("Enter email address")
+        self.email_input.setReadOnly(True)  
 
         form_layout.addRow("First Name:", self.first_name_input)
         form_layout.addRow("Middle Name:", self.middle_name_input)

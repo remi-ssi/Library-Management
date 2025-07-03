@@ -46,7 +46,7 @@ class BorrowBooks:
                         "transaction_type": trans["TransactionType"],
                         "date": trans["BorrowedDate"], #borrowed date
                         #calculate due date (14 days before due)
-                        "due_date": (datetime.strptime(trans["BorrowedDate"], "%Y-%m-%d") + timedelta(days=14)).strftime("%Y-%m-%d"),
+                        "due_date": detail.get("DueDate", ""),
                         "returned_date": trans.get("ReturnedDate", ""), # returned date if available
                         "quantity": detail.get("Quantity", 1), #Defaults to 1 if not initialized
                         "remarks": trans.get("Remarks", "")
@@ -82,7 +82,7 @@ class BorrowBooks:
                         "action": trans["Status"],
                         "transaction_type": trans["TransactionType"],
                         "date": trans["BorrowedDate"],
-                        "due_date": (datetime.strptime(trans["BorrowedDate"], "%Y-%m-%d") + timedelta(days=14)).strftime("%Y-%m-%d"),
+                        "due_date": detail.get("DueDate", ""),
                         "returned_date": trans.get("ReturnedDate", ""),
                         "quantity": detail.get("Quantity", 1),
                         "remarks": trans.get("Remarks", "")

@@ -49,7 +49,7 @@ class DatabaseSeeder:
                     BookDescription VARCHAR NOT NULL,
                     ISBN INTEGER NOT NULL,
                     BookTotalCopies INTEGER NOT NULL,
-                    BookAvailableCopies INTEGER NO,
+                    BookAvailableCopies INTEGER NOT NULL,
                     BookCover BLOB,
                     isDeleted TIMESTAMP DEFAULT NULL,
                     LibrarianID INTEGER, 
@@ -75,7 +75,7 @@ class DatabaseSeeder:
             return book, Author, Genre, Shelf
         # ----BookTransaction Table ------
         elif tableName == "BookTransaction":
-            return """CREATE TABLE BookTransaction(
+            return """CREATE TABLE IF NOT EXISTS BookTransaction(
                     TransactionID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     BorrowedDate TIMESTAMP NOT NULL,
                     ReturnedDate TIMESTAMP DEFAULT NULL,
@@ -86,7 +86,7 @@ class DatabaseSeeder:
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID),
                     FOREIGN KEY (MemberID) REFERENCES Member (MemberID))"""
         elif tableName == "TransactionDetails":
-            return """CREATE TABLE TransactionDetails (
+            return """CREATE TABLE IF NOT EXISTS TransactionDetails (
                     DetailsID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                     Quantity INTEGER NOT NULL,
                     DueDate TIMESTAMP NOT NULL,
@@ -146,13 +146,14 @@ class DatabaseSeeder:
                 if tableName == "BookTransaction" and "BookCode" in i:
                     book_code = i["BookCode"]
                     transaction_id = cursor.lastrowid
+                    due_date = i.get("DueDate", "")
                     cursor.execute(
-                        "INSERT INTO TransactionDetails (Quantity, TransactionID, DueDate, BookCode) VALUES (?, ?, ?, ?)",
-                        (i.get("Quantity", 1), transaction_id, book_code)
+                        "INSERT INTO TransactionDetails (Quantity, DueDate, TransactionID, BookCode) VALUES (?, ?, ?, ?)",
+                        (i.get("Quantity", 1), due_date, transaction_id, book_code)
                     )
             conn.commit()
             print(f"✓ Seeded {len(data)} rows into {tableName}")
-            return last_id if tableName == "BookTransaction" else None
+            return last_id if tableName == "BookTransaction" else True
         except Exception as e:
             print(f"Error seeding data into {tableName}: {e}")
             return None
@@ -225,7 +226,7 @@ class DatabaseSeeder:
         try:
             conn, cursor = self.get_connection_and_cursor()
             query = """
-                SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate t.Remarks,
+                SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                     b.BookCode, b.BookTitle, td.Quantity, td.DueDate
                 FROM BookTransaction t
@@ -757,7 +758,7 @@ class DatabaseSeeder:
             elif tableName == "BookTransaction":
                 # Search in transactions with related book and member data
                 query = """
-                    SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
+                    SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                            m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                            b.BookCode, b.BookTitle, td.Quantity, td.DueDate
                     FROM BookTransaction t
@@ -771,7 +772,6 @@ class DatabaseSeeder:
                         b.BookTitle LIKE ? OR
                         m.MemberFN LIKE ? OR
                         m.MemberLN LIKE ? OR
-                        t.TransactionType LIKE ? OR
                         t.Status LIKE ? OR
                         t.Remarks LIKE ?
                     )
@@ -796,8 +796,6 @@ class DatabaseSeeder:
             # Add additional mappings for transaction records
             if tableName == "BookTransaction":
                 for rec in records:
-                    rec['action'] = rec.get('TransactionType', '')
-                    rec['transaction_type'] = rec.get('TransactionType', '')
                     rec['date'] = rec.get('BorrowedDate', '')
                     rec['remarks'] = rec.get('Remarks', '')
                     rec['returned_date'] = rec.get('ReturnedDate', '') 

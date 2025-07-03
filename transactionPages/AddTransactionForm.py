@@ -360,11 +360,6 @@ class AddTransactionForm(QDialog):
         self.due_date_edit.setDisplayFormat("yyyy-MM-dd")
         form_layout.addLayout(add_form_row("Due Date:", self.due_date_edit))
 
-        # Status
-        self.status_combo = QComboBox()
-        self.status_combo.addItems(["Borrowed", "Returned"])
-        form_layout.addLayout(add_form_row("Status:", self.status_combo))
-
         # Remarks
         self.remarks_edit = QTextEdit()
         self.remarks_edit.setPlaceholderText("Enter any additional remarks or notes (optional)")
@@ -519,13 +514,17 @@ class AddTransactionForm(QDialog):
         # Create the transaction
         transaction_data = [{
             "BorrowedDate": borrow_date,
-            "Status": self.status_combo.currentText(),
+            "Status": "Borrowed",  # Always set to "Borrowed" for new transactions
             "Remarks": self.remarks_edit.toPlainText().strip() or None,
             "LibrarianID": self.librarian_id,
             "MemberID": int(validated_member_id),
         }]
 
         try:
+            # Ensure tables exist before inserting
+            self.borrow_books.db_seeder.create_table("BookTransaction")
+            self.borrow_books.db_seeder.create_table("TransactionDetails")
+            
             transaction_id = self.borrow_books.db_seeder.seed_data(
                 tableName="BookTransaction",
                 data=transaction_data,
@@ -569,7 +568,13 @@ class AddTransactionForm(QDialog):
                     value=book_code
                 )
 
-            QMessageBox.information(self, "Success", "Transaction added successfully.")
+            QMessageBox.information(self, "Success", "Borrow transaction added successfully!")
+            
+            # Notify parent to refresh if it has the method
+            if self.parent() and hasattr(self.parent(), 'refresh_transaction_displays'):
+                print("📢 Notifying parent to refresh displays...")
+                self.parent().refresh_transaction_displays()
+            
             super().accept()
 
         except sqlite3.Error as e:
@@ -591,7 +596,7 @@ class AddTransactionForm(QDialog):
             "books_data": self.get_books_data(),
             "borrow_date": self.borrow_date_edit.date().toString("yyyy-MM-dd"),
             "due_date": self.due_date_edit.date().toString("yyyy-MM-dd"),
-            "status": self.status_combo.currentText(),
+            "status": "Borrowed",  # Always return "Borrowed" for new transactions
             "remarks": self.remarks_edit.toPlainText().strip() or None
         }
 
@@ -612,7 +617,7 @@ if __name__ == "__main__":
             print(f"  - {book_data['book']}: {book_data['quantity']} copies")
         print("Borrowed:", dialog.borrow_date_edit.date().toString("yyyy-MM-dd"))
         print("Due:", dialog.due_date_edit.date().toString("yyyy-MM-dd"))
-        print("Status:", dialog.status_combo.currentText())
+        print("Status: Borrowed")  # Always "Borrowed" for new transactions
         print("Remarks:", dialog.remarks_edit.toPlainText() or "None")
     else:
         print("Transaction cancelled by user")

@@ -660,6 +660,20 @@ class LibraryTransactionSystem(QMainWindow):
             ]
             self.display_history(filtered_history)
 
+    def refresh_transaction_displays(self):
+        """Refresh both transaction and history displays"""
+        try:
+            print("🔄 Refreshing transaction displays...")
+            # Fetch fresh data from database
+            self.transactions = self.borrow_books.fetch_all_transactions(self.librarian_id)
+            # Update both displays
+            self.display_transactions()
+            self.display_history()
+            print("✅ Transaction displays refreshed successfully")
+        except Exception as e:
+            print(f"❌ Error refreshing displays: {e}")
+            QMessageBox.warning(self, "Refresh Error", f"Failed to refresh transaction displays: {str(e)}")
+
     def open_add_transaction_form(self):
         books = self.borrow_books.fetch_books(self.librarian_id)
         if not books:
@@ -667,30 +681,12 @@ class LibraryTransactionSystem(QMainWindow):
             return
         
         dialog = AddTransactionForm(librarian_id=self.librarian_id, parent=self)
-        if dialog.exec():
-            transaction_data = dialog.get_transaction_data()
-            if not transaction_data or not transaction_data.get('borrower_name'):
-                QMessageBox.critical(self, "Error", "Invalid borrower name format. Please follow FirstName MiddleName LastName or FirstName LastName")
-                return 
-            if not transaction_data.get('books_data'):
-                QMessageBox.critical(self, "Error", "Please select at least one book")
-                return 
-
-            success = self.borrow_books.add_transaction(
-                borrower_name=transaction_data['borrower_name'],
-                books_data=transaction_data['books_data'],
-                remarks = transaction_data['remarks'],
-                borrow_date=transaction_data['borrow_date'],
-                due_date=transaction_data['due_date'],
-                status=transaction_data['status'],
-                librarian_id=self.librarian_id
-            )
-            if success:
-                self.transactions = self.borrow_books.fetch_all_transactions(self.librarian_id) 
-                self.display_transactions()
-                self.display_history()
-            else:
-                QMessageBox.critical(self, "Add Transaction Error", f"Failed to add transaction for '{transaction_data['borrower_name']}")
+        result = dialog.exec()
+        
+        # If dialog was accepted, it means transaction was successfully added
+        # The AddTransactionForm will have already called refresh_transaction_displays via parent notification
+        if result == QDialog.Accepted:
+            print("✅ Transaction added successfully and displays refreshed automatically")
 
     def open_edit_transaction(self, selected_transaction):
         transaction_id = selected_transaction.get('id')

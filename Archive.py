@@ -327,7 +327,9 @@ class ArchiveManager(QMainWindow):
         header = self.shelf_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.Stretch)  
         header.setSectionResizeMode(1, QHeaderView.Stretch) 
-        header.setSectionResizeMode(2, QHeaderView.Fixed)    
+        header.setSectionResizeMode(2, QHeaderView.Fixed)
+        header.setSectionResizeMode(3, QHeaderView.Fixed)
+        self.shelf_table.setColumnWidth(3, 150)      
         self.shelf_table.setColumnWidth(2, 150) 
 
         self.shelf_table.verticalHeader().setVisible(False)

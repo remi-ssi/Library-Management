@@ -196,7 +196,7 @@ class DatabaseSeeder:
                 SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                     b.BookCode, b.BookTitle, td.Quantity, td.DueDate
-                FROM BookTransaction t
+                FROM BookTransaction AS t
                 JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
                 JOIN Member m ON t.MemberID = m.MemberID
                 JOIN Book b ON td.BookCode = b.BookCode
@@ -229,7 +229,7 @@ class DatabaseSeeder:
                 SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                     b.BookCode, b.BookTitle, td.Quantity, td.DueDate
-                FROM BookTransaction t
+                FROM BookTransaction AS t
                 JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
                 JOIN Member m ON t.MemberID = m.MemberID
                 JOIN Book b ON td.BookCode = b.BookCode
@@ -278,7 +278,7 @@ class DatabaseSeeder:
             elif tableName == "TransactionDetails":
                 query = """
                     SELECT td.* 
-                    FROM TransactionDetails td
+                    FROM TransactionDetails AS td
                     JOIN BookTransaction bt ON td.TransactionID = bt.TransactionID
                     WHERE bt.LibrarianID = ?
                 """
@@ -631,30 +631,34 @@ class DatabaseSeeder:
 
     def dashboardCount (self, tableName, id):
         conn, cursor = self.get_connection_and_cursor()
-        self.create_table("Book")
-        self.create_table("Member")
-        self.create_table("BookTransaction")
-        self.create_table("BookShelf")
-        self.create_table("BookAuthor")
-        self.create_table("Book_Genre")
-        self.create_table("TransactionDetails")
+        try:
+            self.create_table("Book")
+            self.create_table("Member")
+            self.create_table("BookTransaction")
+            self.create_table("BookShelf")
+            self.create_table("BookAuthor")
+            self.create_table("Book_Genre")
+            self.create_table("TransactionDetails")
 
-        if tableName == "Book": 
-            query = "SELECT SUM(BookTotalCopies) FROM Book WHERE isDeleted is NULL AND LibrarianID = ?"
-            result = cursor.execute(query, (id, ))
-            count = result.fetchone()[0]
-            return count if count is not None else 0
-        elif tableName == "Member":
-            query = "SELECT COUNT(*) FROM Member WHERE isDeleted is NULL and LibrarianID = ?"
-            result = cursor.execute(query, (id, ))
-            count = result.fetchone()[0]
-            return count if count is not None else 0
-        elif tableName == "BookTransaction":
-            query = "SELECT COUNT(*) FROM BookTransaction WHERE ReturnedDate is NULL and Status = 'Borrowed' and LibrarianID = ?"
-            result = cursor.execute(query, (id, ))
-            count = result.fetchone()[0]
-            return count if count is not None else 0
-
+            if tableName == "Book": 
+                query = "SELECT SUM(BookTotalCopies) FROM Book WHERE isDeleted is NULL AND LibrarianID = ?"
+                result = cursor.execute(query, (id, ))
+                count = result.fetchone()[0]
+                return count if count is not None else 0
+            elif tableName == "Member":
+                query = "SELECT COUNT(*) FROM Member WHERE isDeleted is NULL and LibrarianID = ?"
+                result = cursor.execute(query, (id, ))
+                count = result.fetchone()[0]
+                return count if count is not None else 0
+            elif tableName == "BookTransaction":
+                query = "SELECT COUNT(*) FROM BookTransaction WHERE ReturnedDate is NULL and Status = 'Borrowed' and LibrarianID = ?"
+                result = cursor.execute(query, (id, ))
+                count = result.fetchone()[0]
+                return count if count is not None else 0
+        
+        finally:
+            conn.close()
+            
     def search_archived_records(self, tableName, search_text, librarian_id):
         """Search archived records based on search text"""
         conn, cursor = self.get_connection_and_cursor()

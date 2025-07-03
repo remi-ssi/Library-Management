@@ -3318,7 +3318,7 @@ class CollapsibleSidebar(QWidget):
         search_text = self.search_bar.text().strip()
         if search_text:
             print(f"🔍 Searching for: '{search_text}'")
-            # Use database search instead of local search
+            # Use database search 
             try:
                 # Get librarian_id
                 librarian_id = getattr(self, 'librarian_id', 1)

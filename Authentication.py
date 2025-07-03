@@ -675,7 +675,7 @@ class OTPVerificationDialog(QWidget):
         desc_label.setFont(QFont("Times New Roman", 12))
         desc_label.setStyleSheet("color: #4A4947;")
         desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        desc_label.setWordWrap(True)
+        #desc_label.setWordWrap(True)
         
         # OTP field
         self.otp_input = QLineEdit()
@@ -813,14 +813,14 @@ class OTPVerificationDialog(QWidget):
                 print("Register flow detected")
                 from PySide6.QtWidgets import QMessageBox
                 if hasattr(self.parent.parent, "proceed_with_signup"):
-                    print("Calling proceed_with_signup on grandparent")
+                    print("Calling proceed_with_signup")
                     self.parent.parent.proceed_with_signup()
                     print("User created:", self.parent.parent.pending_email)
                     print("All users:", self.parent.parent.db_seeder.get_all_records(tableName="Librarian", id=""))
                     QMessageBox.information(self, "Account Created", "Account created successfully! Redirecting to login...")
                     self.close()
                 else:
-                    print("No proceed_with_signup on grandparent!")
+                    print("No proceed_with_signup!")
             # Password Reset Flow
             elif hasattr(self.parent, "purpose") and self.parent.purpose == "reset":
                 if hasattr(self.parent.parent, "proceed_with_password_reset"):

@@ -319,9 +319,9 @@ class ArchiveManager(QMainWindow):
         layout.addLayout(search_layout)
        
         self.shelf_table = QTableWidget()
-        self.shelf_table.setColumnCount(4)  
+        self.shelf_table.setColumnCount(5)  
         self.shelf_table.setHorizontalHeaderLabels([
-           "Date Deleted", "Shelf ID", "Librarian ID", "Select"
+           "Date Deleted", "Shelf ID", "Shelf Name", "Librarian ID", "Select"
         ])
 
         header = self.shelf_table.horizontalHeader()
@@ -383,25 +383,11 @@ class ArchiveManager(QMainWindow):
     def load_archived_books(self):
         """Load archived books from database"""
         try:
-            #dito ilalagay yung db logic
             archived_books = self.db_seeder.archiveTable("Book", self.librarian_id or 1)
             book_authors = self.db_seeder.archiveTable("BookAuthor", self.librarian_id or 1)
             book_genres = self.db_seeder.archiveTable("Book_Genre", self.librarian_id or 1)
                     
-            self.books_table.setRowCount(len(archived_books))
-
-            for book in archived_books:
-                book_code = book.get('BookCode', '')
-
-                # Get all authors for this book
-                authors = [a.get('bookAuthor', '') for a in book_authors if a.get('BookCode') == book_code]
-                author_text = ', '.join(authors) if authors else 'Unknown Author'
-
-                # Get all genres for this book
-                genres = [g.get('Genre', '') for g in book_genres if g.get('BookCode') == book_code]
-                genre_text = ', '.join(genres) if genres else 'Unknown Genre'
-            
-            self.display_archived_books(archived_books, author_text, genre_text)
+            self.display_archived_books(archived_books, book_authors, book_genres)
         
         except Exception as e:
             print(f"Error loading archived books: {e}")
@@ -426,16 +412,26 @@ class ArchiveManager(QMainWindow):
         except Exception as e:
             print(f"Error loading archived shelves: {e}")
     
-    def display_archived_books(self, books, author_text, genre_text):
+    def display_archived_books(self, books, book_authors, book_genres):
         """Display archived books in the table"""
         from PySide6.QtWidgets import QCheckBox
         
         self.books_table.setRowCount(len(books))
         
         for row, book in enumerate(books):
+            book_code = book.get('BookCode', '')
+            
+            # Get all authors for this book
+            authors = [a.get('bookAuthor', '') for a in book_authors if a.get('BookCode') == book_code]
+            author_text = ', '.join(authors) if authors else 'Unknown Author'
+
+            # Get all genres for this book
+            genres = [g.get('Genre', '') for g in book_genres if g.get('BookCode') == book_code]
+            genre_text = ', '.join(genres) if genres else 'Unknown Genre'
+            
             # Book details columns
             self.books_table.setItem(row, 0, QTableWidgetItem(str(book.get('isDeleted', 'N/A'))))
-            self.books_table.setItem(row, 1, QTableWidgetItem(str(book.get('BookCode', 'N/A'))))
+            self.books_table.setItem(row, 1, QTableWidgetItem(str(book_code)))
             self.books_table.setItem(row, 2, QTableWidgetItem(book.get('BookTitle', 'N/A')))
             self.books_table.setItem(row, 3, QTableWidgetItem(author_text))
             self.books_table.setItem(row, 4, QTableWidgetItem(genre_text))
@@ -446,13 +442,10 @@ class ArchiveManager(QMainWindow):
             copies_item.setTextAlignment(Qt.AlignCenter)
             self.books_table.setItem(row, 6, copies_item)
             
-            # Create centered shelf item - note: BookShelf column might not exist in Book table
-            try:
-                shelf_text = book.get('BookShelf', 'N/A')
-                if shelf_text is None:
-                    shelf_text = 'N/A'
-            except:
-                shelf_text = 'N/A'
+            # Create centered shelf item - properly handle BookShelf column
+            shelf_text = book.get('BookShelf', 'No Shelf')
+            if shelf_text is None or shelf_text == '':
+                shelf_text = 'No Shelf'
             shelf_item = QTableWidgetItem(str(shelf_text))
             shelf_item.setTextAlignment(Qt.AlignCenter)
             self.books_table.setItem(row, 7, shelf_item)
@@ -566,10 +559,15 @@ class ArchiveManager(QMainWindow):
             id_item.setTextAlignment(Qt.AlignCenter)
             self.shelf_table.setItem(row, 1, id_item)
             
+            # Shelf Name
+            id_item = QTableWidgetItem(str(shelf.get('ShelfName', 'N/A')))
+            id_item.setTextAlignment(Qt.AlignCenter)
+            self.shelf_table.setItem(row, 2, id_item)
+            
             # Librarian ID 
             librarian_item = QTableWidgetItem(str(shelf.get('LibrarianID', 'N/A')))
             librarian_item.setTextAlignment(Qt.AlignCenter)
-            self.shelf_table.setItem(row, 2, librarian_item)
+            self.shelf_table.setItem(row, 3, librarian_item)
             
             # Checkbox for selection
             checkbox = QCheckBox()
@@ -604,84 +602,69 @@ class ArchiveManager(QMainWindow):
             checkbox_layout.setAlignment(Qt.AlignCenter)
             checkbox_layout.setContentsMargins(0, 0, 0, 0)
             
-            self.shelf_table.setCellWidget(row, 3, checkbox_widget)
+            self.shelf_table.setCellWidget(row, 4, checkbox_widget)
             self.shelf_table.setRowHeight(row, 40)
     
     def search_archived_books(self):
         """Search archived books based on input"""
-        search_text = self.books_search.text().lower()
+        search_text = self.books_search.text().strip()
         if not search_text:
             self.load_archived_books()
             return
             
-        # Perform search with the new fields
         try:
-            # FOR SEARCHING PUU
-            all_archived_books = []
+            # Use database search for archived books
+            print(f"🔍 Searching archived books for: '{search_text}'")
+            archived_books = self.db_seeder.search_archived_records("Book", search_text, self.librarian_id or 1)
             
-            # Filter based on search text including all relevant fields
-            filtered_books = [
-                book for book in all_archived_books
-                if search_text in book['book_code'].lower() or
-                   search_text in book['title'].lower() or 
-                   search_text in book['author'].lower() or
-                   search_text in book['genre'].lower() or
-                   search_text in book['isbn'].lower() or
-                   search_text in book['shelf'].lower() or
-                   search_text in book['description'].lower() or
-                   search_text in book['reason'].lower()
-            ]
+            # Also get authors and genres for the filtered books
+            book_authors = self.db_seeder.archiveTable("BookAuthor", self.librarian_id or 1)
+            book_genres = self.db_seeder.archiveTable("Book_Genre", self.librarian_id or 1)
             
-            self.display_archived_books(filtered_books)
+            self.display_archived_books(archived_books, book_authors, book_genres)
+            print(f"✓ Displayed {len(archived_books)} filtered archived books")
+            
         except Exception as e:
             print(f"Error searching archived books: {e}")
+            self.load_archived_books()  # Fallback to showing all
     
     def search_archived_members(self):
         """Search archived members based on input"""
-        search_text = self.members_search.text().lower()
+        search_text = self.members_search.text().strip()
         if not search_text:
             self.load_archived_members()
             return
             
         try:
-            # SEARCIHNG THE MEMBERS
-            all_archived_members = []
+            # Use database search for archived members
+            print(f"🔍 Searching archived members for: '{search_text}'")
+            archived_members = self.db_seeder.search_archived_records("Member", search_text, self.librarian_id or 1)
             
-            # Filter based on search text for all relevant fields
-            filtered_members = [
-                member for member in all_archived_members
-                if search_text in member['id'].lower() or
-                   search_text in member['first_name'].lower() or
-                   search_text in member['middle_name'].lower() or
-                   search_text in member['last_name'].lower() or
-                   search_text in member['contact'].lower() or
-                   search_text in member.get('reason', '').lower()
-            ]
+            self.display_archived_members(archived_members)
+            print(f"✓ Displayed {len(archived_members)} filtered archived members")
             
-            self.display_archived_members(filtered_members)
         except Exception as e:
             print(f"Error searching archived members: {e}")
+            self.load_archived_members()  # Fallback to showing all
     
-    #WORKING SA PYTHON LIST PERO MAIIBA LOGIC NITO FOR THE DATABASE IBALIK KO NALANG    
     def search_archived_shelves(self):
         """Search archived shelves based on input"""
-        search_text = self.shelf_search.text().lower()
+        search_text = self.shelf_search.text().strip()
         if not search_text:
             self.load_archived_shelves()
             return
             
-        # Get all archived shelves
-        all_archived_shelves = [ ]
-        
-        # Filter based on search text
-        filtered_shelves = [
-            shelf for shelf in all_archived_shelves
-            if search_text in shelf['id'].lower() or 
-               search_text in shelf['location'].lower() or
-               search_text in shelf['reason'].lower()
-        ]
-        
-        self.display_archived_shelves(filtered_shelves)
+        try:
+            # Use database search for archived shelves
+            print(f"🔍 Searching archived shelves for: '{search_text}'")
+            archived_shelves = self.db_seeder.search_archived_records("BookShelf", search_text, self.librarian_id or 1)
+            
+            self.display_archived_shelves(archived_shelves)
+            print(f"✓ Displayed {len(archived_shelves)} filtered archived shelves")
+            
+        except Exception as e:
+            print(f"Error searching archived shelves: {e}")
+            self.load_archived_shelves()  # Fallback to showing all
 
     def setup_table_style(self, table):
         """Apply styling to table widget"""
@@ -791,7 +774,7 @@ class ArchiveManager(QMainWindow):
                 self.load_archived_shelves()  # Reload the list
             else:
                 # Uncheck the checkbox if user cancelled
-                checkbox_widget = self.shelf_table.cellWidget(row, 3)
+                checkbox_widget = self.shelf_table.cellWidget(row, 4)
                 checkbox = checkbox_widget.findChild(QCheckBox)
                 checkbox.setChecked(False)
 

@@ -67,7 +67,8 @@ class DatabaseSeeder:
                     PRIMARY KEY (BookCode, Genre), 
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
             Shelf = """CREATE TABLE IF NOT EXISTS BookShelf(
-                    ShelfId VARCHAR(6) PRIMARY KEY NOT NULL,
+                    ShelfId INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    ShelfName VARCHAR(6) NOT NULL,
                     LibrarianID INTEGER,
                     isDeleted TIMESTAMP DEFAULT NULL,
                     FOREIGN KEY (LibrarianID) REFERENCES Librarian (LibrarianID))"""
@@ -93,6 +94,8 @@ class DatabaseSeeder:
                     BookCode INTEGER,
                     FOREIGN KEY (TransactionID) REFERENCES BookTransaction (TransactionID),
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
+        else:
+            return
        
     #check if the table exists in the database
     def check_table(self, tableName):
@@ -358,6 +361,35 @@ class DatabaseSeeder:
                 cursor.execute(query, (value, ))
                 conn.commit()
                 print(f"Transaction permanently deleted from {tableName} WHERE {column} = {value}")
+            elif tableName == "BookShelf": # for bookshelves, we delete the shelf
+                # First get the ShelfId for the given ShelfName
+                if column == "ShelfName":
+                    get_shelf_id_query = f"SELECT ShelfId FROM {tableName} WHERE {column} = ? AND LibrarianID = ?"
+                    cursor.execute(get_shelf_id_query, (value, librarian_id))
+                    shelf_result = cursor.fetchone()
+                    if shelf_result:
+                        shelf_id = shelf_result[0]
+                        # Mark shelf as deleted
+                        query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ? AND LibrarianID = ?"
+                        cursor.execute(query, (value, librarian_id)) 
+                        # Update books to set BookShelf = NULL for this ShelfId
+                        updateBook = "UPDATE Book SET BookShelf = NULL WHERE BookShelf = ? AND LibrarianID = ?"
+                        cursor.execute(updateBook, (shelf_id, librarian_id))
+                        conn.commit()
+                        print(f"✓ Deleted shelf from {tableName} where {column} = {value}")
+                        print(f"✓ Updated books to set BookShelf = NULL for ShelfId {shelf_id} and librarian {librarian_id}")
+                    else:
+                        print(f"✗ Shelf '{value}' not found for librarian {librarian_id}")
+                else:
+                    # If deleting by ShelfId directly
+                    query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ? AND LibrarianID = ?"
+                    cursor.execute(query, (value, librarian_id)) 
+                    updateBook = "UPDATE Book SET BookShelf = NULL WHERE BookShelf = ? AND LibrarianID = ?"
+                    cursor.execute(updateBook, (value, librarian_id))
+                    conn.commit()
+                    print(f"✓ Deleted shelf from {tableName} where {column} = {value}")
+                    print(f"✓ Updated books to set BookShelf = NULL for ShelfId {value} and librarian {librarian_id}")
+
             else: # for books and other tables
                 query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ?"
                 cursor.execute(query, (value,))
@@ -365,6 +397,7 @@ class DatabaseSeeder:
                 print(f"✓ Deleted from {tableName} where {column} = {value}")
         except Exception as e:
             print(f"✗ Error deleting from {tableName}: {e}")
+            conn.rollback()
             raise e  # Re-raise the exception so the UI can handle it
         finally:
             conn.close()
@@ -456,8 +489,21 @@ class DatabaseSeeder:
                     query = "SELECT * FROM Book WHERE BookShelf IS NULL AND isDeleted IS NULL AND LibrarianID = ?"
                     cursor.execute(query, (librarian_id,))
                 else:
-                    query = "SELECT * FROM Book WHERE BookShelf = ? AND isDeleted IS NULL AND LibrarianID = ?"
-                    cursor.execute(query, (filter, librarian_id))
+                    # Convert shelf name to ShelfId for filtering
+                    try:
+                        shelf_query = "SELECT ShelfId FROM BookShelf WHERE ShelfName = ? AND LibrarianID = ? AND isDeleted IS NULL"
+                        cursor.execute(shelf_query, (filter, librarian_id))
+                        shelf_result = cursor.fetchone()
+                        if shelf_result:
+                            shelf_id = shelf_result[0]
+                            query = "SELECT * FROM Book WHERE BookShelf = ? AND isDeleted IS NULL AND LibrarianID = ?"
+                            cursor.execute(query, (shelf_id, librarian_id))
+                        else:
+                            # Shelf not found, return empty result
+                            return []
+                    except Exception as e:
+                        print(f"Error finding ShelfId for shelf '{filter}': {e}")
+                        return []
 
             rows = cursor.fetchall()
             columns = [desc[0] for desc in cursor.description]
@@ -533,16 +579,21 @@ class DatabaseSeeder:
             if tableName == "Book":
                 query = "UPDATE Book SET isDeleted = NULL WHERE BookCode = ? and LibrarianID = ?"
                 cursor.execute(query, (PKColumn, Librarianid))
+                print(f"✓ Restored Book with BookCode {PKColumn}")
             elif tableName == "Member":
                 query = "UPDATE Member SET isDeleted = NULL WHERE MemberID = ? and LibrarianID = ?"
                 cursor.execute(query, (PKColumn, Librarianid))
-            else:
+                print(f"✓ Restored Member with MemberID {PKColumn}")
+            elif tableName == "BookShelf":
                 query = "UPDATE BookShelf SET isDeleted = NULL WHERE ShelfId = ? and LibrarianID = ?"
                 cursor.execute(query, (PKColumn, Librarianid))
+                print(f"✓ Restored BookShelf with ShelfId {PKColumn}")
             
             conn.commit()
+            return True
         except Exception as e:
             print(f"✗ Error restoring archive from {tableName}: {e}")
+            conn.rollback()
             return False
         finally:
             conn.close()
@@ -550,40 +601,25 @@ class DatabaseSeeder:
     def handleDuplication(self, tableName, librarianID, column, value):
         conn, cursor = self.get_connection_and_cursor()
         try:
-            query = f"SELECT {column} FROM {tableName} WHERE LibrarianID = ?"
+            query = f"SELECT {column} FROM {tableName} WHERE LibrarianID = ? AND isDeleted IS NULL"
             cursor.execute(query, (librarianID,))
             results = cursor.fetchall()
             
             # Check all results for the specific value
             for item in results:
-                if item[0] == value:
-                    print(f"Duplicate found in {tableName} for {column} = {value}")
-                    return True
+                db_value = item[0]
+                # Handle type mismatches - compare both as strings and as original types
+                if db_value == value or str(db_value) == str(value):
+                    print(f"Duplicate found in {tableName} for {column} = {value} (matched with {db_value})")
+                    return False  # Return False when duplicate is found (duplication handling failed)
             
             # If we've checked all items and found no duplicate
-            print(f"No duplicate found in {tableName} for {column} = {value}")
-            return False
+            print(f"No duplicate found in {tableName} for {column} = {value} - safe to proceed")
+            return True  # Return True when no duplicate is found (safe to proceed)
             
         except Exception as e:
             print(f"✗ Error checking duplication in {tableName}: {e}")
-            return False
-        finally:
-            conn.close()
-
-    def deleteShelf (self, shelf_id, librarian_id):
-        conn, cursor = self.get_connection_and_cursor()
-        try:
-            # Delete the shelf itself, not books on the shelf
-            query = "UPDATE BookShelf SET isDeleted = CURRENT_TIMESTAMP WHERE ShelfId = ? AND LibrarianID = ?"
-            cursor.execute(query, (shelf_id, librarian_id))
-            # If the shelf is deleted, update all books on that shelf to have no shelf assigned
-            updateBook = "UPDATE Book SET BookShelf = NULL WHERE BookShelf = ? AND LibrarianID = ?"
-            cursor.execute(updateBook, (shelf_id, librarian_id))
-
-            conn.commit()
-            print(f"✓ Deleted shelf from BookShelf where ShelfId = {shelf_id} and LibrarianID = {librarian_id}")
-        except Exception as e:
-            print(f"✗ Error deleting shelf: {e}")
+            return False  # Return False on error (assume duplication to be safe)
         finally:
             conn.close()
 
@@ -604,6 +640,65 @@ class DatabaseSeeder:
             result = cursor.execute(query, (id, ))
             count = result.fetchone()[0]
             return count if count is not None else 0
+
+    def search_archived_records(self, tableName, search_text, librarian_id):
+        """Search archived records based on search text"""
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            search_pattern = f"%{search_text}%"
+            
+            if tableName == "Book":
+                query = """
+                    SELECT * FROM Book 
+                    WHERE isDeleted IS NOT NULL 
+                    AND LibrarianID = ? 
+                    AND (
+                        BookTitle LIKE ? OR 
+                        ISBN LIKE ? OR 
+                        Publisher LIKE ? OR
+                        BookDescription LIKE ?
+                    )
+                    ORDER BY isDeleted DESC
+                """
+                cursor.execute(query, (librarian_id, search_pattern, search_pattern, search_pattern, search_pattern))
+                
+            elif tableName == "Member":
+                query = """
+                    SELECT * FROM Member 
+                    WHERE isDeleted IS NOT NULL 
+                    AND LibrarianID = ? 
+                    AND (
+                        MemberFN LIKE ? OR 
+                        MemberLN LIKE ? OR 
+                        MemberMI LIKE ? OR
+                        MemberContact LIKE ?
+                    )
+                    ORDER BY isDeleted DESC
+                """
+                cursor.execute(query, (librarian_id, search_pattern, search_pattern, search_pattern, search_pattern))
+                
+            elif tableName == "BookShelf":
+                query = """
+                    SELECT * FROM BookShelf 
+                    WHERE isDeleted IS NOT NULL 
+                    AND LibrarianID = ? 
+                    AND ShelfName LIKE ?
+                    ORDER BY isDeleted DESC
+                """
+                cursor.execute(query, (librarian_id, search_pattern))
+            
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            records = [dict(zip(columns, row)) for row in rows]
+            
+            print(f"✓ Found {len(records)} archived {tableName} records matching '{search_text}'")
+            return records
+            
+        except Exception as e:
+            print(f"✗ Error searching archived {tableName} records: {e}")
+            return []
+        finally:
+            conn.close()
 
 if __name__ == "__main__":
     seeder = DatabaseSeeder()

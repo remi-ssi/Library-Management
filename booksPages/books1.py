@@ -346,9 +346,9 @@ class BookEditView(QWidget):
         self.isbn_input.setReadOnly(True)
         self.isbn_input.setStyleSheet(self.get_readonly_input_style())
         
-        # Ensure copies is a string
-        copies = self.book_data.get('copies', 1)
-        self.copies_input = QLineEdit(str(copies))
+        # Ensure total_copies is a string  
+        total_copies = self.book_data.get('copies', 1)
+        self.copies_input = QLineEdit(str(total_copies))
         self.copies_input.setStyleSheet(self.get_editable_input_style())
         
         # Create shelf dropdown instead of text input
@@ -385,13 +385,13 @@ class BookEditView(QWidget):
             librarian_id = getattr(self.parent_window, 'librarian_id', 1)
             shelf_records = self.db_seeder.get_all_records("BookShelf", librarian_id)
             # Extract ShelfId values from records, skipping any missing or null ones
-            available_shelves = [record['ShelfId'] for record in shelf_records if record.get('ShelfId')] 
+            available_shelves = [record['ShelfName'] for record in shelf_records if record.get('ShelfName')] 
             
             # If no shelves exist for this librarian, create default shelf A1
             if not available_shelves:
                 print(f"📚 BookEditView - No shelves found, creating default shelf A1")
                 try:
-                    self.db_seeder.seed_data("BookShelf", [{"ShelfId": "A1", "LibrarianID": librarian_id}], ["ShelfId", "LibrarianID"])
+                    self.db_seeder.seed_data("BookShelf", [{"ShelfName": "A1", "LibrarianID": librarian_id}], ["ShelfName", "LibrarianID"])
                     available_shelves = ["A1"]
                     print(f"📚 BookEditView - Created default shelf A1")
                 except Exception as seed_error:
@@ -457,7 +457,7 @@ class BookEditView(QWidget):
         form_layout.addRow(self.create_label("Author:"), self.author_input)
         form_layout.addRow(self.create_label("Genre:"), self.genre_input)
         form_layout.addRow(self.create_label("ISBN:"), self.isbn_input)
-        form_layout.addRow(self.create_label("Available copy of books:"), self.copies_input)
+        form_layout.addRow(self.create_label("Total copy of books:"), self.copies_input)
         form_layout.addRow(self.create_label("Shelf No.:"), self.shelf_input)
         form_layout.addRow(self.create_label("Description:"), self.description_input)
         layout.addWidget(form_widget)
@@ -568,9 +568,9 @@ class BookEditView(QWidget):
         
         # Validate copies input
         copies_text = self.copies_input.text().strip()
-        if not copies_text.isdigit() or int(copies_text) < 1:
-            QMessageBox.warning(self, "Validation Error", "Copies must be a positive integer")
-            print(f"❌ Validation failed: Invalid copies value '{copies_text}'")
+        if not copies_text.isdigit() or int(copies_text) < 0:
+            QMessageBox.warning(self, "Validation Error", "Total copies must be a non-negative integer")
+            print(f"❌ Validation failed: Invalid total copies value '{copies_text}'")
             return
         
         # Validate shelf format
@@ -587,25 +587,60 @@ class BookEditView(QWidget):
             print(f"📝 Starting update process...")
             
             # Update book data in memory
-            old_copies = self.book_data.get('copies', 0) 
-            old_available = self.book_data.get('available_copies', 0) #
-            new_copies = int(copies_text)
+            old_total_copies = self.book_data.get('copies', 0)  
+            old_available = self.book_data.get('available_copies', 0)
+            new_total_copies = int(copies_text)  # User is setting total copies
             
-            # Calculate new available copies (maintain the difference)
-            copies_difference = new_copies - old_copies
-            new_available_copies = max(0, old_available + copies_difference)
+            # Keep available copies the same or adjust if total is lower
+            new_available_copies = old_available
+            if new_total_copies < old_available:
+                new_available_copies = new_total_copies  # Can't have more available than total
             
-            print(f"📊 Copies calculation:")
-            print(f"   Old: {old_copies} total, {old_available} available")
-            print(f"   New: {new_copies} total, {new_available_copies} available")
+            print(f"📊 Copies update:")
+            print(f"   Total copies: {old_total_copies} → {new_total_copies}")
+            print(f"   Available copies: {old_available} → {new_available_copies}")
+            if new_total_copies < old_available:
+                print(f"   ⚠️ Available copies adjusted down to match new total")
             
             # Get current description from UI
             new_description = self.description_input.toPlainText().strip()
             
+            # Convert shelf name to ShelfId for database storage
+            shelf_id = None
+            if shelf:
+                try:
+                    # Get librarian_id for shelf lookup
+                    librarian_id = getattr(self.parent_window, 'librarian_id', 1)
+                    shelf_records = self.db_seeder.get_all_records("BookShelf", librarian_id)
+                    
+                    # Find the shelf by name and get its ID
+                    for shelf_record in shelf_records:
+                        if shelf_record['ShelfName'] == shelf:
+                            shelf_id = shelf_record['ShelfId']
+                            break
+                    
+                    # If shelf doesn't exist, create it
+                    if shelf_id is None:
+                        print(f"📚 Creating new shelf: {shelf}")
+                        self.db_seeder.seed_data("BookShelf", [{"ShelfName": shelf, "LibrarianID": librarian_id}], ["ShelfName", "LibrarianID"])
+                        # Get the newly created shelf ID
+                        shelf_records = self.db_seeder.get_all_records("BookShelf", librarian_id)
+                        for shelf_record in shelf_records:
+                            if shelf_record['ShelfName'] == shelf:
+                                shelf_id = shelf_record['ShelfId']
+                                break
+                    
+                    print(f"📚 Shelf '{shelf}' has ID: {shelf_id}")
+                    
+                except Exception as shelf_error:
+                    print(f"⚠️ Error getting shelf ID: {shelf_error}")
+                    # Fallback: use the shelf name (but this might cause issues)
+                    shelf_id = shelf
+            
             # Update book data in memory
-            self.book_data['copies'] = new_copies
+            self.book_data['copies'] = new_total_copies  # Total copies changed by user
             self.book_data['available_copies'] = new_available_copies
-            self.book_data['shelf'] = shelf
+            self.book_data['shelf'] = shelf  # Keep shelf name for UI
             self.book_data['description'] = new_description
             
             # Update in database using tryDatabase.py update_table method
@@ -621,12 +656,13 @@ class BookEditView(QWidget):
             # Prepare updates for Book table
             book_updates = {
                 'BookDescription': new_description,
-                'BookShelf': shelf,
-                'BookTotalCopies': new_copies,
+                'BookShelf': shelf_id,  # Use ShelfId instead of shelf name
+                'BookTotalCopies': new_total_copies,  # Total copies updated by user
                 'BookAvailableCopies': new_available_copies
             }
             
             print(f"📋 Updates to apply: {book_updates}")
+            print(f"📋 Shelf name '{shelf}' converted to ShelfId: {shelf_id}")
             
             # Update the Book table
             print(f"🔄 Executing database update...")
@@ -663,7 +699,7 @@ class BookEditView(QWidget):
             # Show success message
             msg = QMessageBox()
             msg.setWindowTitle("Success")
-            msg.setText(f"Book '{self.book_data['title']}' has been updated successfully!\n\nUpdated fields:\n• Description: {new_description[:50]}{'...' if len(new_description) > 50 else ''}\n• Shelf: {shelf}\n• Total Copies: {new_copies}\n• Available Copies: {new_available_copies}")
+            msg.setText(f"Book '{self.book_data['title']}' has been updated successfully!\n\nUpdated fields:\n• Description: {new_description[:50]}{'...' if len(new_description) > 50 else ''}\n• Shelf: {shelf}\n• Total Copies: {new_total_copies}")
             msg.setIcon(QMessageBox.Information)
             msg.exec()
             
@@ -737,6 +773,7 @@ class AddBookDialog(QDialog):
         self.db_seeder = DatabaseSeeder()
         # Get librarian_id from parent (CollapsibleSidebar)
         self.librarian_id = getattr(parent, 'librarian_id', None) if parent else None
+        self.found_book_data = None  # Initialize to track API-found book data
         print(f"📚 AddBookDialog initialized with librarian_id: {self.librarian_id}")
         self.setWindowTitle("Add New Book")
         self.setFixedSize(500, 700)
@@ -1025,11 +1062,6 @@ class AddBookDialog(QDialog):
         if not title or not author or not isbn:
             QMessageBox.information(self, "Search Error", "Please fill all required fields: Title, Author, and ISBN")
             return
-        
-        # Check for duplicate book in database
-        if not self.db_seeder.handleDuplication(tableName="Book", librarianID= self.librarian_id, column="ISBN", value=isbn):
-            QMessageBox.information(self, "Duplicate Book", "This book already exists in the database.")
-            return
 
         # Validate ISBN 
         if isbn and not self.validate_isbn(isbn):
@@ -1106,6 +1138,17 @@ class AddBookDialog(QDialog):
 
     def open_manual_entry(self, title, author, isbn): #manual entry if no book is found
         print(f"📝 Opening manual entry with LibrarianID: {self.librarian_id}")
+        
+        # Check for duplicate book in database before opening manual entry
+        if not self.db_seeder.handleDuplication(tableName="Book", librarianID=self.librarian_id, column="ISBN", value=isbn):
+            QMessageBox.information(self, "Duplicate Book", "This book already exists in the database.")
+            return
+        
+        # Validate ISBN before opening manual entry
+        if isbn and not self.validate_isbn(isbn):
+            QMessageBox.warning(self, "Invalid ISBN", "The provided ISBN is invalid. Please correct the ISBN")
+            return
+        
         book_data = {
             'title': title,
             'author': author if author else "Unknown Author",
@@ -1170,128 +1213,23 @@ class AddBookDialog(QDialog):
         """)
         
         # Add close button
-        #screen_size = QApplication.primaryScreen().size()
-
         close_btn.setFixedSize(40, 40)
-
         dialog_width = details_dialog.width()
-        close_btn.move(dialog_width -0, 20)
-
+        close_btn.move(dialog_width - 60, 20)
         close_btn.raise_()
         close_btn.clicked.connect(details_dialog.reject)
         
         # Now execute the dialog to make it modal
         result = details_dialog.exec_()
         
-    
         if result == QDialog.Accepted:
-            standardized_book = {
-                'title': details_dialog.book_data['title'],
-                'author': details_dialog.book_data['author'],
-                'isbn': details_dialog.book_data['isbn'],
-                'publisher': details_dialog.book_data['publisher'], 
-                'genre': details_dialog.book_data['genre'],
-                'description': details_dialog.book_data['description'],
-                'shelf': details_dialog.book_data['shelf'],
-                'copies': details_dialog.book_data['copies'],
-                'image': details_dialog.book_data.get('image', ''),
-                'available_copies': details_dialog.book_data['available_copies']
-            }
+            # Book was successfully saved by BookDetailsDialog.save_book()
+            # Just update the UI display
+            print(f"✓ Book '{details_dialog.book_data['title']}' was saved successfully")
             
-            print(f"Adding book to book-data: {standardized_book}")
-            self.parent.books_data.append(standardized_book)
-            self.parent.refresh_books_display()
-            
-            # Save to database using the same logic as add_book method
-            # 1. Prepare data for Book table
-            book_data = {
-                'BookTitle': standardized_book['title'],
-                'Publisher': standardized_book.get('publisher', 'Unknown Publisher'),  
-                'BookDescription': standardized_book['description'],
-                'BookShelf': standardized_book['shelf'],  # Use BookShelf to match actual database
-                'ISBN': standardized_book['isbn'],
-                'BookTotalCopies': standardized_book['copies'],
-                'BookAvailableCopies': standardized_book['available_copies'],
-                'BookCover': standardized_book['image'],
-                'LibrarianID': self.librarian_id  # Use the actual logged-in librarian ID
-            }
-
-            # 2. Use seed_data to insert into Book table
-            book_columns = ['BookTitle', 'Publisher', 'BookDescription', 'BookShelf', 'ISBN', 
-                        'BookTotalCopies', 'BookAvailableCopies', 'BookCover', 'LibrarianID']
-            
-            try:
-                # Insert book using seed_data
-                print(f"📝 Saving manual entry book with LibrarianID: {self.librarian_id}")
-                self.db_seeder.seed_data(
-                    tableName="Book",
-                    data=[book_data],
-                    columnOrder=book_columns
-                )
-
-                # 3. Get the BookCode of the inserted book
-                # Query to find the book we just inserted
-                conn, cursor = self.db_seeder.get_connection_and_cursor()
-                try:
-                    cursor.execute("""
-                        SELECT BookCode FROM Book 
-                        WHERE BookTitle = ? AND ISBN = ? AND BookShelf = ?
-                        ORDER BY BookCode DESC LIMIT 1
-                    """, (standardized_book['title'], standardized_book['isbn'], standardized_book['shelf']))
-                    
-                    result = cursor.fetchone()
-                    if not result:
-                        print("❌ Error: Could not find the inserted book")
-                        return
-                    
-                    book_code = result[0]
-                    print(f"✓ Found BookCode: {book_code}")
-                finally:
-                    conn.close()
-
-                # 4. Use seed_data for BookAuthor - handle multiple authors
-                authors = standardized_book['author']
-                if isinstance(authors, str):
-                    authors = [authors]  # Convert string to list if needed
-                
-                author_data_list = []
-                for author in authors:
-                    author_data_list.append({
-                        'BookCode': book_code,
-                        'bookAuthor': author.strip()
-                    })
-                
-                if author_data_list:
-                    self.db_seeder.seed_data(
-                        tableName="BookAuthor",
-                        data=author_data_list,
-                        columnOrder=['BookCode', 'bookAuthor']
-                    )
-
-                # 5. Use seed_data for Book_Genre - handle multiple genres
-                genres = standardized_book['genre']
-                if isinstance(genres, str):
-                    genres = [genres]  # Convert string to list if needed
-                
-                genre_data_list = []
-                for genre in genres:
-                    genre_data_list.append({
-                        'BookCode': book_code,
-                        'Genre': genre.strip()
-                    })
-                
-                if genre_data_list:
-                    self.db_seeder.seed_data(
-                        tableName="Book_Genre",
-                        data=genre_data_list,
-                        columnOrder=['BookCode', 'Genre']
-                    )
-
-                print(f"✓ Manual entry book with {len(author_data_list)} authors and {len(genre_data_list)} genres saved successfully with BookCode: {book_code}")
-            except Exception as e:
-                print(f"❌ Error saving manual entry book to database: {e}")
-                import traceback
-                traceback.print_exc()
+            # Refresh the parent's books display
+            if hasattr(self.parent, 'refresh_books_display'):
+                self.parent.refresh_books_display()
             
             self.accept()
     def load_cover(self, image_url):
@@ -1346,6 +1284,7 @@ class AddBookDialog(QDialog):
             QMessageBox.warning(self, "Validation Error", "Invalid ISBN")
             return
 
+        # Check if this is an API-found book or manual entry
         book_data = self.found_book_data or {
             'title': title,
             'author': author if author else 'Unknown Author',
@@ -1364,7 +1303,7 @@ class AddBookDialog(QDialog):
         details_dialog = BookDetailsDialog(
             parent=self.parent,  
             book_data=book_data,
-            is_found_book=bool(self.found_book_data)
+            is_found_book=bool(self.found_book_data)  # True if API found the book, False if manual
         )
         
         # Configure window to be maximizable and fullscreen
@@ -1400,112 +1339,13 @@ class AddBookDialog(QDialog):
         
         # Continue with existing code for when dialog is accepted
         if result == QDialog.Accepted:
-            standardized_book = {
-                'title': details_dialog.book_data['title'],
-                'author': details_dialog.book_data['author'],
-                'isbn': details_dialog.book_data['isbn'],
-                'publisher': details_dialog.book_data['publisher'], 
-                'genre': details_dialog.book_data['genre'],
-                'description': details_dialog.book_data['description'],
-                'shelf': details_dialog.book_data['shelf'],
-                'copies': details_dialog.book_data['copies'],
-                'image': details_dialog.book_data.get('image', ''),
-                'available_copies': details_dialog.book_data['available_copies']
-            }
+            # Book was successfully saved by BookDetailsDialog.save_book()
+            # Just update the UI display
+            print(f"✓ Book '{details_dialog.book_data['title']}' was saved successfully")
             
-            print(f"Adding book to books_data: {standardized_book}")
-            self.parent.books_data.append(standardized_book)
-            self.parent.refresh_books_display()
-            
-            # 1. Prepare data for Book table
-            book_data = {
-                'BookTitle': standardized_book['title'],
-                'Publisher': standardized_book.get('publisher', 'Unknown Publisher'), 
-                'BookDescription': standardized_book['description'],
-                'BookShelf': standardized_book['shelf'],  # Use BookShelf to match database
-                'ISBN': standardized_book['isbn'],
-                'BookTotalCopies': standardized_book['copies'],
-                'BookAvailableCopies': standardized_book['available_copies'],
-                'BookCover': standardized_book['image'],
-                'LibrarianID': self.librarian_id  # Use the actual logged-in librarian ID
-            }
-
-            # 2. Use seed_data to insert into Book table
-            book_columns = ['BookTitle', 'Publisher','BookDescription', 'BookShelf', 'ISBN', 
-                        'BookTotalCopies', 'BookAvailableCopies', 'BookCover', 'LibrarianID']
-            
-            try:
-                # Insert book using seed_data
-                print(f"📚 Saving API book with LibrarianID: {self.librarian_id}")
-                self.db_seeder.seed_data(
-                    tableName="Book",
-                    data=[book_data],
-                    columnOrder=book_columns
-                )
-
-                # 3. Get the BookCode of the inserted book
-                # Query to find the book we just inserted
-                conn, cursor = self.db_seeder.get_connection_and_cursor()
-                try:
-                    cursor.execute("""
-                        SELECT BookCode FROM Book 
-                        WHERE BookTitle = ? AND ISBN = ? AND BookShelf = ?
-                        ORDER BY BookCode DESC LIMIT 1
-                    """, (standardized_book['title'], standardized_book['isbn'], standardized_book['shelf']))
-                    
-                    result = cursor.fetchone()
-                    if not result:
-                        print("❌ Error: Could not find the inserted book")
-                        return
-                    
-                    book_code = result[0]
-                    print(f"✓ Found BookCode: {book_code}")
-                finally:
-                    conn.close()
-
-                # 4. Use seed_data for BookAuthor - handle multiple authors
-                authors = standardized_book['author']
-                if isinstance(authors, str):
-                    authors = [authors]  # Convert string to list if needed
-                
-                author_data_list = []
-                for author in authors:
-                    author_data_list.append({
-                        'BookCode': book_code,
-                        'bookAuthor': author.strip()
-                    })
-                
-                if author_data_list:
-                    self.db_seeder.seed_data(
-                        tableName="BookAuthor",
-                        data=author_data_list,
-                        columnOrder=['BookCode', 'bookAuthor']
-                    )
-
-                # 5. Use seed_data for Book_Genre - handle multiple genres
-                genres = standardized_book['genre']
-                if isinstance(genres, str):
-                    genres = [genres]  # Convert string to list if needed
-                
-                genre_data_list = []
-                for genre in genres:
-                    genre_data_list.append({
-                        'BookCode': book_code,
-                        'Genre': genre.strip()
-                    })
-                
-                if genre_data_list:
-                    self.db_seeder.seed_data(
-                        tableName="Book_Genre",
-                        data=genre_data_list,
-                        columnOrder=['BookCode', 'Genre']
-                    )
-
-                print(f"✓ Book with {len(author_data_list)} authors and {len(genre_data_list)} genres saved successfully with BookCode: {book_code}")
-            except Exception as e:
-                print(f"❌ Error saving book to database: {e}")
-                import traceback
-                traceback.print_exc()
+            # Refresh the parent's books display
+            if hasattr(self.parent, 'refresh_books_display'):
+                self.parent.refresh_books_display()
 
 class BookDetailsDialog(QDialog):
     def __init__(self, parent=None, book_data=None, is_found_book=False):
@@ -1514,6 +1354,13 @@ class BookDetailsDialog(QDialog):
         self.book_data = book_data or {}
         self.is_found_book = is_found_book
         self.image_preview_size = QSize(180, 210)
+        
+        # Initialize database seeder and get librarian_id from parent
+        from tryDatabase import DatabaseSeeder
+        self.db_seeder = DatabaseSeeder()
+        self.librarian_id = getattr(parent, 'librarian_id', None) if parent else None
+        print(f"📚 BookDetailsDialog initialized with librarian_id: {self.librarian_id}")
+        
         self.setup_ui()
         self.populate_fields()
 
@@ -1863,7 +1710,7 @@ class BookDetailsDialog(QDialog):
             # Get librarian_id from parent
             librarian_id = getattr(self.parent, 'librarian_id', 1)
             shelf_records = db_seeder.get_all_records("BookShelf", librarian_id)
-            available_shelves = [record['ShelfId'] for record in shelf_records if record.get('ShelfId')]
+            available_shelves = [record['ShelfName'] for record in shelf_records if record.get('ShelfName')]
             
             print(f"📚 BookDetailsDialog - Available shelves from DB: {available_shelves}")
             
@@ -1871,7 +1718,7 @@ class BookDetailsDialog(QDialog):
             if not available_shelves:
                 print(f"📚 BookDetailsDialog - No shelves found, creating default shelf A1")
                 try:
-                    db_seeder.seed_data("BookShelf", [{"ShelfId": "A1", "LibrarianID": librarian_id}], ["ShelfId", "LibrarianID"])
+                    db_seeder.seed_data("BookShelf", [{"ShelfName": "A1", "LibrarianID": librarian_id}], ["ShelfName", "LibrarianID"])
                     available_shelves = ["A1"]
                     print(f"📚 BookDetailsDialog - Created default shelf A1")
                 except Exception as seed_error:
@@ -2005,9 +1852,27 @@ class BookDetailsDialog(QDialog):
                 background-color: #8B4513;
             }
         """)
-
+        
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)  # Close dialog without saving
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #CC4125;
+                color: white;
+                padding: 14px 20px;
+                border: none;
+                border-radius: 10px;
+                font-size: 16px;
+                font-weight: bold;
+                min-width: 150px;
+            }
+            QPushButton:hover {
+                background-color: #D2523C;
+            }
+        """)
 
         button_layout.addStretch(1)
+        button_layout.addWidget(cancel_btn)
         button_layout.addWidget(save_btn)
         button_layout.addStretch()
         
@@ -2247,12 +2112,116 @@ class BookDetailsDialog(QDialog):
                 'image_url': self.book_data.get('image_url', '')
             }
             
-            print(f"Saving book: {self.book_data}")
-            QMessageBox.information(self, "Success", f"Book '{self.book_data['title']}' has been added to the library")
+            print(f"📚 Saving book to database: {self.book_data}")
+            
+            # Get the ShelfId for the shelf name
+            shelf_id = None
+            if self.book_data['shelf']:
+                shelf_records = self.db_seeder.get_all_records("BookShelf", self.librarian_id)
+                for shelf_record in shelf_records:
+                    if shelf_record['ShelfName'] == self.book_data['shelf']:
+                        shelf_id = shelf_record['ShelfId']
+                        break
+                
+                # If shelf doesn't exist, create it
+                if shelf_id is None:
+                    print(f"📚 Creating new shelf: {self.book_data['shelf']}")
+                    self.db_seeder.seed_data("BookShelf", [{"ShelfName": self.book_data['shelf'], "LibrarianID": self.librarian_id}], ["ShelfName", "LibrarianID"])
+                    # Get the newly created shelf ID
+                    shelf_records = self.db_seeder.get_all_records("BookShelf", self.librarian_id)
+                    for shelf_record in shelf_records:
+                        if shelf_record['ShelfName'] == self.book_data['shelf']:
+                            shelf_id = shelf_record['ShelfId']
+                            break
+            
+            # Prepare data for Book table
+            book_data = {
+                'BookTitle': self.book_data['title'],
+                'Publisher': self.book_data['publisher'],
+                'BookDescription': self.book_data['description'],
+                'BookShelf': shelf_id,  # Use ShelfId instead of ShelfName
+                'ISBN': self.book_data['isbn'],
+                'BookTotalCopies': self.book_data['copies'],
+                'BookAvailableCopies': self.book_data['available_copies'],
+                'BookCover': self.book_data['image'],
+                'LibrarianID': self.librarian_id
+            }
+
+            # Insert book using seed_data
+            book_columns = ['BookTitle', 'Publisher', 'BookDescription', 'BookShelf', 'ISBN', 
+                        'BookTotalCopies', 'BookAvailableCopies', 'BookCover', 'LibrarianID']
+            
+            print(f"📚 Inserting book with LibrarianID: {self.librarian_id}")
+            self.db_seeder.seed_data(
+                tableName="Book",
+                data=[book_data],
+                columnOrder=book_columns
+            )
+
+            # Get the BookCode of the inserted book
+            conn, cursor = self.db_seeder.get_connection_and_cursor()
+            try:
+                cursor.execute("""
+                    SELECT BookCode FROM Book 
+                    WHERE BookTitle = ? AND ISBN = ? AND LibrarianID = ?
+                    ORDER BY BookCode DESC LIMIT 1
+                """, (self.book_data['title'], self.book_data['isbn'], self.librarian_id))
+                
+                result = cursor.fetchone()
+                if not result:
+                    print("❌ Error: Could not find the inserted book")
+                    QMessageBox.warning(self, "Error", "Could not save book to database")
+                    return
+                
+                book_code = result[0]
+                print(f"✓ Book saved with BookCode: {book_code}")
+            finally:
+                conn.close()
+
+            # Insert authors
+            author_data_list = []
+            for author in authors:
+                author_data_list.append({
+                    'BookCode': book_code,
+                    'bookAuthor': author.strip()
+                })
+            
+            if author_data_list:
+                self.db_seeder.seed_data(
+                    tableName="BookAuthor",
+                    data=author_data_list,
+                    columnOrder=['BookCode', 'bookAuthor']
+                )
+
+            # Insert genres
+            genre_data_list = []
+            for genre in genres:
+                genre_data_list.append({
+                    'BookCode': book_code,
+                    'Genre': genre.strip()
+                })
+            
+            if genre_data_list:
+                self.db_seeder.seed_data(
+                    tableName="Book_Genre",
+                    data=genre_data_list,
+                    columnOrder=['BookCode', 'Genre']
+                )
+
+            print(f"✓ Book '{self.book_data['title']}' saved successfully with {len(author_data_list)} authors and {len(genre_data_list)} genres")
+            
+            # Refresh the parent's books display if possible
+            if hasattr(self.parent, 'refresh_books_display'):
+                self.parent.refresh_books_display()
+            
+            QMessageBox.information(self, "Success", f"Book '{self.book_data['title']}' has been added to the library!")
             self.accept()
+            
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Unexpected Error: {e}")
-            print(f"Unexpected Error: {e}")
+            QMessageBox.warning(self, "Error", f"Error saving book to database: {e}")
+            print(f"❌ Error saving book to database: {e}")
+            import traceback
+            traceback.print_exc()
             
     def handle_genre_input(self, text):
         """Handle genre input changes"""
@@ -2455,6 +2424,24 @@ class CollapsibleSidebar(QWidget):
                     if not book_genres_list:
                         book_genres_list = ["Unknown Genre"]
                     
+                    # Find shelf name for the BookShelf ID
+                    shelf_name = ""
+                    book_shelf_id = book.get("BookShelf")
+                    if book_shelf_id:
+                        # Look up shelf name from BookShelf table
+                        # Handle both string and integer types for BookShelf ID
+                        try:
+                            book_shelf_id_int = int(book_shelf_id)
+                        except (ValueError, TypeError):
+                            book_shelf_id_int = None
+                            
+                        for shelf in book_shelf:
+                            shelf_id = shelf.get("ShelfId")
+                            # Compare as integers to handle type mismatches
+                            if shelf_id == book_shelf_id_int or str(shelf_id) == str(book_shelf_id):
+                                shelf_name = shelf.get("ShelfName", "")
+                                break
+                    
                     # Create book data dictionary
                     book_data = {
                         "book_code": book_code,
@@ -2464,7 +2451,7 @@ class CollapsibleSidebar(QWidget):
                         "isbn": book.get("ISBN", ""),
                         "publisher": book.get("Publisher", "Unknown Publisher"), 
                         "description": book.get("BookDescription", ""),
-                        "shelf": book.get("BookShelf", ""),  # Changed from BookShelf to BookShelf
+                        "shelf": shelf_name,  # Use shelf name for display
                         "copies": book.get("BookTotalCopies", 0),
                         "available_copies": book.get("BookAvailableCopies", 0),
                         "image": book.get("BookCover", "")
@@ -2668,7 +2655,7 @@ class CollapsibleSidebar(QWidget):
             bookshelf_records = self.db_seeder.get_all_records("BookShelf", self.librarian_id or 1)
 
             # Extract ShelfId values from each record
-            shelves_with_books = [row["ShelfId"] for row in bookshelf_records if "ShelfId" in row and row["ShelfId"]]
+            shelves_with_books = [row["ShelfName"] for row in bookshelf_records if "ShelfName" in row and row["ShelfName"]]
 
             sorted_shelves = sorted(set(shelves_with_books))
             print(f"✓ Found {len(sorted_shelves)} shelves for librarian {self.librarian_id}: {sorted_shelves}")
@@ -2845,7 +2832,7 @@ class CollapsibleSidebar(QWidget):
         )
         if confirm == QMessageBox.Yes:
             try:
-                self.db_seeder.deleteShelf(shelf_id=shelf, librarian_id=self.librarian_id or 1)
+                self.db_seeder.delete_table(tableName="BookShelf", column="ShelfName", value=shelf, librarian_id=self.librarian_id or 1)
                 QMessageBox.information(self, "Success", f"Shelf '{shelf}' deleted.")
                 self.current_shelf = None
                 self.delete_shelf_button.hide()
@@ -3184,9 +3171,9 @@ class CollapsibleSidebar(QWidget):
         
         try:
            # Check for duplicate book in database
-            exist = self.db_seeder.handleDuplication(tableName="BookShelf", librarianID= self.librarian_id, column="ShelfId", value=shelf_id)               
+            exist = self.db_seeder.handleDuplication(tableName="BookShelf", librarianID= self.librarian_id, column="ShelfName", value=shelf_id)               
             
-            if exist == True:
+            if exist == False:
                 msg = QMessageBox(dialog)
                 msg.setWindowTitle("Duplicate Shelf")
                 msg.setText(f"Shelf ID '{shelf_id}' already exists.")
@@ -3225,14 +3212,14 @@ class CollapsibleSidebar(QWidget):
             try:
                 self.db_seeder.seed_data(
                     tableName="BookShelf",
-                    data=[{"ShelfId": shelf_id, "LibrarianID": self.librarian_id or 1}], 
-                    columnOrder=["ShelfId", "LibrarianID"]
+                    data=[{"ShelfName": shelf_id, "LibrarianID": self.librarian_id or 1}], 
+                    columnOrder=["ShelfName", "LibrarianID"]
                 )
                 print(f"✅ Successfully saved shelf '{shelf_id}' to database")
                 
                 # Verify it was actually inserted
                 conn, cursor = self.db_seeder.get_connection_and_cursor()
-                cursor.execute("SELECT * FROM BookShelf WHERE ShelfId = ? AND LibrarianID = ?", 
+                cursor.execute("SELECT * FROM BookShelf WHERE ShelfName = ? AND LibrarianID = ?", 
                             (shelf_id, self.librarian_id or 1))
                 verification = cursor.fetchone()
                 conn.close()

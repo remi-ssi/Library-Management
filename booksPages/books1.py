@@ -1025,6 +1025,11 @@ class AddBookDialog(QDialog):
         if not title or not author or not isbn:
             QMessageBox.information(self, "Search Error", "Please fill all required fields: Title, Author, and ISBN")
             return
+        
+        # Check for duplicate book in database
+        if not self.db_seeder.handleDuplication(tableName="Book", librarianID= self.librarian_id, column="ISBN", value=isbn):
+            QMessageBox.information(self, "Duplicate Book", "This book already exists in the database.")
+            return
 
         # Validate ISBN 
         if isbn and not self.validate_isbn(isbn):
@@ -1175,7 +1180,6 @@ class AddBookDialog(QDialog):
         close_btn.raise_()
         close_btn.clicked.connect(details_dialog.reject)
         
-
         # Now execute the dialog to make it modal
         result = details_dialog.exec_()
         
@@ -2204,6 +2208,11 @@ class BookDetailsDialog(QDialog):
             QMessageBox.warning(self, "Validation Error", "Invalid ISBN")
             return
         
+        # Check for duplicate book in database
+        if not self.db_seeder.handleDuplication(tableName="Book", librarianID= self.librarian_id, column="ISBN", value=isbn):
+            QMessageBox.information(self, "Duplicate Book", "This book already exists in the database.")
+            return
+        
         shelf = self.shelf_edit.currentText().strip()
         if not re.match(r'^[A-Z][0-9]{1,5}$', shelf):
             QMessageBox.warning(self, "Validation Error", "Shelf number must be one letter (A-Z) followed by 1 to 5 digits. (e.g. A1, B12, C345)")
@@ -2245,7 +2254,6 @@ class BookDetailsDialog(QDialog):
             QMessageBox.warning(self, "Error", f"Unexpected Error: {e}")
             print(f"Unexpected Error: {e}")
             
-
     def handle_genre_input(self, text):
         """Handle genre input changes"""
         if not text.strip():
@@ -2671,7 +2679,7 @@ class CollapsibleSidebar(QWidget):
 
         # Add "All Books" option
         shelf_menu.addAction("All Books", lambda: self.display_shelf_books(None))
-        
+        shelf_menu.addAction("No Shelf", lambda: self.display_shelf_books("No Shelf"))
         # Add individual shelf options
         if sorted_shelves:
             shelf_menu.addSeparator()
@@ -2708,13 +2716,19 @@ class CollapsibleSidebar(QWidget):
                 
                 if not shelf_books:
                     self.books_data = []
-                    self.title_label.setText(f"Books on Shelf {shelf}")
+                    if shelf == "No Shelf":
+                        self.title_label.setText("Books without Shelf Assignment")
+                        message_text = "No books are currently unassigned to shelves.\n\nBooks without shelf assignments will appear here."
+                    else:
+                        self.title_label.setText(f"Books on Shelf {shelf}")
+                        message_text = f"Shelf '{shelf}' is empty.\n\nTo add books to this shelf, use the '➕ Add Book' option and assign them to shelf '{shelf}'."
+                    
                     self.populate_books()
                     
                     from PySide6.QtWidgets import QMessageBox
                     msg = QMessageBox(self)
                     msg.setWindowTitle("Shelf View")
-                    msg.setText(f"Shelf '{shelf}' is empty.\n\nTo add books to this shelf, use the '➕ Add Book' option and assign them to shelf '{shelf}'.")
+                    msg.setText(message_text)
                     msg.setIcon(QMessageBox.Information)
                     msg.setStyleSheet("""
                         QMessageBox {
@@ -2797,13 +2811,19 @@ class CollapsibleSidebar(QWidget):
                         print(f"Error processing shelf book {book}: {e}")
                         continue
                 
-                self.title_label.setText(f"Books on Shelf {shelf}")
+                if shelf == "No Shelf":
+                    self.title_label.setText("Books without Shelf Assignment")
+                else:
+                    self.title_label.setText(f"Books on Shelf {shelf}")
                 print(f"Successfully filtered {len(self.books_data)} books from shelf {shelf}")
                 
             except Exception as e:
                 print(f"Error filtering books by shelf: {e}")
                 self.books_data = []
-                self.title_label.setText(f"Books on Shelf {shelf}")
+                if shelf == "No Shelf":
+                    self.title_label.setText("Books without Shelf Assignment")
+                else:
+                    self.title_label.setText(f"Books on Shelf {shelf}")
         
         # Update display
         self.populate_books()
@@ -2825,8 +2845,7 @@ class CollapsibleSidebar(QWidget):
         )
         if confirm == QMessageBox.Yes:
             try:
-                #here insert db
-                self.db_seeder.delete_table(tableName="BookShelf", column="ShelfId", value=shelf, librarian_id=self.librarian_id or 1)
+                self.db_seeder.deleteShelf(shelf_id=shelf, librarian_id=self.librarian_id or 1)
                 QMessageBox.information(self, "Success", f"Shelf '{shelf}' deleted.")
                 self.current_shelf = None
                 self.delete_shelf_button.hide()
@@ -3128,8 +3147,7 @@ class CollapsibleSidebar(QWidget):
     def save_new_shelf(self, dialog, shelf_id):
         """Save a new bookshelf to the database"""
         shelf_id = shelf_id.strip()
-        print(f"🔧 save_new_shelf called with shelf_id: '{shelf_id}', LibrarianID: {self.librarian_id}")
-        
+                
         # Validate shelf ID format
         if not re.match(r'^[A-Z][0-9]{1,5}$', shelf_id):
             msg = QMessageBox(dialog)
@@ -3165,20 +3183,10 @@ class CollapsibleSidebar(QWidget):
             return
         
         try:
-            # Check if shelf already exists
-            conn, cursor = self.db_seeder.get_connection_and_cursor()
-            cursor.execute("SELECT * FROM BookShelf WHERE ShelfId = ? AND LibrarianID = ?", 
-                        (shelf_id, self.librarian_id or 1))
-            existing_shelf = cursor.fetchone()
+           # Check for duplicate book in database
+            exist = self.db_seeder.handleDuplication(tableName="BookShelf", librarianID= self.librarian_id, column="ShelfId", value=shelf_id)               
             
-            # Also check all existing shelves for this librarian
-            cursor.execute("SELECT * FROM BookShelf WHERE LibrarianID = ?", (self.librarian_id or 1,))
-            all_existing_shelves = cursor.fetchall()
-            print(f"🔍 Current shelves for LibrarianID {self.librarian_id}: {all_existing_shelves}")
-            
-            conn.close()
-            
-            if existing_shelf:
+            if exist == True:
                 msg = QMessageBox(dialog)
                 msg.setWindowTitle("Duplicate Shelf")
                 msg.setText(f"Shelf ID '{shelf_id}' already exists.")

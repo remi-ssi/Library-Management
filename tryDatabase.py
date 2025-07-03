@@ -353,21 +353,19 @@ class DatabaseSeeder:
     def delete_table(self, tableName, column, value, librarian_id=None):
         conn, cursor = self.get_connection_and_cursor()
         try:
-            if tableName == "BookShelf":
-                query = "UPDATE Book SET isDeleted = CURRENT_TIMESTAMP WHERE BookShelf = ? AND LibrarianID = ?"
-                cursor.execute(query, (value, librarian_id))
-            query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ?"
-            cursor.execute(query, (value,))
-            conn.commit()
-            print(f"✓ Deleted from {tableName} where {column} = {value}")
-
             if tableName == "BookTransaction": # hard deleting transaction records
                 query = f"DELETE FROM {tableName} WHERE {column} = ?"
                 cursor.execute(query, (value, ))
                 conn.commit()
                 print(f"Transaction permanently deleted from {tableName} WHERE {column} = {value}")
+            else: # for books and other tables
+                query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ?"
+                cursor.execute(query, (value,))
+                conn.commit()
+                print(f"✓ Deleted from {tableName} where {column} = {value}")
         except Exception as e:
             print(f"✗ Error deleting from {tableName}: {e}")
+            raise e  # Re-raise the exception so the UI can handle it
         finally:
             conn.close()
 
@@ -453,9 +451,13 @@ class DatabaseSeeder:
             elif filter == "leastCopies":  # sort by least copies
                 query = "SELECT * FROM Book WHERE isDeleted IS NULL AND LibrarianID = ? ORDER BY BookTotalCopies ASC"
                 cursor.execute(query, (librarian_id,))
-            else:  # assume filter is a shelf number
-                query = "SELECT * FROM Book WHERE BookShelf = ? AND isDeleted IS NULL AND LibrarianID = ?"
-                cursor.execute(query, (filter, librarian_id))
+            else:  # assume filter is a shelf number or "No Shelf"
+                if filter == "No Shelf":
+                    query = "SELECT * FROM Book WHERE BookShelf IS NULL AND isDeleted IS NULL AND LibrarianID = ?"
+                    cursor.execute(query, (librarian_id,))
+                else:
+                    query = "SELECT * FROM Book WHERE BookShelf = ? AND isDeleted IS NULL AND LibrarianID = ?"
+                    cursor.execute(query, (filter, librarian_id))
 
             rows = cursor.fetchall()
             columns = [desc[0] for desc in cursor.description]
@@ -542,6 +544,46 @@ class DatabaseSeeder:
         except Exception as e:
             print(f"✗ Error restoring archive from {tableName}: {e}")
             return False
+        finally:
+            conn.close()
+
+    def handleDuplication(self, tableName, librarianID, column, value):
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            query = f"SELECT {column} FROM {tableName} WHERE LibrarianID = ?"
+            cursor.execute(query, (librarianID,))
+            results = cursor.fetchall()
+            
+            # Check all results for the specific value
+            for item in results:
+                if item[0] == value:
+                    print(f"Duplicate found in {tableName} for {column} = {value}")
+                    return True
+            
+            # If we've checked all items and found no duplicate
+            print(f"No duplicate found in {tableName} for {column} = {value}")
+            return False
+            
+        except Exception as e:
+            print(f"✗ Error checking duplication in {tableName}: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def deleteShelf (self, shelf_id, librarian_id):
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            # Delete the shelf itself, not books on the shelf
+            query = "UPDATE BookShelf SET isDeleted = CURRENT_TIMESTAMP WHERE ShelfId = ? AND LibrarianID = ?"
+            cursor.execute(query, (shelf_id, librarian_id))
+            # If the shelf is deleted, update all books on that shelf to have no shelf assigned
+            updateBook = "UPDATE Book SET BookShelf = NULL WHERE BookShelf = ? AND LibrarianID = ?"
+            cursor.execute(updateBook, (shelf_id, librarian_id))
+
+            conn.commit()
+            print(f"✓ Deleted shelf from BookShelf where ShelfId = {shelf_id} and LibrarianID = {librarian_id}")
+        except Exception as e:
+            print(f"✗ Error deleting shelf: {e}")
         finally:
             conn.close()
 

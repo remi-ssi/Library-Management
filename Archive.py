@@ -683,7 +683,6 @@ class ArchiveManager(QMainWindow):
         
         self.display_archived_shelves(filtered_shelves)
 
-
     def setup_table_style(self, table):
         """Apply styling to table widget"""
         table.setStyleSheet("""
@@ -717,6 +716,7 @@ class ArchiveManager(QMainWindow):
                 border-right: none;
             }
         """)
+    
     def on_book_checkbox_toggled(self, checked, row):
         """Handle book checkbox toggle"""
         if checked:
@@ -734,7 +734,7 @@ class ArchiveManager(QMainWindow):
             )
             
             if confirm == QMessageBox.Yes:
-                # DB LOGIC HERE PU
+                self.db_seeder.restoreArchive("Book", book_code, self.librarian_id or 1)
                 QMessageBox.information(self, "Success", f"Book '{book_title}' restored successfully.")
                 self.load_archived_books()  # Reload the list
             else:
@@ -761,7 +761,7 @@ class ArchiveManager(QMainWindow):
             )
             
             if confirm == QMessageBox.Yes:
-                #  DB LOGIC HERE PU
+                self.db_seeder.restoreArchive("Member", member_id, self.librarian_id or 1)
                 QMessageBox.information(self, "Success", f"Member '{first_name} {last_name}' restored successfully.")
                 self.load_archived_members()  # Reload the list
             else:
@@ -786,7 +786,7 @@ class ArchiveManager(QMainWindow):
             )
             
             if confirm == QMessageBox.Yes:
-                # DB LOGIC HERE
+                self.db_seeder.restoreArchive("BookShelf", shelf_id, self.librarian_id or 1)
                 QMessageBox.information(self, "Success", f"Shelf '{shelf_id}' restored successfully.")
                 self.load_archived_shelves()  # Reload the list
             else:

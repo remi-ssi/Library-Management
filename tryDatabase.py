@@ -362,7 +362,7 @@ class DatabaseSeeder:
                 #restore book quantities
                 for book_code, quantity in details:
                     cursor.execute("UPDATE Book SET BookAvailableCopies = BookAvailableCopies + ? WHERE BookCode = ?", (quantity, book_code))
-                #delete related TransactionDetails 
+                #delete related TransactionDetailss
                 cursor.execute("DELETE FROM TransactionDetails WHERE TransactionID = ? ", (value,))
                 #delete the BookTransaction record
                 cursor.execute(f"DELETE FROM BookTransaction WHERE {column} = ?", (value,))

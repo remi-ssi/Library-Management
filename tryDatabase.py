@@ -76,7 +76,6 @@ class DatabaseSeeder:
         elif tableName == "BookTransaction":
             return """CREATE TABLE IF NOT EXISTS BookTransaction(
                     TransactionID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                    TransactionType VARCHAR(20) NOT NULL,
                     BorrowedDate TIMESTAMP NOT NULL,
                     ReturnedDate TIMESTAMP DEFAULT NULL,
                     Status VARCHAR(20) NOT NULL,
@@ -92,7 +91,7 @@ class DatabaseSeeder:
                     DueDate TIMESTAMP NOT NULL,
                     TransactionID INTEGER,
                     BookCode INTEGER,
-                    FOREIGN KEY (TransactionID) REFERENCES BookTransaction (TransactionID) ON DELETE CASCADE,
+                    FOREIGN KEY (TransactionID) REFERENCES BookTransaction (TransactionID),
                     FOREIGN KEY (BookCode) REFERENCES Book (BookCode))"""
        
     #check if the table exists in the database
@@ -182,7 +181,7 @@ class DatabaseSeeder:
         try:
             conn, cursor = self.get_connection_and_cursor()
             query = """
-                SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
+                SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                        m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                        b.BookCode, b.BookTitle, td.Quantity, td.DueDate
                 FROM BookTransaction t
@@ -210,7 +209,7 @@ class DatabaseSeeder:
         try:
             conn, cursor = self.get_connection_and_cursor()
             query = """
-                SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
+                SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                     b.BookCode, b.BookTitle, td.Quantity, td.DueDate
                 FROM BookTransaction t
@@ -243,7 +242,7 @@ class DatabaseSeeder:
         try:
             conn, cursor = self.get_connection_and_cursor()
             query = """
-                SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate t.Remarks,
+                SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                     b.BookCode, b.BookTitle, td.Quantity, td.DueDate
                 FROM BookTransaction t
@@ -261,8 +260,7 @@ class DatabaseSeeder:
             records = [dict(zip(columns, row)) for row in rows]
             # --- Add this mapping ---
             for rec in records:
-                rec['action'] = rec.get('TransactionType', '')
-                rec['transaction_type'] = rec.get('TransactionType', '')
+                rec['action'] = rec.get('Status', '')
                 rec['date'] = rec.get('BorrowedDate', '')
                 rec['remarks'] = rec.get('remarks', '')
                 rec['returned_date'] = rec.get('ReturnedDate', '') 
@@ -353,14 +351,24 @@ class DatabaseSeeder:
 
     #delete a record/row in a specific table
     def delete_table(self, tableName, column, value, librarian_id=None):
-        conn, cursor = self.get_connection_and_cursor()
         try:
+            conn, cursor = self.get_connection_and_cursor()
+            cursor = conn.cursor()
+
             if tableName == "BookTransaction": # hard deleting transaction records
-                query = f"DELETE FROM {tableName} WHERE {column} = ?"
-                query = f"DELETE FRO"
-                cursor.execute(query, (value, ))
+                #get transactiondetails to restore book quantities
+                cursor.execute("SELECT BookCode, Quantity FROM TransactionDetails WHERE TransactionID = ?", (value, ))
+                details = cursor.fetchall()
+                #restore book quantities
+                for book_code, quantity in details:
+                    cursor.execute("UPDATE Book SET BookAvailableCopies = BookAvailableCopies + ? WHERE BookCode = ?", (quantity, book_code))
+                #delete related TransactionDetails 
+                cursor.execute("DELETE FROM TransactionDetails WHERE TransactionID = ? ", (value,))
+                #delete the BookTransaction record
+                cursor.execute(f"DELETE FROM BookTransaction WHERE {column} = ?", (value,))
                 conn.commit()
-                print(f"Transaction permanently deleted from {tableName} WHERE {column} = {value}")
+                print(f"Successfully deleted from {tableName} and TransactionDetails WHERE {column} ={value}")
+                return True
             else: # for books and other tables
                 query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ?"
                 cursor.execute(query, (value,))
@@ -592,6 +600,7 @@ class DatabaseSeeder:
 
     def dashboardCount (self, tableName, id):
         conn, cursor = self.get_connection_and_cursor()
+        
         if tableName == "Book": 
             query = "SELECT SUM(BookTotalCopies) FROM Book WHERE isDeleted is NULL AND LibrarianID = ?"
             result = cursor.execute(query, (id, ))

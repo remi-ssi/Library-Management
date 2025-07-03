@@ -123,27 +123,42 @@ class LibraryDashboard(QMainWindow):
             borrow_manager = BorrowBooks()
             transactions = borrow_manager.fetch_transaction(self.librarian_id) or []
             
+            today = datetime.now().date()
             transactions_dict = {}
+            
             for trans in transactions:
                 if trans.get('action') != 'Borrowed':
                     continue
+                    
                 trans_id = trans.get('id')
+                due_date_str = trans.get('due_date', '')
+                
+                try:
+                    # Calculate days left properly
+                    due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date() if due_date_str else None
+                    days_left = (due_date - today).days if due_date else 0
+                except (ValueError, TypeError) as e:
+                    print(f"Error parsing due date for transaction {trans_id}: {e}")
+                    days_left = 0
+                    
                 if trans_id not in transactions_dict:
                     transactions_dict[trans_id] = {
                         'id': trans_id,
                         'borrower': trans.get('borrower', 'N/A'),
                         'borrowed_date': trans.get('date', 'N/A'),
-                        'due_date': trans.get('due_date', 'N/A'),
-                        'days_left': trans.get('days_left', 0),  # Fetch from database
-                        'status': 'Overdue' if trans.get('days_left', 0) < 0 else 'Borrowed',
+                        'due_date': due_date_str,
+                        'days_left': days_left,  # Store calculated days left
+                        'status': 'Borrowed',  # Default status
                         'books': [],
                         'quantity': 0
                     }
+                    
                 transactions_dict[trans_id]['books'].append({
                     'title': trans.get('book_title', 'N/A'),
                     'quantity': trans.get('quantity', 1)
                 })
                 transactions_dict[trans_id]['quantity'] += trans.get('quantity', 1)
+                
             return list(transactions_dict.values())
         except Exception as e:
             QMessageBox.warning(self, "Fetch Error", f"Failed to fetch transactions: {str(e)}")
@@ -278,16 +293,17 @@ class LibraryDashboard(QMainWindow):
         
         for book in self.borrowed_books:
             try:
-                # Use days_left from database instead of calculating
-                days_left = int(book.get('days_left', 0))  # Ensure integer
-                active_books.append({
-                    **book,
-                    'days_left': days_left,
-                    'status': 'Overdue' if days_left < 0 else 'Borrowed'
-                })
+                days_left = book.get('days_left', 0)
+                # Only include books due within 7 days or overdue
+                if days_left <= 7:
+                    active_books.append({
+                        **book,
+                        'status': 'Overdue' if days_left < 0 else 'Borrowed'  # Only < 0 is overdue
+                    })
             except (ValueError, KeyError) as e:
-                print(f"Error processing transaction {book.get('id', 'unknown')}: {str(e)}")
-                continue    
+                print(f"Error processing book {book.get('id')}: {e}")
+                continue
+        
         return active_books
 
     def populate_due_books_table(self):
@@ -313,7 +329,7 @@ class LibraryDashboard(QMainWindow):
             due_item.setTextAlignment(Qt.AlignCenter)
             
             days_left = book.get('days_left', 0)
-            if days_left < 0:
+            if days_left < 0:  # Only < 0 is overdue
                 due_item.setBackground(QColor("#fee2e2"))
                 due_item.setForeground(QColor("#dc2626"))
             elif days_left <= 3:
@@ -321,10 +337,9 @@ class LibraryDashboard(QMainWindow):
                 due_item.setForeground(QColor("#d97706"))
             self.due_books_table.setItem(row, 3, due_item)
             
-            days_text = str(abs(days_left)) if days_left < 0 else str(days_left)
-            if days_left < 0:
-                days_text = f"Overdue ({days_text})"
-                
+            # Show "Overdue" only when days_left < 0
+            days_text = "Overdue" if days_left < 0 else str(days_left)
+            
             days_item = QTableWidgetItem(days_text)
             days_item.setTextAlignment(Qt.AlignCenter)
             if days_left < 0:

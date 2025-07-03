@@ -43,7 +43,6 @@ class BorrowBooks:
                         "book_title": book_dict.get(detail["BookCode"], "Unknown Book"),
                         "borrower": member_dict.get(trans["MemberID"], "Unknown Member"),
                         "action": trans["Status"], #either borrowed or returned
-                        "transaction_type": trans["TransactionType"],
                         "date": trans["BorrowedDate"], #borrowed date
                         #calculate due date (14 days before due)
                         "due_date": detail.get("DueDate", ""),
@@ -80,7 +79,6 @@ class BorrowBooks:
                         "book_title": book_dict.get(detail["BookCode"], "Unknown Book"),
                         "borrower": member_dict.get(trans["MemberID"], "Unknown Member"),
                         "action": trans["Status"],
-                        "transaction_type": trans["TransactionType"],
                         "date": trans["BorrowedDate"],
                         "due_date": detail.get("DueDate", ""),
                         "returned_date": trans.get("ReturnedDate", ""),
@@ -182,7 +180,6 @@ class BorrowBooks:
             
             # create transaction 
             transaction_data = [{
-                "TransactionType": "Borrow",
                 "BorrowedDate": borrow_date,
                 "Status": status, 
                 "ReturnedDate": None, #initially not returned
@@ -192,7 +189,7 @@ class BorrowBooks:
             }]
             
             transaction_columns = [
-                "TransactionType", "BorrowedDate", "Status", "ReturnedDate", "Remarks", "LibrarianID", "MemberID"
+                "BorrowedDate", "Status", "ReturnedDate", "Remarks", "LibrarianID", "MemberID"
             ]
             #insert transaction
             self.db_seeder.seed_data(

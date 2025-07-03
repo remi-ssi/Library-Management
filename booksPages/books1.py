@@ -2372,6 +2372,7 @@ class CollapsibleSidebar(QWidget):
         self.content_layout.addWidget(self.main_books_view)
         
         self.current_shelf = None
+        self.current_shelf_id = None
         # Keep track of current view
         self.current_view = "books"
         self.sidebar = NavigationSidebar()
@@ -2661,30 +2662,32 @@ class CollapsibleSidebar(QWidget):
         """)
         
         # Get available shelves from database - include both shelves with books and empty shelves
-        sorted_shelves = []  # Initialize empty list in case of error
+        shelf_records = []  # Initialize empty list in case of error
         try:
             bookshelf_records = self.db_seeder.get_all_records("BookShelf", self.librarian_id or 1)
 
-            # Extract ShelfId values from each record
-            shelves_with_books = [row["ShelfName"] for row in bookshelf_records if "ShelfName" in row and row["ShelfName"]]
+            # Create shelf records with both ShelfId and ShelfName
+            shelf_records = [(row["ShelfId"], row["ShelfName"]) for row in bookshelf_records 
+                           if "ShelfName" in row and row["ShelfName"] and "ShelfId" in row]
 
-            sorted_shelves = sorted(set(shelves_with_books))
-            print(f"✓ Found {len(sorted_shelves)} shelves for librarian {self.librarian_id}: {sorted_shelves}")
+            # Sort by ShelfName for display
+            shelf_records = sorted(shelf_records, key=lambda x: x[1])
+            print(f"✓ Found {len(shelf_records)} shelves for librarian {self.librarian_id}: {[name for _, name in shelf_records]}")
 
         except Exception as e:
             print(f"✗ Error fetching or sorting shelves: {e}")
-            sorted_shelves = []  # Ensure we have an empty list on error
+            shelf_records = []  # Ensure we have an empty list on error
 
         # Add "All Books" option
-        shelf_menu.addAction("All Books", lambda: self.display_shelf_books(None))
-        shelf_menu.addAction("No Shelf", lambda: self.display_shelf_books("No Shelf"))
+        shelf_menu.addAction("All Books", lambda: self.display_shelf_books(None, None))
+        shelf_menu.addAction("No Shelf", lambda: self.display_shelf_books("No Shelf", None))
         # Add individual shelf options
-        if sorted_shelves:
+        if shelf_records:
             shelf_menu.addSeparator()
             
-            for shelf in sorted_shelves:
-                shelf_menu.addAction(f"Shelf {shelf}", lambda s=shelf: self.display_shelf_books(s))
-            print(f"✓ Added {len(sorted_shelves)} shelves to menu")
+            for shelf_id, shelf_name in shelf_records:
+                shelf_menu.addAction(f"Shelf {shelf_name}", lambda sid=shelf_id, sname=shelf_name: self.display_shelf_books(sname, sid))
+            print(f"✓ Added {len(shelf_records)} shelves to menu")
         else:
             # If no shelves are found
             no_shelves_action = shelf_menu.addAction("No shelves found")
@@ -2694,16 +2697,18 @@ class CollapsibleSidebar(QWidget):
         # Show menu at button position
         shelf_menu.exec(self.shelf_button.mapToGlobal(self.shelf_button.rect().bottomLeft()))
         
-    def display_shelf_books(self, shelf=None):
+    def display_shelf_books(self, shelf=None, shelf_id=None):
         """Display books for a specific shelf or all books if shelf is None"""
         if shelf is None:
             # Show all books - reload from database
             self.current_shelf = None
+            self.current_shelf_id = None
             self.delete_shelf_button.hide()
             self.load_books_from_database()
             self.title_label.setText("Books Management")
         else:
             self.current_shelf = shelf
+            self.current_shelf_id = shelf_id
             self.delete_shelf_button.show()
             # Filter books by shelf using database
             try:
@@ -2831,7 +2836,10 @@ class CollapsibleSidebar(QWidget):
         from PySide6.QtWidgets import QMessageBox
 
         shelf = self.current_shelf
-        if not shelf:
+        shelf_id = self.current_shelf_id
+        
+        if not shelf or not shelf_id:
+            QMessageBox.warning(self, "Error", "No shelf selected for deletion.")
             return
 
         confirm = QMessageBox.question(
@@ -2843,9 +2851,11 @@ class CollapsibleSidebar(QWidget):
         )
         if confirm == QMessageBox.Yes:
             try:
-                self.db_seeder.delete_table(tableName="BookShelf", column="ShelfName", value=shelf, librarian_id=self.librarian_id or 1)
+                # Use ShelfId for deletion
+                self.db_seeder.delete_table(tableName="BookShelf", column="ShelfId", value=shelf_id, librarian_id=self.librarian_id or 1)
                 QMessageBox.information(self, "Success", f"Shelf '{shelf}' deleted.")
                 self.current_shelf = None
+                self.current_shelf_id = None
                 self.delete_shelf_button.hide()
                 self.load_books_from_database()
                 self.title_label.setText("Books Management")

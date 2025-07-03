@@ -353,40 +353,27 @@ class DatabaseSeeder:
                 conn.commit()
                 print(f"Successfully deleted from {tableName} and TransactionDetails WHERE {column} ={value}")
                 return True
-            elif tableName == "BookShelf": # for bookshelves, we delete the shelf
-                # First get the ShelfId for the given ShelfName
-                if column == "ShelfName":
-                    get_shelf_id_query = f"SELECT ShelfId FROM {tableName} WHERE {column} = ? AND LibrarianID = ?"
-                    cursor.execute(get_shelf_id_query, (value, librarian_id))
-                    shelf_result = cursor.fetchone()
-                    if shelf_result:
-                        shelf_id = shelf_result[0]
-                        # Mark shelf as deleted
-                        query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ? AND LibrarianID = ?"
-                        cursor.execute(query, (value, librarian_id)) 
-                        # Update books to set BookShelf = NULL for this ShelfId
-                        updateBook = "UPDATE Book SET BookShelf = NULL WHERE BookShelf = ? AND LibrarianID = ?"
-                        cursor.execute(updateBook, (shelf_id, librarian_id))
-                        conn.commit()
-                        print(f"✓ Deleted shelf from {tableName} where {column} = {value}")
-                        print(f"✓ Updated books to set BookShelf = NULL for ShelfId {shelf_id} and librarian {librarian_id}")
-                    else:
-                        print(f"✗ Shelf '{value}' not found for librarian {librarian_id}")
-                else:
-                    # If deleting by ShelfId directly
-                    query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ? AND LibrarianID = ?"
-                    cursor.execute(query, (value, librarian_id)) 
-                    updateBook = "UPDATE Book SET BookShelf = NULL WHERE BookShelf = ? AND LibrarianID = ?"
-                    cursor.execute(updateBook, (value, librarian_id))
-                    conn.commit()
-                    print(f"✓ Deleted shelf from {tableName} where {column} = {value}")
-                    print(f"✓ Updated books to set BookShelf = NULL for ShelfId {value} and librarian {librarian_id}")
-
+            
+            elif tableName == "BookShelf": # for bookshelves, we soft delete the shelf
+                # Soft delete the shelf using ShelfId
+                query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ? AND LibrarianID = ?"
+                cursor.execute(query, (value, librarian_id)) 
+                
+                # Update books to remove shelf reference using ShelfId
+                updateBook = "UPDATE Book SET BookShelf = NULL WHERE BookShelf = ? AND LibrarianID = ?"
+                cursor.execute(updateBook, (value, librarian_id))
+                
+                conn.commit()
+                print(f"✓ Soft deleted shelf from {tableName} where {column} = {value}")
+                print(f"✓ Updated books to set BookShelf = NULL for ShelfId {value} and librarian {librarian_id}")
+                return True
+            
             else: # for books and other tables
                 query = f"UPDATE {tableName} SET isDeleted = CURRENT_TIMESTAMP WHERE {column} = ?"
                 cursor.execute(query, (value,))
                 conn.commit()
                 print(f"✓ Deleted from {tableName} where {column} = {value}")
+
         except Exception as e:
             print(f"✗ Error deleting from {tableName}: {e}")
             conn.rollback()
@@ -524,6 +511,7 @@ class DatabaseSeeder:
 
 
      #Ito inadd ko rems hehe 
+    
     def verify_current_password(self, email, current_password):
         import sqlite3
         import bcrypt
@@ -607,7 +595,7 @@ class DatabaseSeeder:
     def handleDuplication(self, tableName, librarianID, column, value):
         conn, cursor = self.get_connection_and_cursor()
         try:
-            query = f"SELECT {column} FROM {tableName} WHERE LibrarianID = ? AND isDeleted IS NULL"
+            query = f"SELECT {column} FROM {tableName} WHERE LibrarianID = ?"
             cursor.execute(query, (librarianID,))
             results = cursor.fetchall()
             

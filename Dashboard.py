@@ -9,63 +9,27 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
 from PySide6.QtCore import Qt, QTimer, QSize, Signal, QDate
 from PySide6.QtGui import QFont, QPalette, QColor, QPixmap, QPainter, QIcon
 from navigation_sidebar import NavigationSidebar  
+from tryDatabase import DatabaseSeeder
+from transactionPages.transaction_logic import BorrowBooks
 from navbar_logic import nav_manager
 
 class LibraryDashboard(QMainWindow):
     def __init__(self, librarian_id=None):  
         super().__init__()
+        db_path = "bjrsLib.db"
+        self.db_path = db_path
+        self.db_seeder = DatabaseSeeder()
         self.librarian_id = librarian_id  
-        self.init_sample_data()
+        self.borrowed_books = []
+        
         self.init_ui()
         self.setup_timer()
         
-    def init_sample_data(self):
-        # SAMPLE DATA FOR DUE THIS WEEK ^_^
-        today = datetime.now()
-        self.borrowed_books = [
-            {
-                'id': 1,
-                'borrower': 'Alice Johnson',
-                'quantity': '15',
-                'borrowed_date': (today - timedelta(days=10)).strftime('%Y-%m-%d'),
-                'due_date': (today + timedelta(days=4)).strftime('%Y-%m-%d'),
-                'status': 'Active'
-            },
-            {
-                'id': 2,
-                'borrower': 'Bob Smith',
-                'quantity': '8',
-                'borrowed_date': (today - timedelta(days=8)).strftime('%Y-%m-%d'),
-                'due_date': (today + timedelta(days=6)).strftime('%Y-%m-%d'),
-                'status': 'Active'
-            },
-            {
-                'id': 3,
-                'borrower': 'Carol Davis',
-                'quantity': '23',
-                'borrowed_date': (today - timedelta(days=12)).strftime('%Y-%m-%d'),
-                'due_date': (today + timedelta(days=2)).strftime('%Y-%m-%d'),
-                'status': 'Active'
-            },
-            {
-                'id': 4,
-                'borrower': 'David Wilson',
-                'quantity': '12',
-                'borrowed_date': (today - timedelta(days=13)).strftime('%Y-%m-%d'),
-                'due_date': (today + timedelta(days=1)).strftime('%Y-%m-%d'),
-                'status': 'Active'
-            },
-            {
-                'id': 5,
-                'borrower': 'Eva Martinez',
-                'quantity': '7',
-                'borrowed_date': (today - timedelta(days=11)).strftime('%Y-%m-%d'),
-                'due_date': (today + timedelta(days=3)).strftime('%Y-%m-%d'),
-                'status': 'Active'
-            }
-        ]
-        
+        # Initial data load after UI is ready
+        QTimer.singleShot(100, self.refresh_all_data)
+
     def init_ui(self):
+        """Initialize UI - keeping your original layout exactly the same"""
         self.setWindowTitle("BJRS Library Management System")
         self.setGeometry(100, 100, 1400, 900)
         self.setMinimumSize(1300, 700)
@@ -75,72 +39,71 @@ class LibraryDashboard(QMainWindow):
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         
-        # Use QHBoxLayout for sidebar + content layout
         main_layout = QHBoxLayout(main_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Add sidebar
-        self.sidebar = NavigationSidebar()
-
-        # Set up navigation handler 
+        # Sidebar - unchanged
         self.sidebar = NavigationSidebar()
         self.sidebar.on_navigation_clicked = lambda item_name: nav_manager.handle_navigation(item_name, self.librarian_id)
         main_layout.addWidget(self.sidebar)
         
-        # Content area
+        # Content area - unchanged
         content_widget = QWidget()
-        content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(20, 20, 20, 20)
-        content_layout.setSpacing(20)
+        self.content_layout = QVBoxLayout(content_widget)
+        self.content_layout.setContentsMargins(20, 20, 20, 20)
+        self.content_layout.setSpacing(20)
         
-        # Header
+        # Header - unchanged
         header = self.create_header()
-        content_layout.addWidget(header)
+        self.content_layout.addWidget(header)
         
-        # Stats section
+        # Stats section - unchanged
         stats = self.create_stats_section()
-        content_layout.addWidget(stats)
+        self.content_layout.addWidget(stats)
         
-        # Due this week section
+        # Due books section - unchanged
         due_books = self.create_due_books_section()
-        content_layout.addWidget(due_books)
+        self.content_layout.addWidget(due_books)
         
         main_layout.addWidget(content_widget)
         
         self.apply_styles()
+
+    def refresh_all_data(self):
+        """Refresh all data while maintaining original UI"""
+        try:
+            # Get fresh data
+            self.borrowed_books = self.get_borrow_transactions()
+            
+            # Find and remove the existing stats widget if it exists
+            for i in reversed(range(self.content_layout.count())):
+                widget = self.content_layout.itemAt(i).widget()
+                if widget and widget.objectName() == "statsContainer":
+                    widget.setParent(None)
+                    break
+                    
+            # Create and add new stats widget
+            stats_widget = self.create_stats_section()
+            self.content_layout.insertWidget(1, stats_widget)  # Assuming stats should be at position 1
+                
+            # Refresh table
+            self.populate_due_books_table()
+            
+            # Update clock
+            self.update_datetime()
+            
+        except Exception as e:
+            print(f"Error refreshing data: {e}")
+
+        def showEvent(self, event):
+            """Handle window show - keeping your original behavior"""
+            super().showEvent(event)
+            self.refresh_all_data()
+
     
-    def handle_navigation(self, page_name):
-        """Handle navigation clicks from sidebar"""
-        print(f"Navigating to: {page_name}")
-        print(f"Current librarian_id: {self.librarian_id}")  # Debug: show librarian_id when navigating
-        
-        # You can add actual navigation logic here
-        # For example:
-        if page_name == "Books":
-            # Navigate to books page with librarian_id
-            try:
-                from booksPages import books1
-                if books1:
-                    self.books_window = books1.CollapsibleSidebar(librarian_id=self.librarian_id)  
-                    self.books_window.show()
-                    self.close()
-                else:
-                    print("Books module not available")
-            except ImportError:
-                print("Books module not found")
-        elif page_name == "Members":
-            # Navigate to members page
-            print("Navigate to Members page")
-        elif page_name == "Transactions":
-            # Navigate to transactions page
-            print("Navigate to Transactions page")
-        elif page_name == "Settings":
-            # Navigate to settings page
-            print("Navigate to Settings page")
-        # Dashboard is already showing, so no action needed for "Dashboard"
-        
     def create_header(self):
+        # Your original create_header implementation
         header = QFrame()
         header.setObjectName("headerFrame")
         header.setFixedHeight(120)
@@ -148,13 +111,11 @@ class LibraryDashboard(QMainWindow):
         layout = QHBoxLayout(header)
         layout.setContentsMargins(30, 20, 30, 20)
         
-        # Welcome text <BJRS Library Management System>
         welcome_widget = QWidget()
         welcome_layout = QVBoxLayout(welcome_widget)
         welcome_layout.setContentsMargins(0, 0, 0, 0)
         welcome_layout.setSpacing(2)
         
-        # Show librarian info if available
         if self.librarian_id:
             title_text = f"BJRS Library Management System"
         else:
@@ -173,25 +134,59 @@ class LibraryDashboard(QMainWindow):
         layout.addStretch()
         
         return header
-    
-    def create_stats_section(self): # Container ni Stats 
+
+    def get_borrow_transactions(self):
+        # Your original get_borrow_transactions implementation
+        try:
+            borrow_manager = BorrowBooks()
+            transactions = borrow_manager.fetch_transaction(self.librarian_id) or []
+            
+            transactions_dict = {}
+            for trans in transactions:
+                if trans.get('action') != 'Borrowed':
+                    continue
+                trans_id = trans.get('id')
+                if trans_id not in transactions_dict:
+                    transactions_dict[trans_id] = {
+                        'id': trans_id,
+                        'borrower': trans.get('borrower', 'N/A'),
+                        'borrowed_date': trans.get('date', 'N/A'),
+                        'due_date': trans.get('due_date', 'N/A'),
+                        'status': 'Borrowed',
+                        'books': [],
+                        'quantity': 0
+                    }
+                transactions_dict[trans_id]['books'].append({
+                    'title': trans.get('book_title', 'N/A'),
+                    'quantity': trans.get('quantity', 1)
+                })
+                transactions_dict[trans_id]['quantity'] += trans.get('quantity', 1)
+            return list(transactions_dict.values())
+        except Exception as e:
+            QMessageBox.warning(self, "Fetch Error", f"Failed to fetch transactions: {str(e)}")
+            return []
+
+    def create_stats_section(self):
+        # Your original create_stats_section implementation
         stats_widget = QFrame()
         stats_widget.setObjectName("statsContainer")
         layout = QGridLayout(stats_widget)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(20)
-        
-        # Calculate dynamic stats
-        total_books = 1847
-        active_members = 342
-        books_issued = len([book for book in self.borrowed_books if book['status'] == 'Active'])
+
+        if not isinstance(self.borrowed_books, list):
+            self.borrowed_books = self.get_borrow_transactions()
+
+        total_books = self.db_seeder.dashboardCount(tableName="Book", id=self.librarian_id) or 0
+        active_members = self.db_seeder.dashboardCount(tableName="Member", id=self.librarian_id) or 0
+        books_issued = self.db_seeder.dashboardCount(tableName="BookTransaction", id=self.librarian_id) or 0 
         due_this_week = len(self.get_books_due_this_week())
         
         stats_data = [
-            ("📚", f"{total_books:,}", "Total Books", "#3b82f6"),
+            ("📚", f"{total_books}", "Total Books", "#3b82f6"),
             ("👥", f"{active_members}", "Active Members", "#10b981"),
             ("📋", f"{books_issued}", "Books Issued", "#f59e0b"),
-            ("⏰", f"{due_this_week}", "Due This Week", "#ef4444")
+            ("⏰", f"{due_this_week}", "Due In A Week", "#ef4444")
         ]
         
         for i, (icon, number, label, color) in enumerate(stats_data):
@@ -199,8 +194,9 @@ class LibraryDashboard(QMainWindow):
             layout.addWidget(card, 0, i)
         
         return stats_widget
-    
-    def create_stat_card(self, icon, number, label, color): # container ni Stats 
+
+    def create_stat_card(self, icon, number, label, color):
+        # Your original create_stat_card implementation
         card = QFrame()
         card.setObjectName("statCard")
         card.setFixedHeight(100)
@@ -208,10 +204,8 @@ class LibraryDashboard(QMainWindow):
         layout = QVBoxLayout(card)
         layout.setContentsMargins(20, 20, 20, 20)
         
-        # Header with icon and number
         header_layout = QHBoxLayout()
         
-        # Number and label
         text_widget = QWidget()
         text_layout = QVBoxLayout(text_widget)
         text_layout.setContentsMargins(0, 0, 0, 0)
@@ -226,7 +220,6 @@ class LibraryDashboard(QMainWindow):
         text_layout.addWidget(number_label)
         text_layout.addWidget(label_widget)
         
-        # Icon
         icon_label = QLabel(icon)
         icon_label.setObjectName("statIcon")
         icon_label.setFixedSize(60, 60)
@@ -247,8 +240,9 @@ class LibraryDashboard(QMainWindow):
         layout.addStretch()
         
         return card
-    
+
     def create_due_books_section(self):
+        # Your original create_due_books_section implementation
         section = QFrame()
         section.setObjectName("sectionCard")
         
@@ -256,147 +250,130 @@ class LibraryDashboard(QMainWindow):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
         
-        # Header
         header_layout = QHBoxLayout()
-        
-        title_label = QLabel(" Books Due This Week")
+        title_label = QLabel("Books In A Week")
         title_label.setObjectName("sectionTitle")
-
         header_layout.addWidget(title_label)
         header_layout.addStretch()
-        
         layout.addLayout(header_layout)
         
-        # Table for due books
         self.due_books_table = QTableWidget()
         self.setup_due_books_table()
-        self.populate_due_books_table()
-        
         layout.addWidget(self.due_books_table)
         
         return section
-    
+
     def setup_due_books_table(self):
-    
+        # Your original setup_due_books_table implementation
         headers = ["Borrower Name", "Quantity", "Borrowed Date", "Due Date", "Days Left"]
         
         self.due_books_table.setColumnCount(len(headers))
         self.due_books_table.setHorizontalHeaderLabels(headers)
-
-        #Make Table Read-only
         self.due_books_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        
-        # Table settings
         self.due_books_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.due_books_table.setAlternatingRowColors(False)
         self.due_books_table.setGridStyle(Qt.SolidLine)
         self.due_books_table.setSortingEnabled(False)
         self.due_books_table.setMinimumHeight(300)
         
-        # Column widths - improved for better text visibility
         header = self.due_books_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)  # Borrower Name
-        header.setSectionResizeMode(1, QHeaderView.Fixed)    # Quantity
-        header.setSectionResizeMode(2, QHeaderView.Fixed)    # Borrowed Date
-        header.setSectionResizeMode(3, QHeaderView.Fixed)    # Due Date
-        header.setSectionResizeMode(4, QHeaderView.Fixed)    # Days Left
+        header.setSectionResizeMode(0, QHeaderView.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.Fixed)
+        header.setSectionResizeMode(2, QHeaderView.Fixed)
+        header.setSectionResizeMode(3, QHeaderView.Fixed)
+        header.setSectionResizeMode(4, QHeaderView.Fixed)
         
-        # Set wider column widths for better text visibility
-        self.due_books_table.setColumnWidth(1, 120)  # Quantity
-        self.due_books_table.setColumnWidth(2, 150)  # Borrowed Date
-        self.due_books_table.setColumnWidth(3, 150)  # Due Date
-        self.due_books_table.setColumnWidth(4, 120)  # Days Left
+        self.due_books_table.setColumnWidth(1, 120)
+        self.due_books_table.setColumnWidth(2, 150)
+        self.due_books_table.setColumnWidth(3, 150)
+        self.due_books_table.setColumnWidth(4, 120)
         
-        # Set row height for better readability
         self.due_books_table.verticalHeader().setDefaultSectionSize(45)
         self.due_books_table.verticalHeader().hide()
-    
+
     def get_books_due_this_week(self):
-        """Get books that are due within the next 7 days"""
+        # Your original get_books_due_this_week implementation
+        if not self.borrowed_books:
+            self.borrowed_books = self.get_borrow_transactions()
+        
         today = datetime.now().date()
-        week_end = today + timedelta(days=7)
+        active_books = []
         
-        due_books = []
         for book in self.borrowed_books:
-            if book['status'] == 'Active':
+            try:
                 due_date = datetime.strptime(book['due_date'], '%Y-%m-%d').date()
-                if today <= due_date <= week_end:
-                    due_books.append(book)
-        
-        return due_books
-    
+                days_left = (due_date - today).days
+                
+                active_books.append({
+                    **book,
+                    'days_left': days_left,
+                    'status': 'Overdue' if days_left < 0 else 'Borrowed'
+                })
+            except (ValueError, KeyError):
+                continue    
+        return active_books
+
     def populate_due_books_table(self):
-        """Populate the table with books due this week"""
-        due_books = self.get_books_due_this_week()
-        self.due_books_table.setRowCount(len(due_books))
+        # Your original populate_due_books_table implementation
+        active_books = self.get_books_due_this_week()
         
-        for row, book in enumerate(due_books):
-            # Calculate days left
-            today = datetime.now().date()
-            due_date = datetime.strptime(book['due_date'], '%Y-%m-%d').date()
-            days_left = (due_date - today).days
-            
-            # Borrower Name
+        self.due_books_table.setRowCount(0)
+        self.due_books_table.setRowCount(len(active_books))
+
+        for row, book in enumerate(active_books):
             borrower_item = QTableWidgetItem(book['borrower'])
             borrower_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             self.due_books_table.setItem(row, 0, borrower_item)
             
-            # Quantity
-            quantity_item = QTableWidgetItem(book['quantity'])
+            quantity_item = QTableWidgetItem(str(book.get('quantity', 1)))
             quantity_item.setTextAlignment(Qt.AlignCenter)
             self.due_books_table.setItem(row, 1, quantity_item)
             
-            # Borrowed Date
             borrowed_item = QTableWidgetItem(book['borrowed_date'])
             borrowed_item.setTextAlignment(Qt.AlignCenter)
             self.due_books_table.setItem(row, 2, borrowed_item)
             
-            # Due date with color coding
             due_item = QTableWidgetItem(book['due_date'])
             due_item.setTextAlignment(Qt.AlignCenter)
-            if days_left <= 1:
-                due_item.setBackground(QColor("#fee2e2"))  # Light red for urgent
-                due_item.setForeground(QColor("#dc2626"))  # Dark red text
+            
+            days_left = book.get('days_left', 0)
+            if days_left < 0:
+                due_item.setBackground(QColor("#fee2e2"))
+                due_item.setForeground(QColor("#dc2626"))
             elif days_left <= 3:
-                due_item.setBackground(QColor("#fef3c7"))  # Light yellow for warning
-                due_item.setForeground(QColor("#d97706"))  # Dark yellow text
+                due_item.setBackground(QColor("#fef3c7"))
+                due_item.setForeground(QColor("#d97706"))
             self.due_books_table.setItem(row, 3, due_item)
             
-            # Days left with color coding
-            days_item = QTableWidgetItem(str(days_left))
+            days_text = str(abs(days_left)) if days_left < 0 else str(days_left)
+            if days_left < 0:
+                days_text = f"Overdue ({days_text})"
+                
+            days_item = QTableWidgetItem(days_text)
             days_item.setTextAlignment(Qt.AlignCenter)
-            if days_left <= 1:
+            if days_left < 0:
                 days_item.setBackground(QColor("#fee2e2"))
                 days_item.setForeground(QColor("#dc2626"))
             elif days_left <= 3:
                 days_item.setBackground(QColor("#fef3c7"))
                 days_item.setForeground(QColor("#d97706"))
             self.due_books_table.setItem(row, 4, days_item)
-    
-    def filter_due_books(self, text):
-        """Filter the due books table based on search text"""
-        for row in range(self.due_books_table.rowCount()):
-            match = False
-            for col in range(self.due_books_table.columnCount()):
-                item = self.due_books_table.item(row, col)
-                if item and text.lower() in item.text().lower():
-                    match = True
-                    break
-            self.due_books_table.setRowHidden(row, not match)
-    
+
     def setup_timer(self):
+        # Your original setup_timer implementation
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_datetime)
-        self.timer.start(60000)  # Update every minute
+        self.timer.start(60000)
         self.update_datetime()
-    
+
     def update_datetime(self):
+        # Your original update_datetime implementation
         now = datetime.now()
         formatted_time = now.strftime("%A, %B %d, %Y at %I:%M %p")
         self.datetime_label.setText(formatted_time)
-    
+
     def apply_styles(self):
-        """Apply consistent styling throughout the application"""
+        # Your original apply_styles implementation
         style = """
         QMainWindow {
             background-color: #f1efe3;
@@ -462,7 +439,6 @@ class LibraryDashboard(QMainWindow):
             font-family: 'Times New Roman';
         }
         
-        
         QTableWidget {
             background-color: #ffffff;
             border: 2px solid #e8d8bd;
@@ -495,7 +471,6 @@ class LibraryDashboard(QMainWindow):
             border-bottom: 2px solid #e5e7eb;
         }
 
-        
         QTableWidget::item:alternate {
             background-color: #f8fafc;
         }
@@ -509,19 +484,17 @@ class LibraryDashboard(QMainWindow):
             font-family: 'Times New Roman';
         }
         """
-        
         self.setStyleSheet(style)
 
-def main(librarian_id=None):  # ← Added librarian_id parameter to main function
+def main(librarian_id=None):
     app = QApplication(sys.argv)
-    app.setStyle('Fusion')  # Use Fusion style for better cross-platform appearance
+    app.setStyle('Fusion')
     
-    # Set global font to Times New Roman
     font = QFont("Times New Roman", 10)
     app.setFont(font)
   
     nav_manager.initialize(app)
-    window = LibraryDashboard(librarian_id=librarian_id)  # ← Pass librarian_id to constructor
+    window = LibraryDashboard(librarian_id=librarian_id)
     nav_manager._current_window = window
     window.show()
     

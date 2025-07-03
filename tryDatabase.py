@@ -478,13 +478,13 @@ class DatabaseSeeder:
             cursor.execute("UPDATE Librarian SET LibPass = ? WHERE LibUsername = ?", (hashed_password, username))
             conn.commit()
             if cursor.rowcount > 0:
-                print(f"✓ Password for {username} updated successfully.")
+                print(f" Password for {username} updated successfully.")
                 return True
             else:
-                print(f"⚠️ No rows updated for {username}. Username may not exist.")
+                print(f" No rows updated for {username}. Username may not exist.")
                 return False
         except Exception as e:
-            print(f"✗ Error changing password for {username}: {e}")
+            print(f" Error changing password for {username}: {e}")
             return False
         finally:
             conn.close()

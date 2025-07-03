@@ -953,19 +953,37 @@ class MembersMainWindow(QWidget):
 
     def searchMembers(self, search_text):
         """Search members based on the input text"""
-        search_text = search_text.strip().lower()
+        search_text = search_text.strip()
         if not search_text:
             self.clear_search()
             return
         
+        print(f"🔍 Searching members for: '{search_text}'")
+        try:
+            # Use database search instead of local search
+            search_results = self.db_seeder.search_records("Member", search_text, self.librarian_id)
+            self.members = search_results
+            print(f"✅ Found {len(search_results)} matching members from database")
+            
+        except Exception as e:
+            print(f"❌ Error searching members: {e}")
+            # Fallback to local search if database search fails
+            self.perform_local_member_search(search_text)
+        
+        self.refresh_members_grid()
+
+    def perform_local_member_search(self, search_text):
+        """Fallback local member search method"""
+        search_text = search_text.lower()
         filtered_members = []
         for member in self.original_members:  # Search from original data
             full_name = f"{member.get('MemberFN', '')} {member.get('MemberMI', '')} {member.get('MemberLN', '')}".strip().lower()
-            if search_text in full_name:
+            contact = str(member.get('MemberContact', '')).lower()
+            if search_text in full_name or search_text in contact:
                 filtered_members.append(member)
         
         self.members = filtered_members
-        self.refresh_members_grid() 
+        print(f"📝 Local search found {len(filtered_members)} matching members") 
 
     def get_active_members(self):
         """Get only active member accounts"""

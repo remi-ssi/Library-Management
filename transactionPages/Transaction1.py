@@ -496,36 +496,80 @@ class LibraryTransactionSystem(QMainWindow):
             self.trans_table.setRowHeight(row, 40) 
 
     def search_transactions(self):
-        search_term = self.trans_search_edit.text().lower()
-        active_transactions = [t for t in self.transactions if t.get('action') == 'Borrowed']
+        search_term = self.trans_search_edit.text().strip()
+        
         if not search_term:
             self.display_transactions()
-        else:
+            return
+            
+        print(f"🔍 Searching transactions for: '{search_term}'")
+        try:
+            # Use database search instead of local search
+            search_results = self.db_seeder.search_records("BookTransaction", search_term, self.librarian_id)
+            
+            # Filter only borrowed transactions for active view
+            borrowed_transactions = [t for t in search_results if t.get('Status') == 'Borrowed']
+            
+            # Group transactions by TransactionID (same format as original)
             transaction_dict = {}
-            for trans in self.transactions:
-                if trans.get('action') != 'Borrowed':
-                    continue
-                trans_id = trans.get('id')
+            for trans in borrowed_transactions:
+                trans_id = trans.get('TransactionID')
                 if trans_id not in transaction_dict:
-                    transaction_dict[trans_id]  = {
+                    transaction_dict[trans_id] = {
                         'id': trans_id,
                         'borrower': trans.get('borrower', 'N/A'),
-                        'date': trans.get('date', 'N/A'),
-                        'due_date':trans.get('due_date', 'N/A'),
-                        'action': trans.get('action', 'Borrowed'),
-                        'remarks': trans.get('remarks', ''),
+                        'date': trans.get('BorrowedDate', 'N/A'),
+                        'due_date': trans.get('DueDate', 'N/A'),
+                        'action': trans.get('TransactionType', 'Borrowed'),
+                        'remarks': trans.get('Remarks', ''),
                         'books': []
                     }
                 transaction_dict[trans_id]['books'].append({
-                    'title': trans.get('book_title', 'N/A'),
-                    'quantity':trans.get('quantity', 1)
+                    'title': trans.get('BookTitle', 'N/A'),
+                    'quantity': trans.get('Quantity', 1)
                 })
-            filtered_transactions = [
-                trans for trans in transaction_dict.values()
-                if search_term in trans['borrower'].lower() or 
-                any(search_term in book['title'].lower() for book in trans['books'] )
-            ]
+            
+            filtered_transactions = list(transaction_dict.values())
+            print(f"✅ Found {len(filtered_transactions)} matching transactions from database")
             self.display_transactions(filtered_transactions)
+            
+        except Exception as e:
+            print(f"❌ Error searching transactions: {e}")
+            # Fallback to local search if database search fails
+            self.perform_local_transaction_search(search_term)
+            
+    def perform_local_transaction_search(self, search_term):
+        """Fallback local transaction search method"""
+        search_term = search_term.lower()
+        active_transactions = [t for t in self.transactions if t.get('action') == 'Borrowed']
+        
+        transaction_dict = {}
+        for trans in self.transactions:
+            if trans.get('action') != 'Borrowed':
+                continue
+            trans_id = trans.get('id')
+            if trans_id not in transaction_dict:
+                transaction_dict[trans_id] = {
+                    'id': trans_id,
+                    'borrower': trans.get('borrower', 'N/A'),
+                    'date': trans.get('date', 'N/A'),
+                    'due_date': trans.get('due_date', 'N/A'),
+                    'action': trans.get('action', 'Borrowed'),
+                    'remarks': trans.get('remarks', ''),
+                    'books': []
+                }
+            transaction_dict[trans_id]['books'].append({
+                'title': trans.get('book_title', 'N/A'),
+                'quantity': trans.get('quantity', 1)
+            })
+        
+        filtered_transactions = [
+            trans for trans in transaction_dict.values()
+            if search_term in trans['borrower'].lower() or 
+            any(search_term in book['title'].lower() for book in trans['books'])
+        ]
+        print(f"📝 Local search found {len(filtered_transactions)} matching transactions")
+        self.display_transactions(filtered_transactions)
 
     def display_history(self, filtered_history=None):
         from PySide6.QtGui import QColor

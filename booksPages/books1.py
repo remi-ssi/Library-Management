@@ -3315,43 +3315,68 @@ class CollapsibleSidebar(QWidget):
             
     def perform_search(self):
         """Perform search with the text from search bar"""
-        search_text = self.search_bar.text().strip().lower()
+        search_text = self.search_bar.text().strip()
         if search_text:
-            print(f"Searching for: '{search_text}'")
-            filtered_books = []
-            
-            for book in self.original_books_data:
-                # Search in title
-                title_match = search_text in book['title'].lower()
+            print(f"🔍 Searching for: '{search_text}'")
+            # Use database search instead of local search
+            try:
+                # Get librarian_id
+                librarian_id = getattr(self, 'librarian_id', 1)
                 
-                # Search in authors (handle list of authors)
-                author_match = False
-                if isinstance(book['author'], list):
-                    author_match = any(search_text in author.lower() for author in book['author'])
-                else:
-                    author_match = search_text in str(book['author']).lower()
+                # Search in database
+                search_results = self.db_seeder.search_records("Book", search_text, librarian_id)
                 
-                # Search in genres (handle list of genres)
-                genre_match = False
-                if isinstance(book['genre'], list):
-                    genre_match = any(search_text in genre.lower() for genre in book['genre'])
-                else:
-                    genre_match = search_text in str(book['genre']).lower()
+                # Convert database results to the format expected by the UI
+                formatted_books = []
+                for book in search_results:
+                    formatted_book = self.format_book_for_ui(book)
+                    formatted_books.append(formatted_book)
                 
-                # Search in ISBN
-                isbn_match = search_text in str(book.get('isbn', '')).lower()
+                self.books_data = formatted_books
+                print(f"✅ Found {len(formatted_books)} matching books from database")
                 
-                if title_match or author_match or genre_match or isbn_match:
-                    filtered_books.append(book)
-            
-            self.books_data = filtered_books
-            print(f"Found {len(filtered_books)} matching books")
+            except Exception as e:
+                print(f"❌ Error searching books: {e}")
+                # Fallback to local search if database search fails
+                self.perform_local_search(search_text)
         else:
             # Restore original list when search is cleared
-            self.books_data = self.original_books_data.copy()
-            print(f"Restored {len(self.books_data)} books")
+            self.load_books_from_database()
+            print(f"🔄 Restored all books from database")
         
         self.populate_books()
+
+    def perform_local_search(self, search_text):
+        """Fallback local search method"""
+        search_text = search_text.lower()
+        filtered_books = []
+        
+        for book in self.original_books_data:
+            # Search in title
+            title_match = search_text in book['title'].lower()
+            
+            # Search in authors (handle list of authors)
+            author_match = False
+            if isinstance(book['author'], list):
+                author_match = any(search_text in author.lower() for author in book['author'])
+            else:
+                author_match = search_text in str(book['author']).lower()
+            
+            # Search in genres (handle list of genres)
+            genre_match = False
+            if isinstance(book['genre'], list):
+                genre_match = any(search_text in genre.lower() for genre in book['genre'])
+            else:
+                genre_match = search_text in str(book['genre']).lower()
+            
+            # Search in ISBN
+            isbn_match = search_text in str(book.get('isbn', '')).lower()
+            
+            if title_match or author_match or genre_match or isbn_match:
+                filtered_books.append(book)
+        
+        self.books_data = filtered_books
+        print(f"📝 Local search found {len(filtered_books)} matching books")
 
     def create_books_section(self):
         """Create the books display section with multiple columns and vertical scrolling"""

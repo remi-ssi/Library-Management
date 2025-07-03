@@ -661,7 +661,7 @@ class DatabaseSeeder:
                         Publisher LIKE ? OR
                         BookDescription LIKE ?
                     )
-                    ORDER BY isDeleted DESC
+                    ORDER BY isDeleted DESC 
                 """
                 cursor.execute(query, (librarian_id, search_pattern, search_pattern, search_pattern, search_pattern))
                 
@@ -699,6 +699,106 @@ class DatabaseSeeder:
             
         except Exception as e:
             print(f"✗ Error searching archived {tableName} records: {e}")
+            return []
+        finally:
+            conn.close()
+
+    def search_records(self, tableName, search_text, librarian_id):
+        """Search active records based on search text"""
+        conn, cursor = self.get_connection_and_cursor()
+        try:
+            search_pattern = f"%{search_text}%"
+            
+            if tableName == "Book":
+                # Search in Book table with author and genre joins
+                query = """
+                    SELECT DISTINCT b.* FROM Book b
+                    LEFT JOIN BookAuthor ba ON b.BookCode = ba.BookCode
+                    LEFT JOIN Book_Genre bg ON b.BookCode = bg.BookCode
+                    WHERE b.isDeleted IS NULL 
+                    AND b.LibrarianID = ? 
+                    AND (
+                        b.BookTitle LIKE ? OR 
+                        b.ISBN LIKE ? OR 
+                        b.Publisher LIKE ? OR
+                        b.BookDescription LIKE ? OR
+                        ba.bookAuthor LIKE ? OR
+                        bg.Genre LIKE ?
+                    )
+                    ORDER BY b.BookTitle ASC
+                """
+                cursor.execute(query, (librarian_id, search_pattern, search_pattern, search_pattern, search_pattern, search_pattern, search_pattern))
+                
+            elif tableName == "Member":
+                query = """
+                    SELECT * FROM Member 
+                    WHERE isDeleted IS NULL 
+                    AND LibrarianID = ? 
+                    AND (
+                        MemberFN LIKE ? OR 
+                        MemberLN LIKE ? OR 
+                        MemberMI LIKE ? OR
+                        MemberContact LIKE ?
+                    )
+                    ORDER BY MemberLN ASC, MemberFN ASC
+                """
+                cursor.execute(query, (librarian_id, search_pattern, search_pattern, search_pattern, search_pattern))
+                
+            elif tableName == "BookTransaction":
+                # Search in transactions with related book and member data
+                query = """
+                    SELECT t.TransactionID, t.TransactionType, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
+                           m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
+                           b.BookCode, b.BookTitle, td.Quantity, td.DueDate
+                    FROM BookTransaction t
+                    JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
+                    JOIN Member m ON t.MemberID = m.MemberID
+                    JOIN Book b ON td.BookCode = b.BookCode
+                    WHERE b.isDeleted IS NULL
+                    AND m.isDeleted IS NULL
+                    AND t.LibrarianID = ?
+                    AND (
+                        b.BookTitle LIKE ? OR
+                        m.MemberFN LIKE ? OR
+                        m.MemberLN LIKE ? OR
+                        t.TransactionType LIKE ? OR
+                        t.Status LIKE ? OR
+                        t.Remarks LIKE ?
+                    )
+                    ORDER BY t.BorrowedDate DESC
+                """
+                cursor.execute(query, (librarian_id, search_pattern, search_pattern, search_pattern, search_pattern, search_pattern, search_pattern))
+                
+            elif tableName == "BookShelf":
+                query = """
+                    SELECT * FROM BookShelf 
+                    WHERE isDeleted IS NULL 
+                    AND LibrarianID = ? 
+                    AND ShelfName LIKE ?
+                    ORDER BY ShelfName ASC
+                """
+                cursor.execute(query, (librarian_id, search_pattern))
+            
+            rows = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            records = [dict(zip(columns, row)) for row in rows]
+            
+            # Add additional mappings for transaction records
+            if tableName == "BookTransaction":
+                for rec in records:
+                    rec['action'] = rec.get('TransactionType', '')
+                    rec['transaction_type'] = rec.get('TransactionType', '')
+                    rec['date'] = rec.get('BorrowedDate', '')
+                    rec['remarks'] = rec.get('Remarks', '')
+                    rec['returned_date'] = rec.get('ReturnedDate', '') 
+                    rec['quantity'] = rec.get('Quantity', 1)
+                    rec['due_date'] = rec.get('DueDate', '')
+            
+            print(f"✓ Found {len(records)} {tableName} records matching '{search_text}'")
+            return records
+            
+        except Exception as e:
+            print(f"✗ Error searching {tableName} records: {e}")
             return []
         finally:
             conn.close()

@@ -3,6 +3,7 @@ import sqlite3
 import bcrypt #for password hashing
 import Dashboard
 import re
+import io
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -20,7 +21,7 @@ from navbar_logic import nav_manager
 
 from ResetPasswordDialog import ResetPasswordDialog
 
-    
+ 
 #The authentication inherits the QWidget
 class Authentication(QWidget): 
     _current_librarian_id = None

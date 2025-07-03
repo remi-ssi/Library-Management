@@ -302,10 +302,10 @@ class Settings(QMainWindow):
             self.user_data = updated_data
             for field_key, value_label in self.personal_info_labels.items():
                 value_label.setText(updated_data.get(field_key, 'N/A'))
-            self.content_layout.removeWidget(self.personal_info_section)
-            self.personal_info_section.deleteLater()
-            self.personal_info_section = self.create_personal_info_section()
-            self.content_layout.insertWidget(1, self.personal_info_section)
+           # self.content_layout.removeWidget(self.personal_info_section)
+            #self.personal_info_section.deleteLater()
+            #self.personal_info_section = self.create_personal_info_section()
+            #self.content_layout.insertWidget(1, self.personal_info_section)
             print(f"Updated user data: {updated_data}")
         except Exception as e:
             QMessageBox.critical(self, "Database Error", f"Failed to update personal info: {str(e)}")

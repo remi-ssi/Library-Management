@@ -3205,34 +3205,34 @@ class CollapsibleSidebar(QWidget):
                 """)
                 msg.exec()
                 return
-            
-            # Insert new shelf into database
-            print(f"🔄 Attempting to save shelf '{shelf_id}' for LibrarianID: {self.librarian_id}")
-            
-            try:
-                self.db_seeder.seed_data(
-                    tableName="BookShelf",
-                    data=[{"ShelfName": shelf_id, "LibrarianID": self.librarian_id or 1}], 
-                    columnOrder=["ShelfName", "LibrarianID"]
-                )
-                print(f"✅ Successfully saved shelf '{shelf_id}' to database")
+            else:   
+                # Insert new shelf into database
+                print(f"🔄 Attempting to save shelf '{shelf_id}' for LibrarianID: {self.librarian_id}")
                 
-                # Verify it was actually inserted
-                conn, cursor = self.db_seeder.get_connection_and_cursor()
-                cursor.execute("SELECT * FROM BookShelf WHERE ShelfName = ? AND LibrarianID = ?", 
-                            (shelf_id, self.librarian_id or 1))
-                verification = cursor.fetchone()
-                conn.close()
-                
-                if verification:
-                    print(f"✅ Verification successful: Shelf found in database: {verification}")
-                else:
-                    print(f"❌ Verification failed: Shelf not found in database")
-                    raise Exception("Shelf was not properly inserted into database")
+                try:
+                    self.db_seeder.seed_data(
+                        tableName="BookShelf",
+                        data=[{"ShelfName": shelf_id, "LibrarianID": self.librarian_id or 1}], 
+                        columnOrder=["ShelfName", "LibrarianID"]
+                    )
+                    print(f"✅ Successfully saved shelf '{shelf_id}' to database")
                     
-            except Exception as db_error:
-                print(f"❌ Database error while saving shelf: {db_error}")
-                raise db_error
+                    # Verify it was actually inserted
+                    conn, cursor = self.db_seeder.get_connection_and_cursor()
+                    cursor.execute("SELECT * FROM BookShelf WHERE ShelfName = ? AND LibrarianID = ?", 
+                                (shelf_id, self.librarian_id or 1))
+                    verification = cursor.fetchone()
+                    conn.close()
+                    
+                    if verification:
+                        print(f"✅ Verification successful: Shelf found in database: {verification}")
+                    else:
+                        print(f"❌ Verification failed: Shelf not found in database")
+                        raise Exception("Shelf was not properly inserted into database")
+                    
+                except Exception as db_error:
+                    print(f"❌ Database error while saving shelf: {db_error}")
+                    raise db_error
             
             # Show success message
             success_msg = QMessageBox(dialog)

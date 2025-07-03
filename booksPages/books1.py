@@ -161,8 +161,25 @@ class BookPreviewDialog(QDialog):
         isbn_label.setStyleSheet(info_style)
         right_layout.addWidget(isbn_label)
         
-        # Shelf location
+        # Shelf location - ensure we display ShelfName, not ShelfId
         shelf = self.book_data.get('shelf', 'N/A')
+        
+        # If shelf is a numeric ID, convert it to shelf name
+        if shelf and str(shelf).isdigit():
+            try:
+                # Get shelf name from database using the ShelfId
+                db_seeder = DatabaseSeeder()
+                shelf_records = db_seeder.get_all_records("BookShelf", getattr(self.parent_window, 'librarian_id', 1))
+                shelf_name = next(
+                    (record['ShelfName'] for record in shelf_records 
+                     if record.get('ShelfId') == int(shelf)), 
+                    f"Shelf {shelf}"  # Fallback to "Shelf {ID}" if not found
+                )
+                shelf = shelf_name
+            except Exception as e:
+                print(f"Error converting ShelfId to ShelfName: {e}")
+                shelf = f"Shelf {shelf}"  # Fallback display
+        
         shelf_label = QLabel(f"<b>Shelf:</b> {shelf}")
         shelf_label.setStyleSheet(info_style)
         right_layout.addWidget(shelf_label)

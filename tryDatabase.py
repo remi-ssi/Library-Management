@@ -391,6 +391,11 @@ class DatabaseSeeder:
 
             if result:
                 stored_hashed_password = result[0]
+
+                if isinstance(stored_hashed_password, str):
+                    # If it was stored as TEXT, convert to bytes
+                    stored_hashed_password = stored_hashed_password.encode('utf-8')
+
                 return bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password)
             else:
                 return False

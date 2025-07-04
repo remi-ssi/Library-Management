@@ -168,7 +168,7 @@ class DatabaseSeeder:
                 SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                        m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                        b.BookCode, b.BookTitle, td.Quantity, td.DueDate
-                FROM BookTransaction t
+                FROM BookTransaction AS t
                 JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
                 JOIN Member m ON t.MemberID = m.MemberID
                 JOIN Book b ON td.BookCode = b.BookCode
@@ -440,14 +440,14 @@ class DatabaseSeeder:
                 cursor.execute(query, (librarian_id,))
             elif filter == "ascendingAuthor":  # sort by ascending order of author
                 # For author sorting, we need to join with BookAuthor table
-                query = """SELECT DISTINCT b.* FROM Book b 
+                query = """SELECT DISTINCT b.* FROM Book AS b 
                            LEFT JOIN BookAuthor ba ON b.BookCode = ba.BookCode 
                            WHERE b.isDeleted IS NULL AND b.LibrarianID = ? 
                            ORDER BY ba.bookAuthor ASC"""
                 cursor.execute(query, (librarian_id,))
             elif filter == "descendingAuthor":  # sort by descending order of author
                 # For author sorting, we need to join with BookAuthor table
-                query = """SELECT DISTINCT b.* FROM Book b 
+                query = """SELECT DISTINCT b.* FROM Book AS b 
                            LEFT JOIN BookAuthor ba ON b.BookCode = ba.BookCode 
                            WHERE b.isDeleted IS NULL AND b.LibrarianID = ? 
                            ORDER BY ba.bookAuthor DESC"""
@@ -715,9 +715,9 @@ class DatabaseSeeder:
             if tableName == "Book":
                 # Search in Book table with author and genre joins
                 query = """
-                    SELECT DISTINCT b.* FROM Book b
-                    LEFT JOIN BookAuthor ba ON b.BookCode = ba.BookCode
-                    LEFT JOIN Book_Genre bg ON b.BookCode = bg.BookCode
+                    SELECT DISTINCT b.* FROM Book AS b
+                    LEFT JOIN BookAuthor AS ba ON b.BookCode = ba.BookCode
+                    LEFT JOIN Book_Genre AS bg ON b.BookCode = bg.BookCode
                     WHERE b.isDeleted IS NULL 
                     AND b.LibrarianID = ? 
                     AND (
@@ -753,7 +753,7 @@ class DatabaseSeeder:
                     SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                            m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
                            b.BookCode, b.BookTitle, td.Quantity, td.DueDate
-                    FROM BookTransaction t
+                    FROM BookTransaction AS t
                     JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
                     JOIN Member m ON t.MemberID = m.MemberID
                     JOIN Book b ON td.BookCode = b.BookCode

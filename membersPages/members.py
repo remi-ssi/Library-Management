@@ -1,6 +1,4 @@
 import sys
-import sqlite3
-from datetime import datetime
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QPixmap, QPainter, QBrush, QColor, QPainterPath, QFontMetrics
 from PySide6.QtWidgets import (
@@ -16,20 +14,10 @@ from navbar_logic import nav_manager
 # Connect to database seeder 
 from tryDatabase import DatabaseSeeder
 
-def get_rounded_pixmap(pixmap, size):
-    rounded = QPixmap(size, size)
-    rounded.fill(Qt.transparent)
-
-    painter = QPainter(rounded)
-    painter.setRenderHint(QPainter.Antialiasing)
-    path = QPainterPath()
-    path.addEllipse(0, 0, size, size)
-    painter.setClipPath(path)
-    painter.drawPixmap(0, 0, size, size, pixmap)
-    painter.end()
-    return rounded
 
 class ProtectedContactLineEdit(QLineEdit):
+    # This is a special text box po for phone numbers. 
+    # It always starts with '09' and only lets you type 11 digits.
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setText("09")
@@ -37,6 +25,7 @@ class ProtectedContactLineEdit(QLineEdit):
         self.textChanged.connect(self.on_text_changed)
     
     def keyPressEvent(self, event):
+        # Don't let the user erase the '09' at the beginning
         cursor_pos = self.cursorPosition()
         
         if event.key() in [Qt.Key_Backspace, Qt.Key_Delete]:
@@ -46,6 +35,7 @@ class ProtectedContactLineEdit(QLineEdit):
         super().keyPressEvent(event)
     
     def on_text_changed(self, text):
+        # Every time the text changes, check if it still starts with '09' and isn't too long
         if not text.startswith("09"):
             self.blockSignals(True)
             digits_only = ''.join(filter(str.isdigit, text))
@@ -65,6 +55,7 @@ class ProtectedContactLineEdit(QLineEdit):
             self.blockSignals(False)
 
 class AddMemberDialog(QDialog):
+    # This is the pop-up window for adding a new member in the members tab.
     def __init__(self, existing_members, db_seeder, librarian_id, parent=None):
         super().__init__(parent)
         self.existing_members = existing_members
@@ -81,6 +72,7 @@ class AddMemberDialog(QDialog):
         self.init_ui()
     
     def init_ui(self):
+        # This puts together all the input boxes and buttons for the add member form
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
@@ -175,6 +167,7 @@ class AddMemberDialog(QDialog):
         layout.addLayout(button_layout)
 
     def create_label(self, text):
+        # Just a helper to make the labels look a bit nicer hehe
         label = QLabel(text)
         label.setStyleSheet("""
             QLabel {
@@ -186,6 +179,7 @@ class AddMemberDialog(QDialog):
         return label
     
     def get_input_style(self):
+        # The style for the text boxes
         return """
             QLineEdit {
                 color: #5C4033;
@@ -201,12 +195,15 @@ class AddMemberDialog(QDialog):
             }
         """
     def is_valid_contact(self, contact):
+        # Checks if the number is really a mobile number (starts with 09 and is 11 digits)
         return contact.isdigit() and contact.startswith("09") and len(contact) == 11
 
     def is_valid_name(self, name):
+        # Makes sure the name only has letters (and spaces)
         return name.replace(" ", "").isalpha()
 
     def add_member(self):
+        # This runs when you click the 'Add Member' button. It checks the info and saves it if everything is okay.
         # Get the input data
         first_name = self.first_name_edit.text().strip()
         middle_name = self.middle_name_edit.text().strip()
@@ -275,7 +272,10 @@ class AddMemberDialog(QDialog):
         self.accept()
 
 class MemberEditDialog(QDialog):
+    # This is the pop-up for editing or deleting a member. 
+    # We can edit here po and delete
     def __init__(self, member_data, existing_members, parent=None):
+        # When you open this, it loads the member's info so you can edit it
         super().__init__(parent)
         self.member_data = member_data.copy()
         self.db_seeder = DatabaseSeeder()
@@ -293,6 +293,7 @@ class MemberEditDialog(QDialog):
         self.init_ui()
     
     def init_ui(self):
+        # This puts together all the input boxes and buttons for editing a member
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
@@ -390,6 +391,7 @@ class MemberEditDialog(QDialog):
         layout.addLayout(button_layout)
     
     def create_label(self, text):
+        # Just a helper to make the labels look a bit nicer
         label = QLabel(text)
         label.setStyleSheet("""
             QLabel {
@@ -401,6 +403,7 @@ class MemberEditDialog(QDialog):
         return label
     
     def get_input_style(self):
+        # This is just the style for the text boxes
         return """
             QLineEdit {
                 color: #5C4033;
@@ -417,12 +420,15 @@ class MemberEditDialog(QDialog):
         """
     
     def is_valid_name(self, name):
+        # Makes sure the name only has letters 
         return name.replace(" ", "").isalpha()
 
     def is_valid_contact(self, contact):
+        # Checks if the number is really a mobile number (starts with 09 and is 11 digits)
         return contact.isdigit() and contact.startswith("09") and len(contact) == 11
 
     def save_changes(self):
+        # For Save Changes. It checks the info and updates it if everything is okay.
         first_name = self.first_name_edit.text().strip()
         middle_name = self.middle_name_edit.text().strip()
         last_name = self.last_name_edit.text().strip()
@@ -482,6 +488,7 @@ class MemberEditDialog(QDialog):
             QMessageBox.critical(self, "Database Error", f"Failed to update member: {str(e)}")  
 
     def delete_member(self):
+        # For delete po. It removes the member from the database.
         first_name = self.member_data.get("MemberFN", "")
         middle_initial = self.member_data.get("MemberMI", "")
         last_name = self.member_data.get("MemberLN", "")
@@ -505,7 +512,9 @@ class MemberEditDialog(QDialog):
                 QMessageBox.critical(self, "Database Error", f"Failed to delete member: {str(e)}")
 
 class MemberPreviewDialog(QDialog):
+    # This is the pop-up that shows all the details about a member. You can also edit or delete them from here.
     def __init__(self, member_data, existing_members, parent=None):
+        # When you open this, it loads all the member's info so you can see it
         super().__init__(parent)
         self.member_data = member_data.copy()
         self.existing_members = existing_members
@@ -523,6 +532,7 @@ class MemberPreviewDialog(QDialog):
         self.init_ui()
     
     def init_ui(self):
+        # This puts together all the labels and info for the member details view
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
@@ -683,6 +693,7 @@ class MemberPreviewDialog(QDialog):
         layout.addLayout(button_layout)
     
     def get_label_style(self):
+        # Just the style for the labels in the details view
         return """
             QLabel {
                 color: #5C4033;
@@ -693,6 +704,7 @@ class MemberPreviewDialog(QDialog):
         """
     
     def get_value_style(self):
+        # Just the style for the values in the details view
         return """
             QLabel {
                 color: #8B4513;
@@ -703,6 +715,7 @@ class MemberPreviewDialog(QDialog):
         """
     
     def edit_member(self):
+        # This opens the edit dialog for this member
         """Open the edit dialog"""
         self.close()  # Close preview dialog
         edit_dialog = MemberEditDialog(self.member_data, self.existing_members, self.parent_window)
@@ -715,6 +728,7 @@ class MemberPreviewDialog(QDialog):
                 self.parent_window.refresh_members_grid()
     
     def delete_member(self):
+        # This deletes the member and updates the list
         """Delete the member"""
         first_name = self.member_data.get("MemberFN", "")
         middle_initial = self.member_data.get("MemberMI", "")
@@ -745,7 +759,10 @@ class MemberPreviewDialog(QDialog):
                 QMessageBox.critical(self, "Database Error", f"Failed to delete member: {str(e)}")
 
 class MembersMainWindow(QWidget):
+    # This is the MAIN WINDOW po where we can see and manage all the members. 
+    # It's the big screen for members.
     def __init__(self, librarian_id=1):  # Default librarian_id for testing
+        # It loads all the members and sets up the window
         super().__init__()
         self.librarian_id = librarian_id  # Store librarian_id
         self.setWindowTitle("Library Management System - Members")
@@ -774,6 +791,7 @@ class MembersMainWindow(QWidget):
         self.init_ui()
     
     def init_ui(self):
+        # This puts together the main layout, sidebar, and the area where members show up
         # Main layout
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -798,6 +816,7 @@ class MembersMainWindow(QWidget):
         main_layout.addWidget(self.content_area)
     
     def create_members_view(self):
+        # This builds the view with the big title, search bar, and the grid of members
         """Create the main members view with title and search bar/buttons"""
         view_widget = QWidget()
         view_layout = QVBoxLayout(view_widget)
@@ -936,6 +955,7 @@ class MembersMainWindow(QWidget):
         return view_widget
     
     def add_new_member(self):
+        # This opens the add member dialog if add button is clicked
         """Open the add member dialog"""
         dialog = AddMemberDialog(self.members, self.db_seeder, self.librarian_id, self)
         result = dialog.exec()
@@ -946,12 +966,14 @@ class MembersMainWindow(QWidget):
             self.refresh_members_grid()
 
     def clear_search(self):
+        # This clears the search bar and shows all the members again
         """Clear the search and restore all members"""
         self.search_bar.clear()
         self.members = self.original_members.copy()
         self.refresh_members_grid()
 
     def searchMembers(self, search_text):
+        # This searches for members by name or contact number
         """Search members based on the input text"""
         search_text = search_text.strip()
         if not search_text:
@@ -973,6 +995,7 @@ class MembersMainWindow(QWidget):
         self.refresh_members_grid()
 
     def perform_local_member_search(self, search_text):
+        # If the database search doesn't work, this does a simple search in the list
         """Fallback local member search method"""
         search_text = search_text.lower()
         filtered_members = []
@@ -986,6 +1009,7 @@ class MembersMainWindow(QWidget):
         print(f"📝 Local search found {len(filtered_members)} matching members") 
 
     def get_active_members(self):
+        # This gets only the members that aren't deleted (still active)
         """Get only active member accounts"""
         if not self.members:
             return []
@@ -996,6 +1020,7 @@ class MembersMainWindow(QWidget):
         return active_members
     
     def refresh_members_grid(self):
+        # This updates the grid to show the current members
         """Refresh the members grid display"""
         scroll_widget = QWidget()
 
@@ -1016,6 +1041,7 @@ class MembersMainWindow(QWidget):
         self.scroll_area.setWidget(scroll_widget)
     
     def create_member_container(self, member, index):
+        # This makes a clickable card for each member, with their avatar and info
         """Create a clickable member container"""
         container = QWidget()
         container.setFixedSize(280, 240)
@@ -1134,30 +1160,31 @@ class MembersMainWindow(QWidget):
         return container
     
     def on_member_click(self, member, index):
+        # When you click a member, this shows their details in a pop-up
         """Handle member container click - now opens preview dialog"""
         preview_dialog = MemberPreviewDialog(member, self.members, self)
         preview_dialog.exec()
 
 def create_initials_avatar(name, size=80):
-    # Get initials from name
+    # Split the name into words (like first, middle, last)
     words = name.split()
     initials = ""
-    
+
+    # If the name has at least two words, use the first letter of the first and last word
     if len(words) >= 2:
-        # Get first letter of first name and first letter of last name
         initials = words[0][0].upper() + words[-1][0].upper()
+    # If there's only one word, just use its first letter
     elif len(words) == 1 and words[0]:
-        # If only one name, take first letter
         initials = words[0][0].upper()
+    # If the name is empty, show a question mark
     else:
-        # If no name, use question mark
         initials = "?"
-    
-    # Create colored background with initials
+
+    # Make a blank square image for the avatar
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.transparent)
-    
-    # Define theme colors - brown shades
+
+    # Some aesthetic brown colors to pick from for the background
     primary_colors = [
         "#5C4033",  # Dark brown
         "#8B4513",  # Saddle brown
@@ -1167,35 +1194,36 @@ def create_initials_avatar(name, size=80):
         "#6B4423",  # Dark wood brown
         "#825D30"   # Medium wood brown
     ]
-    
-    # Choose color based on the name (to get consistent colors for same names)
+
+    # Pick a color based on the name, so each person gets a consistent color
     import hashlib
     hash_value = int(hashlib.md5(name.encode('utf-8')).hexdigest(), 16)
     color_index = hash_value % len(primary_colors)
     bg_color = QColor(primary_colors[color_index])
-    
-    # Create painter and draw circle with text
+
+    # Start drawing on the avatar image
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.Antialiasing)
-    
-    # Draw background circle
+
+    # Draw a filled circle for the background
     painter.setBrush(QBrush(bg_color))
     painter.setPen(Qt.NoPen)
     painter.drawEllipse(0, 0, size, size)
-    
-    # Draw text
+
+    # Set up the font for the initials 
     font = QFont("Times New Roman")
-    font.setPixelSize(int(size * 0.4))  # Font size proportional to avatar size
+    font.setPixelSize(int(size * 0.4)) 
     font.setBold(True)
     painter.setFont(font)
-    
-    # White text for contrast
+
+    # Use a light color for the text 
     painter.setPen(QColor("#FFFEF0"))  
-    
-    # Center the text
+
+    # Draw the initials right in the center of the circle
     painter.drawText(pixmap.rect(), Qt.AlignCenter, initials)
     painter.end()
-    
+
+    # Give back the finished avatar image
     return pixmap
 
 if __name__ == "__main__":

@@ -268,7 +268,7 @@ class DatabaseSeeder:
             return records
         except Exception as e:
             print(f"✗ Error fetching records from {tableName}: {e}")
-            return []
+            return [] #return empty list if error
         finally:
             conn.close()
 
@@ -628,6 +628,7 @@ class DatabaseSeeder:
                 WHERE t.ReturnedDate IS NULL
                 AND t.Status = 'Borrowed'
                 AND t.LibrarianID = ?"""
+                #convert results to list of dictionaries
                 result = cursor.execute(query, (id,))
                 count = result = result.fetchone()[0]
                 return count if count is not None else 0 #return 0 if null

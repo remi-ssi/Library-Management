@@ -7,7 +7,7 @@ from PySide6.QtCore import QDate
 from PySide6.QtGui import QFont
 from .transaction_logic import BorrowBooks
 from tryDatabase import DatabaseSeeder
-from datetime import datetime, timedelta
+
 
 class HistoryTransactionPreviewForm(QDialog):
     def __init__(self, transaction, librarian_id, parent=None):

@@ -1,10 +1,10 @@
 # Import necessary Qt modules
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLabel, QLineEdit, QSpinBox,
+    QDialog, QVBoxLayout, QFormLayout, QLabel, QLineEdit,
     QDateEdit, QCheckBox, QPushButton, QHBoxLayout, QTableWidget, 
     QTableWidgetItem, QHeaderView, QTextEdit
 )
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import QDate
 from PySide6.QtGui import QFont
 
 class PreviewTransactionForm(QDialog):

@@ -1,4 +1,4 @@
-# Import necessary Qt modules and other dependencies
+# Import necessary Qt modules 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox,
     QDateEdit, QPushButton, QWidget, QSizePolicy, QSpinBox, QScrollArea, QTextEdit, QMessageBox
@@ -21,7 +21,7 @@ class BookSelectionWidget(QWidget):
         # Set up horizontal layout for the widget
         layout = QHBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(30)
+        layout.setSpacing(30) #space between items in layout
         
         # Number label to show book position (1., 2., etc.)
         self.number_label = QLabel("1.")
@@ -125,7 +125,7 @@ class BookSelectionWidget(QWidget):
         
         # Remove button (only shown when needed)
         if show_remove_button:
-            self.remove_btn = QPushButton("X")
+            self.remove_btn = QPushButton("X") #icon for remove
             self.remove_btn.setFont(QFont("Times New Roman", 12, QFont.Bold))
             self.remove_btn.setFixedSize(25, 25)
             # Custom styling for remove button
@@ -181,10 +181,11 @@ class BookSelectionWidget(QWidget):
         layout.addWidget(self.book_combo)
         layout.addWidget(qty_label)
         layout.addWidget(self.quantity_spin)
+        #only add remove btn if needed
         if show_remove_button:
             layout.addWidget(self.remove_btn)
         layout.addStretch()  # Add stretchable space
-    
+
     def set_number(self, number):
         """Update the position number label"""
         self.number_label.setText(f"{number}.")
@@ -197,6 +198,7 @@ class BookSelectionWidget(QWidget):
         """Get the currently selected quantity"""
         return self.quantity_spin.value()
 
+#FOR ADDING NEW BOOK BORROWING TRANSACTIONS
 class AddTransactionForm(QDialog):
     """Dialog for adding new book transactions"""
     def __init__(self, librarian_id, parent=None):
@@ -204,9 +206,10 @@ class AddTransactionForm(QDialog):
         # Initialize transaction logic handler
         self.borrow_books = BorrowBooks()
         self.librarian_id = librarian_id
+
         # Fetch available books from database
         self.books_list = self.borrow_books.fetch_books(librarian_id)
-        if not self.books_list:
+        if not self.books_list:#show error if no books available
             QMessageBox.warning(self, "Error", "No books available in the library.")
             self.close()
         
@@ -220,7 +223,7 @@ class AddTransactionForm(QDialog):
 
         # Main vertical layout
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setContentsMargins(20, 20, 20, 20) #add margins around the edges
 
         # Form container widget
         form_container = QWidget()
@@ -297,6 +300,7 @@ class AddTransactionForm(QDialog):
                     max-height: 80px;
                 }
             """)
+            #make widget expand horizontally
             widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             row.addWidget(label)
             row.addWidget(widget)
@@ -315,7 +319,7 @@ class AddTransactionForm(QDialog):
         # Books selection section
         books_section = QWidget()
         books_layout = QVBoxLayout(books_section)
-        books_layout.setContentsMargins(0, 0, 0, 0)
+        books_layout.setContentsMargins(0, 0, 0, 0) #no margins
         
         # Books section header with add button
         books_header = QHBoxLayout()
@@ -349,6 +353,7 @@ class AddTransactionForm(QDialog):
                 color: #fff;
             }
         """)
+        #connect button to add_book method
         self.add_book_btn.clicked.connect(self.add_book_widget)
         books_header.addStretch()
         books_header.addWidget(books_label)
@@ -359,12 +364,12 @@ class AddTransactionForm(QDialog):
         self.books_container = QWidget()
         self.books_container_layout = QVBoxLayout(self.books_container)
         self.books_container_layout.setContentsMargins(0, 0, 0, 0)
-        self.books_container_layout.setSpacing(15)
+        self.books_container_layout.setSpacing(15) #space between book rows
         
         # Scroll area for books container
         self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setFrameShape(QScrollArea.NoFrame)
+        self.scroll_area.setWidgetResizable(True) #expandable content
+        self.scroll_area.setFrameShape(QScrollArea.NoFrame) #no border
         books_layout.addLayout(books_header)
         books_layout.addWidget(self.scroll_area)
         self.scroll_area.setWidget(self.books_container)
@@ -441,11 +446,11 @@ class AddTransactionForm(QDialog):
         main_layout.addWidget(form_container)
 
         # Connect button signals
-        self.add_btn.clicked.connect(self.accept)
-        self.cancel_btn.clicked.connect(self.reject)
+        self.add_btn.clicked.connect(self.accept) #calls accept() method
+        self.cancel_btn.clicked.connect(self.reject) #closes dialog
 
+    #ADD A NEW BOOK SELECTION TO FORM
     def add_book_widget(self, show_remove=True):
-        """Add a new book selection widget to the form"""
         # Only show remove button if there are existing widgets
         if len(self.book_widgets) > 0:
             show_remove = True
@@ -483,6 +488,7 @@ class AddTransactionForm(QDialog):
 
     def update_remove_button_visibility(self):
         """Show/hide remove buttons based on number of widgets"""
+        #only show remove buttons if we have more than one book widget
         show_remove = len(self.book_widgets) > 1
         for widget in self.book_widgets:
             if hasattr(widget, 'remove_btn'):
@@ -493,11 +499,12 @@ class AddTransactionForm(QDialog):
 
     def get_books_data(self):
         """Get list of selected books and quantities"""
-        books_data = []
+        books_data = [] 
+        #collect data from each book widgte
         for widget in self.book_widgets:
             books_data.append({
-                'book': widget.get_book(),
-                'quantity': widget.get_quantity()
+                'book': widget.get_book(), #selected book title
+                'quantity': widget.get_quantity() #slected quantty
             })
         return books_data
     
@@ -555,10 +562,11 @@ class AddTransactionForm(QDialog):
         books = self.borrow_books.db_seeder.get_all_records(tableName="Book", id=self.librarian_id)
         book_dict = {book["BookTitle"]: book for book in books}
 
+        #check each selected book
         for book_data in books_data:
             book_title = book_data["book"]
             quantity = book_data["quantity"]
-            # Check book exists
+            # Check book exists in library
             if book_title not in book_dict:
                 QMessageBox.warning(self, "Input Error", f"Book '{book_title}' not found in the library.")
                 return

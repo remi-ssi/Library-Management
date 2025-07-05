@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView, QFrame,
     QStackedWidget, QMainWindow
 )
-from PySide6.QtCore import QDate
 from functools import partial
 from .AddTransactionForm import AddTransactionForm  # PARA MA-IMPORT UNG TRANSACTION FORM 
 from .PreviewTransactionForm import PreviewTransactionForm # PARA MA-IMPORT UNG PREVIEW NG TRANSACTION
@@ -585,7 +584,7 @@ class LibraryTransactionSystem(QMainWindow):
                         'borrower': trans.get('borrower', 'N/A'),
                         'date': trans.get('BorrowedDate', 'N/A'),
                         'due_date': trans.get('DueDate', 'N/A'),
-                        'action': trans.get('TransactionType', 'Borrowed'),
+                        'action': trans.get('Status', 'Borrowed'),
                         'remarks': trans.get('Remarks', ''),
                         'books': [] #will hold all books in this transction
                     }
@@ -721,13 +720,13 @@ class LibraryTransactionSystem(QMainWindow):
         else:
             #filter transactions that match search term in any field
             filtered_history = [
-                trans for trans in self.transactions
-                if (trans.get('action') == 'Returned'  #only returned transactions
-                (search_term in trans.get('book_title', '').lower() # search book title
-                or search_term in trans.get('borrower', '').lower() #search book name
-                or search_term in trans.get('returned_date', '').lower() #search returned date
-                or search_term in trans.get('action', '').lower())) #search acctio type
-            ]
+        trans for trans in self.transactions
+        if (trans.get('action') == 'Returned' and  # Only returned transactions
+            (search_term in trans.get('book_title', '').lower() or  # Search book title
+             search_term in trans.get('borrower', '').lower() or  # Search borrower name
+             search_term in trans.get('returned_date', '').lower() or  # Search returned date
+             search_term in trans.get('action', '').lower()))  # Search action type
+    ]
             #displayed filtered results
             self.display_history(filtered_history)
 

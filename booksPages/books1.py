@@ -359,9 +359,14 @@ class BookEditView(QWidget):
     
     def __init__(self, book_data, parent_window):
         super().__init__()
-        # Initialize book data and parent window reference
+        
+        # Initialize core properties
         self.book_data = book_data 
         self.parent_window = parent_window
+        
+        # Validate parent window connection
+        if not parent_window:
+            return
         
         # Initialize database connection
         from tryDatabase import DatabaseSeeder
@@ -369,521 +374,419 @@ class BookEditView(QWidget):
         
         # Configure widget properties and initialize UI
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.init_ui()
+        self._init_ui()
 
-    def init_ui(self):
+    def _init_ui(self):
         """Initialize the user interface for book editing"""
         # Main layout setup with proper spacing and margins
         layout = QVBoxLayout(self)
         layout.setContentsMargins(40, 40, 40, 40)
         layout.setSpacing(20)
         
-        # Header section with back button
+        # Create header section, form, and buttons
+        layout.addLayout(self._create_header())
+        layout.addWidget(self._create_title_label())
+        layout.addWidget(self._create_form_widget())
+        layout.addLayout(self._create_button_layout())
+        layout.addStretch()
+
+    def _create_header(self):
+        """Create header section with back button"""
         header_layout = QHBoxLayout()
+        
         back_btn = QPushButton("← Back to Books")
         back_btn.setFixedSize(150, 40)
         back_btn.clicked.connect(self.go_back)
         back_btn.setStyleSheet("""
             QPushButton {
-                color: #5C4033;
-                font-size: 16px;
-                font-weight: bold;
-                background-color: #f0f0f0;
-                border: 2px solid #5C4033;
-                border-radius: 10px;
+                color: #5C4033; font-size: 16px; font-weight: bold; background-color: #f0f0f0;
+                border: 2px solid #5C4033; border-radius: 10px;
             }
-            QPushButton:hover {
-                background-color: #e0e0e0;
-            }
+            QPushButton:hover { background-color: #e0e0e0; }
         """)
+        
         header_layout.addWidget(back_btn)
         header_layout.addStretch()
-        layout.addLayout(header_layout)
-        
-        # Page title showing which book is being edited
+        return header_layout
+
+    def _create_title_label(self):
+        """Create page title label"""
         title = QLabel(f"Edit Book: {self.book_data['title']}")
         title.setStyleSheet("""
-            QLabel {
-                color: #5C4033;
-                font-size: 30px;
-                font-weight: bold;
-                padding: 10px 0px;
-            }
+            QLabel { color: #5C4033; font-size: 30px; font-weight: bold; padding: 10px 0px; }
         """)
-        layout.addWidget(title)
-        
-        # Form container for book details
+        return title
+
+    def _create_form_widget(self):
+        """Create form container with all input fields"""
         form_widget = QWidget()
-        form_widget.setStyleSheet("""            
-            QWidget {
-                background-color: white;
-                border-radius: 16px;
-                border: 2px solid #dbcfc1;
-            }
+        form_widget.setStyleSheet("""
+            QWidget { background-color: white; border-radius: 16px; border: 2px solid #dbcfc1; }
         """)
+        
         form_layout = QFormLayout(form_widget)
         form_layout.setContentsMargins(30, 30, 30, 30)
         form_layout.setSpacing(15)
         
-        # Title field (read-only)
-        self.title_input = QLineEdit(self.book_data.get('title', ''))
-        self.title_input.setReadOnly(True)
-        self.title_input.setStyleSheet(self.get_readonly_input_style())
+        # Create all input fields
+        self._create_form_fields()
         
-        # Author field (read-only) - Format author list for display
-        author = self.book_data.get('author', '')
-        if isinstance(author, list):
-            author = ', '.join(author)  # Join author list into comma-separated string
-        self.author_input = QLineEdit(author)
-        self.author_input.setReadOnly(True)
-        self.author_input.setStyleSheet(self.get_readonly_input_style())
+        # Add fields to form layout
+        fields = [
+            ("Title:", self.title_input),
+            ("Author:", self.author_input),
+            ("Genre:", self.genre_input),
+            ("ISBN:", self.isbn_input),
+            ("Total copy of books:", self.copies_input),
+            ("Shelf No.:", self.shelf_input),
+            ("Description:", self.description_input)
+        ]
         
-        # Genre field (read-only) - Format genre list for display
-        genre = self.book_data.get('genre', '')
-        if isinstance(genre, list):
-            genre = ', '.join(genre)  # Join genre list into comma-separated string
-        self.genre_input = QLineEdit(genre)
-        self.genre_input.setReadOnly(True)
-        self.genre_input.setStyleSheet(self.get_readonly_input_style())
+        for label_text, field in fields:
+            form_layout.addRow(self._create_label(label_text), field)
         
-        # ISBN field (read-only)
-        isbn = self.book_data.get('isbn', '')
-        self.isbn_input = QLineEdit(str(isbn))
-        self.isbn_input.setReadOnly(True)
-        self.isbn_input.setStyleSheet(self.get_readonly_input_style())
+        return form_widget
+
+    def _create_form_fields(self):
+        """Create and configure all form input fields"""
+        # Read-only fields
+        self.title_input = self._create_readonly_field(self.book_data.get('title', ''))
+        self.author_input = self._create_readonly_field(self._format_list_field(self.book_data.get('author', '')))
+        self.genre_input = self._create_readonly_field(self._format_list_field(self.book_data.get('genre', '')))
+        self.isbn_input = self._create_readonly_field(str(self.book_data.get('isbn', '')))
         
-        # Total copies field (editable)
-        total_copies = self.book_data.get('copies', 1)
-        self.copies_input = QLineEdit(str(total_copies))
-        self.copies_input.setStyleSheet(self.get_editable_input_style())
-        
-        # Shelf dropdown selector
-        self.shelf_input = QComboBox()
-        self.shelf_input.setEditable(False)  
-        self.shelf_input.setStyleSheet("""
+        # Editable fields
+        self.copies_input = self._create_editable_field(str(self.book_data.get('copies', 1)))
+        self.shelf_input = self._create_shelf_dropdown()
+        self.description_input = self._create_description_field()
+
+    def _format_list_field(self, field_value):
+        """Format list fields (author/genre) for display"""
+        if isinstance(field_value, list):
+            return ', '.join(field_value)
+        return str(field_value)
+
+    def _create_readonly_field(self, value):
+        """Create a read-only input field"""
+        field = QLineEdit(value)
+        field.setReadOnly(True)
+        field.setStyleSheet("""
+            QLineEdit {
+                color: #666666; font-size: 16px; padding: 10px; background-color: #f5f5f5;
+                border: 2px solid #dbcfc1; border-radius: 10px;
+            }
+        """)
+        return field
+
+    def _create_editable_field(self, value):
+        """Create an editable input field"""
+        field = QLineEdit(value)
+        field.setStyleSheet("""
+            QLineEdit {
+                color: #5C4033; font-size: 16px; padding: 10px; background-color: white;
+                border: 2px solid #dbcfc1; border-radius: 10px;
+            }
+            QLineEdit:focus { border-color: #5C4033; }
+        """)
+        return field
+
+    def _create_shelf_dropdown(self):
+        """Create and populate shelf dropdown"""
+        dropdown = QComboBox()
+        dropdown.setEditable(False)
+        dropdown.setStyleSheet("""
             QComboBox {
-                color: #5C4033;
-                font-size: 16px;
-                padding: 10px;
-                background-color: white;
-                border: 2px solid #dbcfc1;
-                border-radius: 10px;
+                color: #5C4033; font-size: 16px; padding: 10px; background-color: white;
+                border: 2px solid #dbcfc1; border-radius: 10px;
             }
-            QComboBox:focus {
-                border-color: #5C4033;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 20px;
-            }
+            QComboBox:focus { border-color: #5C4033; }
+            QComboBox::drop-down { border: none; width: 20px; }
             QComboBox::down-arrow {
-                image: none;
-                border: 1px solid #5C4033;
-                width: 10px;
-                height: 10px;
-                background-color: #5C4033;
+                image: none; border: 1px solid #5C4033; width: 10px; height: 10px; background-color: #5C4033;
             }
         """)
         
-        # Load available shelves and populate dropdown
-        self.populate_shelf_dropdown()
-        
-        # Description field (editable)
-        self.description_input = QTextEdit(self.book_data.get('description', 'No description available'))
-        self.description_input.setMaximumHeight(150)
-        self.description_input.setStyleSheet("""
+        self._populate_shelf_dropdown(dropdown)
+        return dropdown
+
+    def _create_description_field(self):
+        """Create description text area"""
+        field = QTextEdit(self.book_data.get('description', 'No description available'))
+        field.setMaximumHeight(150)
+        field.setStyleSheet("""
             QTextEdit {
-                color: #5C4033;
-                font-size: 15px;
-                padding: 10px;
-                background-color: white;
-                border: 2px solid #dbcfc1;
-                border-radius: 16px;
+                color: #5C4033; font-size: 15px; padding: 10px; background-color: white;
+                border: 2px solid #dbcfc1; border-radius: 16px;
             }
-            QTextEdit:focus {
-                border-color: #5C4033;            
-            }
+            QTextEdit:focus { border-color: #5C4033; }
         """)
-        
-        # Add all fields to form layout
-        form_layout.addRow(self.create_label("Title:"), self.title_input)
-        form_layout.addRow(self.create_label("Author:"), self.author_input)
-        form_layout.addRow(self.create_label("Genre:"), self.genre_input)
-        form_layout.addRow(self.create_label("ISBN:"), self.isbn_input)
-        form_layout.addRow(self.create_label("Total copy of books:"), self.copies_input)
-        form_layout.addRow(self.create_label("Shelf No.:"), self.shelf_input)
-        form_layout.addRow(self.create_label("Description:"), self.description_input)
-        layout.addWidget(form_widget)
-        
-        # Action buttons section
+        return field
+
+    def _create_button_layout(self):
+        """Create action buttons layout"""
         button_layout = QHBoxLayout()
         button_layout.addStretch()
         
-        # Save button
-        save_btn = QPushButton("Save Changes")
-        save_btn.setFixedSize(150, 50)
-        save_btn.clicked.connect(self.save_changes)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-                background-color: #5C4033;
-                border: none;
-                border-radius: 16px;
-            }
-            QPushButton:hover {
-                background-color: #8B4513;
-            }
-        """)
+        # Button configurations: (text, callback, style_class)
+        buttons_config = [
+            ("Save Changes", self.save_changes, "save"),
+            ("Delete Book", self.delete_book, "delete"),
+            ("Cancel", self.go_back, "cancel")
+        ]
         
-        # Delete button
-        delete_btn = QPushButton("Delete Book")
-        delete_btn.setFixedSize(150, 50)
-        delete_btn.clicked.connect(self.delete_book)
-        delete_btn.setStyleSheet("""
-            QPushButton {
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-                background-color: #CC4125;
-                border: none;
-                border-radius: 16px;
-            }
-            QPushButton:hover {
-                background-color: #E55B4A;
-            }
-        """)
+        for text, callback, style_class in buttons_config:
+            button = QPushButton(text)
+            button.setFixedSize(150, 50)
+            button.clicked.connect(callback)
+            button.setStyleSheet(self._get_button_style(style_class))
+            button_layout.addWidget(button)
         
-        # Cancel button
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.setFixedSize(150, 50)
-        cancel_btn.clicked.connect(self.go_back)
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                color: #5C4033;
-                font-size: 16px;
-                font-weight: bold;
-                background-color: #f0f0f0;
-                border: 2px solid #5C4033;
-                border-radius: 10px;
-            }
-            QPushButton:hover {
-                background-color: #e0e0e0;
-            }
-        """)
-        
-        # Add buttons to layout
-        button_layout.addWidget(save_btn)
-        button_layout.addWidget(delete_btn)
-        button_layout.addWidget(cancel_btn)
-        
-        layout.addLayout(button_layout)
-        layout.addStretch()
-    
-    def populate_shelf_dropdown(self):
-        """Populate shelf dropdown with available shelves from database"""
-        try:  
-            # Get librarian_id from parent window
-            librarian_id = getattr(self.parent_window, 'librarian_id', 1)
-            shelf_records = self.db_seeder.get_all_records("BookShelf", librarian_id)
-            
-            # Extract ShelfName values from records, skipping any missing or null ones
-            available_shelves = [record['ShelfName'] for record in shelf_records if record.get('ShelfName')] 
-            
-            # If no shelves exist for this librarian, create default shelf A1
-            if not available_shelves:
-                print(f"📚 BookEditView - No shelves found, creating default shelf A1")
-                try:
-                    self.db_seeder.seed_data("BookShelf", [{"ShelfName": "A1", "LibrarianID": librarian_id}], 
-                                             ["ShelfName", "LibrarianID"])
-                    available_shelves = ["A1"]
-                    print(f"📚 BookEditView - Created default shelf A1")
-                except Exception as seed_error:
-                    print(f"⚠️ Could not create default shelf: {seed_error}")
-                    available_shelves = ["A1"]  # Use A1 anyway
-            
-            # Add all available shelves to dropdown
-            self.shelf_input.addItems(available_shelves)
-            print(f"📚 BookEditView - Added shelves to dropdown: {available_shelves}")
+        return button_layout
 
-            # Set current shelf value if it exists
-            current_shelf = self.book_data.get('shelf', '')
-            print(f"📚 BookEditView - Current shelf from book_data: '{current_shelf}'")
-            
-            if current_shelf:
-                index = self.shelf_input.findText(current_shelf)
-                print(f"📚 BookEditView - Found shelf '{current_shelf}' at index: {index}")
-                
-                if index >= 0:
-                    self.shelf_input.setCurrentIndex(index)
-                    print(f"📚 BookEditView - Set dropdown to index {index}")
-                else:
-                    # If current shelf is not in the list, add it and select it
-                    print(f"📚 BookEditView - Shelf '{current_shelf}' not found in dropdown, adding it")
-                    self.shelf_input.addItem(current_shelf)
-                    index = self.shelf_input.findText(current_shelf)
-                    if index >= 0:
-                        self.shelf_input.setCurrentIndex(index)
-                        print(f"📚 BookEditView - Added and set shelf '{current_shelf}' at index {index}")
-            else:
-                # No current shelf, select first available shelf
-                if available_shelves:
-                    self.shelf_input.setCurrentIndex(0)
-                    print(f"📚 BookEditView - No current shelf, set to first available: {available_shelves[0]}")
-                    
-        except Exception as e:
-            print(f"❌ Error loading shelves in BookEditView: {e}")
-            print(f"📚 BookEditView - Exception traceback:")
-            import traceback
-            traceback.print_exc()
-            # Fallback to A1
-            self.shelf_input.addItem("A1")
-            self.shelf_input.setCurrentIndex(0)
-            print(f"📚 BookEditView - Fallback: Added A1 shelf")
-    
-    def get_or_create_shelf_id(self, shelf_name):
-        """Get shelf ID from database or create new shelf if it doesn't exist"""
-        shelf_id = None
-        try:
-            # Get librarian_id for shelf lookup
-            librarian_id = getattr(self.parent_window, 'librarian_id', 1)
-            shelf_records = self.db_seeder.get_all_records("BookShelf", librarian_id)
-            
-            # Find the shelf by name and get its ID
-            for shelf_record in shelf_records:
-                if shelf_record['ShelfName'] == shelf_name:
-                    shelf_id = shelf_record['ShelfId']
-                    break
-            
-            # If shelf doesn't exist, create it
-            if shelf_id is None:
-                print(f"📚 Creating new shelf: {shelf_name}")
-                self.db_seeder.seed_data("BookShelf", [{"ShelfName": shelf_name, "LibrarianID": librarian_id}], 
-                                         ["ShelfName", "LibrarianID"])
-                # Get the newly created shelf ID
-                shelf_records = self.db_seeder.get_all_records("BookShelf", librarian_id)
-                for shelf_record in shelf_records:
-                    if shelf_record['ShelfName'] == shelf_name:
-                        shelf_id = shelf_record['ShelfId']
-                        break
-            
-            print(f"📚 Shelf '{shelf_name}' has ID: {shelf_id}")
-            
-        except Exception as shelf_error:
-            print(f"⚠️ Error getting shelf ID: {shelf_error}")
-            # Fallback: use the shelf name (but this might cause issues)
-            shelf_id = shelf_name
-            
-        return shelf_id
-    
-    def create_label(self, text):
+    def _get_button_style(self, style_class):
+        """Get button styling based on class"""
+        styles = {
+            "save": """
+                QPushButton {
+                    color: white; font-size: 16px; font-weight: bold; background-color: #5C4033;
+                    border: none; border-radius: 16px;
+                }
+                QPushButton:hover { background-color: #8B4513; }
+            """,
+            "delete": """
+                QPushButton {
+                    color: white; font-size: 16px; font-weight: bold; background-color: #CC4125;
+                    border: none; border-radius: 16px;
+                }
+                QPushButton:hover { background-color: #E55B4A; }
+            """,
+            "cancel": """
+                QPushButton {
+                    color: #5C4033; font-size: 16px; font-weight: bold; background-color: #f0f0f0;
+                    border: 2px solid #5C4033; border-radius: 10px;
+                }
+                QPushButton:hover { background-color: #e0e0e0; }
+            """
+        }
+        return styles.get(style_class, "")
+
+    def _create_label(self, text):
         """Create a styled label for form fields"""
         label = QLabel(text)
-        label.setStyleSheet("""
-            QLabel {
-                color: #5C4033;
-                font-size: 16px;
-                font-weight: bold;
-            }
-        """)
+        label.setStyleSheet("QLabel { color: #5C4033; font-size: 16px; font-weight: bold; }")
         return label
     
-    def get_readonly_input_style(self):
-        """Get style for read-only input fields"""
-        return """
-            QLineEdit {
-                color: #666666;
-                font-size: 16px;
-                padding: 10px;
-                background-color: #f5f5f5;
-                border: 2px solid #dbcfc1;
-                border-radius: 10px;
-            }
-        """
+    def _populate_shelf_dropdown(self, dropdown):
+        """Populate shelf dropdown with available shelves from database"""
+        try:  
+            # Get librarian_id and shelf records
+            librarian_id = getattr(self.parent_window, 'librarian_id', 1)
+            shelf_records = self.db_seeder.get_all_records("BookShelf", librarian_id)
+            
+            # Extract shelf names, filtering out empty values
+            available_shelves = [record['ShelfName'] for record in shelf_records if record.get('ShelfName')] 
+            
+            # Create default shelf if none exist
+            if not available_shelves:
+                available_shelves = self._create_default_shelf(librarian_id)
+            
+            # Populate dropdown with shelves
+            dropdown.addItems(available_shelves)
+            
+            # Set current shelf selection
+            self._set_current_shelf_selection(dropdown, available_shelves)
+                    
+        except Exception:
+            # Fallback to default shelf on error
+            dropdown.addItem("A1")
+            dropdown.setCurrentIndex(0)
+
+    def _create_default_shelf(self, librarian_id):
+        """Create default shelf A1 if no shelves exist"""
+        try:
+            self.db_seeder.seed_data("BookShelf", [{"ShelfName": "A1", "LibrarianID": librarian_id}], 
+                                     ["ShelfName", "LibrarianID"])
+            return ["A1"]
+        except Exception:
+            return ["A1"]
+
+    def _set_current_shelf_selection(self, dropdown, available_shelves):
+        """Set current shelf selection in dropdown"""
+        current_shelf = self.book_data.get('shelf', '')
+        
+        if current_shelf:
+            index = dropdown.findText(current_shelf)
+            if index >= 0:
+                dropdown.setCurrentIndex(index)
+            else:
+                # Add current shelf if not in list
+                dropdown.addItem(current_shelf)
+                index = dropdown.findText(current_shelf)
+                if index >= 0:
+                    dropdown.setCurrentIndex(index)
+        elif available_shelves:
+            dropdown.setCurrentIndex(0)
     
-    def get_editable_input_style(self):
-        """Get style for editable input fields"""
-        return """
-            QLineEdit {
-                color: #5C4033;
-                font-size: 16px;
-                padding: 10px;
-                background-color: white;
-                border: 2px solid #dbcfc1;
-                border-radius: 10px;
-            }
-            QLineEdit:focus {
-                border-color: #5C4033;
-            }
-        """
+    def _get_or_create_shelf_id(self, shelf_name):
+        """Get shelf ID from database or create new shelf if it doesn't exist"""
+        try:
+            # Get librarian_id and shelf records
+            librarian_id = getattr(self.parent_window, 'librarian_id', 1)
+            shelf_records = self.db_seeder.get_all_records("BookShelf", librarian_id)
+            
+            # Find existing shelf by name
+            for shelf_record in shelf_records:
+                if shelf_record['ShelfName'] == shelf_name:
+                    return shelf_record['ShelfId']
+            
+            # Create new shelf if not found
+            self.db_seeder.seed_data("BookShelf", [{"ShelfName": shelf_name, "LibrarianID": librarian_id}], 
+                                     ["ShelfName", "LibrarianID"])
+            
+            # Get the newly created shelf ID
+            shelf_records = self.db_seeder.get_all_records("BookShelf", librarian_id)
+            for shelf_record in shelf_records:
+                if shelf_record['ShelfName'] == shelf_name:
+                    return shelf_record['ShelfId']
+            
+        except Exception:
+            # Fallback: use the shelf name
+            return shelf_name
+        
+        return shelf_name
     
     def save_changes(self):
         """Save changes to book details after validation"""
-        print(f"🔄 Save changes requested for book: {self.book_data.get('title')}")
+        # Validate input fields
+        if not self._validate_input():
+            return
         
+        try:
+            # Calculate copy availability and prepare updates
+            update_data = self._prepare_update_data()
+            
+            # Update database
+            if self._update_database(update_data):
+                # Show success and refresh parent window
+                self._show_success_message(update_data)
+                self._refresh_parent_window()
+            
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"Error updating book: {str(e)}")
+
+    def _validate_input(self):
+        """Validate user input fields"""
         # Validate copies input
         copies_text = self.copies_input.text().strip()
         if not copies_text.isdigit() or int(copies_text) < 0:
             QMessageBox.warning(self, "Validation Error", "Total copies must be a non-negative integer")
-            print(f"❌ Validation failed: Invalid total copies value '{copies_text}'")
-            return
+            return False
         
         # Validate shelf format using utility function
         shelf = self.shelf_input.currentText().strip()
         if not validate_shelf_format(shelf):
             QMessageBox.warning(self, "Validation Error", 
                                "Shelf number must be one letter (A-Z) followed by 1 to 5 digits. (e.g. A1, B12, C345)")
-            print(f"❌ Validation failed: Invalid shelf format '{shelf}'")
-            return
+            return False
         
-        print(f"✅ Validation passed - Copies: {copies_text}, Shelf: {shelf}")
-            
+        return True
+
+    def _prepare_update_data(self):
+        """Prepare data for database update"""
+        # Get input values
+        copies_text = self.copies_input.text().strip()
+        shelf = self.shelf_input.currentText().strip()
+        description = self.description_input.toPlainText().strip()
+        
+        # Calculate copy availability
+        old_total_copies = self.book_data.get('copies', 0)  
+        old_available = self.book_data.get('available_copies', 0)
+        new_total_copies = int(copies_text)
+        
+        # Calculate borrowed copies and new availability
+        borrowed_copies = old_total_copies - old_available
+        new_available_copies = max(0, new_total_copies - borrowed_copies)
+        
+        # Get or create shelf ID for database storage
+        shelf_id = self._get_or_create_shelf_id(shelf)
+        
+        # Update book data in memory
+        self.book_data.update({
+            'copies': new_total_copies,
+            'available_copies': new_available_copies,
+            'shelf': shelf,
+            'description': description
+        })
+        
+        return {
+            'shelf': shelf,
+            'shelf_id': shelf_id,
+            'description': description,
+            'total_copies': new_total_copies,
+            'available_copies': new_available_copies
+        }
+
+    def _update_database(self, update_data):
+        """Update book data in database"""
+        # Get book code for database update
+        book_code = self.book_data.get('book_code')
+        if not book_code:
+            QMessageBox.warning(self, "Error", "Cannot update: Book code not found")
+            return False
+        
+        # Prepare database updates
+        book_updates = {
+            'BookDescription': update_data['description'],
+            'BookShelf': update_data['shelf_id'],
+            'BookTotalCopies': update_data['total_copies'],
+            'BookAvailableCopies': update_data['available_copies']
+        }
+        
+        # Execute database update
         try:
-            print(f"📝 Starting update process...")
+            update_success = self.db_seeder.update_table("Book", book_updates, "BookCode", book_code)
             
-            # Calculate copy numbers and availability
-            old_total_copies = self.book_data.get('copies', 0)  
-            old_available = self.book_data.get('available_copies', 0)
-            new_total_copies = int(copies_text)
+            if update_success is False:
+                QMessageBox.warning(self, "Error", "Failed to update book in database. Please try again.")
+                return False
             
-            # Calculate how many copies are currently borrowed
-            borrowed_copies = old_total_copies - old_available
+            return True
             
-            # New available copies = new total - borrowed copies
-            new_available_copies = new_total_copies - borrowed_copies
-            
-            # Make sure available copies is never negative
-            if new_available_copies < 0:
-                new_available_copies = 0
-                borrowed_copies = new_total_copies  # All copies are borrowed
-            
-            print(f"📊 Copies update:")
-            print(f"   Total copies: {old_total_copies} → {new_total_copies}")
-            print(f"   Borrowed copies: {borrowed_copies}")
-            print(f"   Available copies: {old_available} → {new_available_copies}")
-            
-            # Get current description from UI
-            new_description = self.description_input.toPlainText().strip()
-            
-            # Get or create shelf ID for database storage
-            shelf_id = self.get_or_create_shelf_id(shelf)
-            
-            # Update book data in memory
-            self.book_data['copies'] = new_total_copies
-            self.book_data['available_copies'] = new_available_copies
-            self.book_data['shelf'] = shelf  # Keep shelf name for UI
-            self.book_data['description'] = new_description
-            
-            # Get book code for database update
-            book_code = self.book_data.get('book_code')
-            if not book_code:
-                QMessageBox.warning(self, "Error", "Cannot update: Book code not found")
-                print(f"❌ Error: Book code not found in book_data")
-                return
-            
-            print(f"📝 Updating book with BookCode: {book_code}")
-            print(f"   Title: {self.book_data.get('title')}")
-            
-            # Prepare updates for Book table
-            book_updates = {
-                'BookDescription': new_description,
-                'BookShelf': shelf_id,
-                'BookTotalCopies': new_total_copies,
-                'BookAvailableCopies': new_available_copies
-            }
-            
-            print(f"📋 Updates to apply: {book_updates}")
-            
-            # Update the Book table in database
-            try:
-                update_success = self.db_seeder.update_table("Book", book_updates, "BookCode", book_code)
-                print(f"📊 Update result: {update_success} (type: {type(update_success)})")
-                
-                if update_success is False:
-                    QMessageBox.warning(self, "Error", "Failed to update book in database. Please try again.")
-                    print(f"❌ Database update returned False")
-                    return
-                elif update_success is None:
-                    print(f"⚠️ Warning: Database update returned None, but proceeding...")
-                else:
-                    print(f"✅ Database update completed successfully!")
-            except Exception as update_error:
-                QMessageBox.warning(self, "Error", f"Database update failed: {str(update_error)}")
-                print(f"❌ Database update exception: {update_error}")
-                return
-            
-            # Verify the update worked by checking the database
-            self.verify_database_update(book_code)
-            
-            # Show success message to user
-            self.show_success_message(new_description, shelf, new_total_copies)
-            
-            # Refresh parent window with updated data
-            self.refresh_parent_window()
-            
-        except Exception as e:
-            error_msg = f"Error updating book: {str(e)}"
-            QMessageBox.warning(self, "Error", error_msg)
-            print(f"❌ {error_msg}")
-            import traceback
-            traceback.print_exc()
-    
-    def verify_database_update(self, book_code):
-        """Verify the database update was successful by checking updated records"""
-        librarian_id = getattr(self.parent_window, 'librarian_id', 1)
-        updated_books = self.db_seeder.get_all_records("Book", librarian_id)
-        updated_book = next((b for b in updated_books if b.get('BookCode') == book_code), None)
-        
-        if updated_book:
-            print(f"✅ Verification successful:")
-            print(f"   Description: {updated_book.get('BookDescription')}")
-            print(f"   Shelf: {updated_book.get('BookShelf')}")
-            print(f"   Total Copies: {updated_book.get('BookTotalCopies')}")
-            print(f"   Available Copies: {updated_book.get('BookAvailableCopies')}")
-        else:
-            print(f"⚠️ Warning: Could not verify update in database")
-    
-    def show_success_message(self, description, shelf, total_copies):
+        except Exception as update_error:
+            QMessageBox.warning(self, "Error", f"Database update failed: {str(update_error)}")
+            return False
+
+    def _show_success_message(self, update_data):
         """Show success message to user after successful update"""
+        description = update_data['description']
+        description_preview = description[:50] + ('...' if len(description) > 50 else '')
+        
         msg = QMessageBox()
         msg.setWindowTitle("Success")
         msg.setText(f"Book '{self.book_data['title']}' has been updated successfully!\n\n"
                    f"Updated fields:\n"
-                   f"• Description: {description[:50]}{'...' if len(description) > 50 else ''}\n"
-                   f"• Shelf: {shelf}\n"
-                   f"• Total Copies: {total_copies}")
+                   f"• Description: {description_preview}\n"
+                   f"• Shelf: {update_data['shelf']}\n"
+                   f"• Total Copies: {update_data['total_copies']}")
         msg.setIcon(QMessageBox.Information)
         msg.exec()
-    
-    def refresh_parent_window(self):
+
+    def _refresh_parent_window(self):
         """Refresh parent window display with updated book data"""
-        print(f"🔄 Refreshing parent window display...")
-        
-        # Reload books data from database
+        # Reload books data from database and switch to books view
         if hasattr(self.parent_window, 'load_books_from_database'):
             self.parent_window.load_books_from_database()
-            print(f"✅ Books data reloaded from database")
-        else:
-            print(f"⚠️ Warning: parent_window doesn't have load_books_from_database method")
             
-        # Switch view back to books display
         if hasattr(self.parent_window, 'show_books_view'):
             self.parent_window.show_books_view()
-            print(f"✅ Books view refreshed")
-        else:
-            print(f"⚠️ Warning: parent_window doesn't have show_books_view method")
-              
     def delete_book(self):
         """Delete book after confirmation"""
         # Confirm deletion with user
         reply = QMessageBox.question(
-            self, 
-            'Confirm Deletion', 
+            self, 'Confirm Deletion', 
             f"Are you sure you want to delete '{self.book_data['title']}'?\n\n"
             f"This will permanently remove the book and all related author and genre information.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
         )
         
         if reply == QMessageBox.Yes:
@@ -894,27 +797,19 @@ class BookEditView(QWidget):
                     QMessageBox.warning(self, "Error", "Cannot delete: Book code not found")
                     return
                 
-                print(f"🗑️ Deleting book with BookCode: {book_code}")
-                
-                # Delete from Book table in database
+                # Delete from database
                 self.db_seeder.delete_table("Book", "BookCode", book_code)
                 
-                # Show confirmation to user
-                msg = QMessageBox()
-                msg.setWindowTitle("Deleted")
-                msg.setText(f"Book '{self.book_data['title']}' has been deleted successfully!")
-                msg.setIcon(QMessageBox.Information)
-                msg.exec()
+                # Show success message
+                QMessageBox.information(self, "Deleted", 
+                                      f"Book '{self.book_data['title']}' has been deleted successfully!")
                 
-                # Refresh parent window
+                # Refresh parent window and return to books view
                 self.parent_window.load_books_from_database()
                 self.parent_window.show_books_view()
                 
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Error deleting book: {e}")
-                print(f"❌ Error deleting book: {e}")
-                import traceback
-                traceback.print_exc()
     
     def go_back(self):
         """Return to books view without saving changes"""

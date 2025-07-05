@@ -354,6 +354,7 @@ class BookPreviewDialog(QDialog):
         else:
             print("[ERROR] parent_window is None!")
 
+# BookEditView class for editing book details
 class BookEditView(QWidget):
     """Widget for editing existing book details with validation and database updates"""
     
@@ -815,6 +816,7 @@ class BookEditView(QWidget):
         """Return to books view without saving changes"""
         self.parent_window.show_books_view()
 
+# Dialog for adding new books with API verification and manual entry options
 class AddBookDialog(QDialog):
     """Dialog for adding new books with API verification and manual entry options"""
     
@@ -1461,6 +1463,7 @@ class AddBookDialog(QDialog):
         self.accept()
         self.open_book_details_dialog(book_data, is_found_book=bool(self.found_book_data))
 
+# Dialog for entering and editing detailed book information
 class BookDetailsDialog(QDialog):
     """Dialog for entering and editing detailed book information with validation"""
     

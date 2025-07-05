@@ -1,19 +1,17 @@
 import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                              QHBoxLayout, QLabel, QPushButton, QFrame, 
-                              QStackedWidget, QTableWidget, QTableWidgetItem,
-                              QHeaderView, QLineEdit, QMessageBox, QDialog,
-                              QFormLayout, QDateEdit, QComboBox, QSpacerItem,
-                              QSizePolicy, QCheckBox)
-from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QFont, QColor, QIcon
-from datetime import datetime, timedelta
+                              QHBoxLayout, QLabel, QPushButton, QStackedWidget, QTableWidget, QTableWidgetItem,
+                              QHeaderView, QLineEdit, QMessageBox, QCheckBox)
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 from navigation_sidebar import NavigationSidebar
 from navbar_logic import nav_manager
 from tryDatabase import DatabaseSeeder
 
 class ArchiveManager(QMainWindow):
+    # Main window for our archive window 
     def __init__(self, librarian_id=None):
+        # Set up archive window and load data
         super().__init__()
         self.db_seeder = DatabaseSeeder()
         self.librarian_id = librarian_id
@@ -23,7 +21,7 @@ class ArchiveManager(QMainWindow):
                 background-color: #f1efe3;
             }
         """)
-        # Define button styles as class attributes
+        # Make the buttons look better
         self.button_base_style = """
             QPushButton {
                 background-color: transparent;
@@ -58,11 +56,10 @@ class ArchiveManager(QMainWindow):
         self.setWindowTitle("Archive Management")
         self.setGeometry(100, 100, 1400, 800)
         self.showMaximized()
-        
-        # Initialize UI components
         self.setup_ui()
         
     def setup_ui(self):
+        # Build sidebar, header, tabs, and content
         # Create main widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -154,6 +151,7 @@ class ArchiveManager(QMainWindow):
         self.show_books_archive()
         
     def create_books_archive_page(self):
+        # Page for viewing archived books
         """Create the books archive page"""
         self.books_page = QWidget()
         self.books_page.setStyleSheet("background-color: #f1efe3;")
@@ -218,6 +216,7 @@ class ArchiveManager(QMainWindow):
         self.load_archived_books()
         
     def create_members_archive_page(self):
+        # Page for viewing archived members
         """Create the members archive page"""
         self.members_page = QWidget()
         self.members_page.setStyleSheet("background-color: #f1efe3;")
@@ -263,7 +262,7 @@ class ArchiveManager(QMainWindow):
         
         
         header = self.members_table.horizontalHeader()
-        for i in range(6):  # First 5 columns stretch
+        for i in range(6):  # First 5 columns stretch then the last one is fixed because its only the select column
             header.setSectionResizeMode(i, QHeaderView.Stretch)
         header.setSectionResizeMode(5, QHeaderView.Fixed)  
         self.members_table.setColumnWidth(5, 150) 
@@ -283,6 +282,7 @@ class ArchiveManager(QMainWindow):
         self.load_archived_members()
     
     def create_shelf_archive_page(self):
+        # Page for viewing archived shelves
         """Create the shelf archive page"""
         self.shelf_page = QWidget()
         self.shelf_page.setStyleSheet("background-color: #f1efe3;")
@@ -347,6 +347,7 @@ class ArchiveManager(QMainWindow):
         self.load_archived_shelves()
 
     def show_books_archive(self):
+        # Show books archive tab
         """Switch to the books archive view"""
         self.content_stack.setCurrentWidget(self.books_page)
         
@@ -359,6 +360,7 @@ class ArchiveManager(QMainWindow):
         self.books_btn.setStyleSheet(self.button_active_style)
 
     def show_shelf_archive(self):
+        # Show shelf archive tab
         """Switch to the shelf archive view"""
         self.content_stack.setCurrentWidget(self.shelf_page)
         
@@ -371,6 +373,7 @@ class ArchiveManager(QMainWindow):
         self.shelf_btn.setStyleSheet(self.button_active_style)
 
     def show_members_archive(self):
+        # Show members archive tab
         """Switch to the members archive view"""
         self.content_stack.setCurrentWidget(self.members_page)
         
@@ -383,6 +386,7 @@ class ArchiveManager(QMainWindow):
         self.members_btn.setStyleSheet(self.button_active_style)
     
     def load_archived_books(self):
+        # Load archived books from DB
         """Load archived books from database"""
         try:
             archived_books = self.db_seeder.archiveTable("Book", self.librarian_id or 1)
@@ -395,9 +399,9 @@ class ArchiveManager(QMainWindow):
             print(f"Error loading archived books: {e}")
     
     def load_archived_members(self):
+        # Load archived members from DB
         """Load archived members from database"""
         try:
-            #dito ilalagay yung db lo
             archived_members = self.db_seeder.archiveTable("Member", self.librarian_id or 1)
             
             self.display_archived_members(archived_members)
@@ -405,9 +409,9 @@ class ArchiveManager(QMainWindow):
             print(f"Error loading archived members: {e}")
     
     def load_archived_shelves(self):
+        # Load archived shelves from DB
         """Load archived shelves from database"""
         try:
-            #dito ilalagay yung db lo
             archived_shelves = self.db_seeder.archiveTable("BookShelf", self.librarian_id or 1)
             
             self.display_archived_shelves(archived_shelves)
@@ -415,6 +419,7 @@ class ArchiveManager(QMainWindow):
             print(f"Error loading archived shelves: {e}")
     
     def display_archived_books(self, books, book_authors, book_genres):
+        # Fill table with archived books
         """Display archived books in the table"""
         from PySide6.QtWidgets import QCheckBox
         
@@ -489,6 +494,7 @@ class ArchiveManager(QMainWindow):
             self.books_table.setRowHeight(row, 40)
     
     def display_archived_members(self, members):
+        # Fill table with archived members
         """Display archived members in the table"""
         from PySide6.QtWidgets import QCheckBox
         
@@ -543,6 +549,7 @@ class ArchiveManager(QMainWindow):
             self.members_table.setRowHeight(row, 40)
     
     def display_archived_shelves(self, shelves):
+        # Fill table with archived shelves
         """Display archived shelves in the table"""
         from PySide6.QtWidgets import QCheckBox
         
@@ -608,6 +615,7 @@ class ArchiveManager(QMainWindow):
             self.shelf_table.setRowHeight(row, 40)
     
     def search_archived_books(self):
+        # Search archived books
         """Search archived books based on input"""
         search_text = self.books_search.text().strip()
         if not search_text:
@@ -631,6 +639,7 @@ class ArchiveManager(QMainWindow):
             self.load_archived_books()  # Fallback to showing all
     
     def search_archived_members(self):
+        # Search archived members
         """Search archived members based on input"""
         search_text = self.members_search.text().strip()
         if not search_text:
@@ -650,6 +659,7 @@ class ArchiveManager(QMainWindow):
             self.load_archived_members()  # Fallback to showing all
     
     def search_archived_shelves(self):
+        # Search archived shelves
         """Search archived shelves based on input"""
         search_text = self.shelf_search.text().strip()
         if not search_text:
@@ -669,6 +679,7 @@ class ArchiveManager(QMainWindow):
             self.load_archived_shelves()  # Fallback to showing all
 
     def setup_table_style(self, table):
+        # Style our tables
         """Apply styling to table widget"""
         table.setStyleSheet("""
             QTableWidget {
@@ -703,6 +714,7 @@ class ArchiveManager(QMainWindow):
         """)
     
     def on_book_checkbox_toggled(self, checked, row):
+        # Restore book if checked
         """Handle book checkbox toggle"""
         if checked:
             # Get book details for confirmation
@@ -729,6 +741,7 @@ class ArchiveManager(QMainWindow):
                 checkbox.setChecked(False)
 
     def on_member_checkbox_toggled(self, checked, row):
+        # Restore member if checked
         """Handle member checkbox toggle"""
         if checked:
             # Get member details for confirmation
@@ -756,6 +769,7 @@ class ArchiveManager(QMainWindow):
                 checkbox.setChecked(False)
 
     def on_shelf_checkbox_toggled(self, checked, row):
+        # Restore shelf if checked
         """Handle shelf checkbox toggle"""
         if checked:
             # Get shelf details for confirmation
@@ -780,11 +794,10 @@ class ArchiveManager(QMainWindow):
                 checkbox = checkbox_widget.findChild(QCheckBox)
                 checkbox.setChecked(False)
 
-# Run the application if executed directly
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-    # Initialize navigation manager
+    # Initialize navigation manager (the sidebar)
     nav_manager.initialize(app)
     
     window = ArchiveManager()

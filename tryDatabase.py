@@ -189,6 +189,7 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+# This method retrieves transactions with details such as member and book information.
     def get_transaction_with_details(self, member_id=None, librarian_id=None):
         try:
             conn, cursor = self.get_connection_and_cursor()
@@ -221,7 +222,8 @@ class DatabaseSeeder:
             return []
         finally:
             conn.close()
-    
+ 
+ # This method retrieves all transactions for a specific librarian, including member and book details.     
     def get_all_transactions(self, librarian_id):
         try:
             conn, cursor = self.get_connection_and_cursor()
@@ -516,7 +518,8 @@ class DatabaseSeeder:
 
 
      #Ito inadd ko rems hehe 
-    
+
+ # This method verifies the current password of a librarian.   
     def verify_current_password(self, email, current_password):
         import sqlite3
         import bcrypt
@@ -533,7 +536,7 @@ class DatabaseSeeder:
             return bcrypt.checkpw(current_password.encode("utf-8"), stored_hash)
         return False
 
-    
+# This method retrieves archived records from a specific table based on the table name and librarian ID.  
     def archiveTable(self, tableName, id):
         conn, cursor = self.get_connection_and_cursor()
         try:
@@ -572,6 +575,7 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+# This method restores an archived record in a specific table based on the primary key column and librarian ID.
     def restoreArchive(self, tableName, PKColumn, Librarianid):
         conn, cursor = self.get_connection_and_cursor()
         try:
@@ -597,6 +601,7 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+# This method checks for duplication in a specific table based on the provided column and value.
     def handleDuplication(self, tableName, librarianID, column, value):
         conn, cursor = self.get_connection_and_cursor()
         try:
@@ -622,6 +627,7 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+# This method counts the number of records in a specific table for the dashboard.
     def dashboardCount (self, tableName, id):
         conn, cursor = self.get_connection_and_cursor()
         try:
@@ -655,7 +661,8 @@ class DatabaseSeeder:
         
         finally:
             conn.close()
-            
+
+# This method searches for archived records in a specific table based on search text.         
     def search_archived_records(self, tableName, search_text, librarian_id):
         """Search archived records based on search text"""
         conn, cursor = self.get_connection_and_cursor()
@@ -715,6 +722,7 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+# This method searches for active records in a specific table based on search text.
     def search_records(self, tableName, search_text, librarian_id):
         """Search active records based on search text"""
         conn, cursor = self.get_connection_and_cursor()

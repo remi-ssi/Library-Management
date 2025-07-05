@@ -644,7 +644,11 @@ class DatabaseSeeder:
                 count = result.fetchone()[0]
                 return count if count is not None else 0
             elif tableName == "BookTransaction":
-                query = "SELECT COUNT(*) FROM BookTransaction WHERE ReturnedDate is NULL and Status = 'Borrowed' and LibrarianID = ?"
+                query = """SELECT SUM(td.Quantity) FROM BookTransaction AS t
+                    JOIN TransactionDetails AS td ON t.TransactionID = td.TransactionID
+                    WHERE t.ReturnedDate IS NULL
+                    AND Status = 'Borrowed'
+                    AND t.LibrarianID = ?"""
                 result = cursor.execute(query, (id, ))
                 count = result.fetchone()[0]
                 return count if count is not None else 0

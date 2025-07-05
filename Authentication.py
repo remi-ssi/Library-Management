@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
 from dotenv import load_dotenv  #load .env file (email)
-from PySide6.QtCore import Qt, QSize, QTimer #GUI framework
+from PySide6.QtCore import Qt, QSize, QTimer 
 from PySide6.QtGui import QFont, QMovie, QIcon
 from PySide6.QtWidgets import (
     QApplication, QLineEdit, QLabel, QPushButton, QWidget, QVBoxLayout,
@@ -27,6 +27,7 @@ class Authentication(QWidget):
     _current_librarian_id = None
 
     #method to store librarian id and can be accessed globally
+    #method that belongs to the class
     @classmethod
     def set_current_librarian_id(cls, librarian_id):
         """Set the current librarian ID after login."""
@@ -280,6 +281,7 @@ class Authentication(QWidget):
         right_layout.addWidget(self.general_error_label)
 
         # Create a layout to center the form (right_layout) horizontally
+        # right layout
         center_layout = QHBoxLayout()
         center_layout.addStretch()
         center_layout.addLayout(left_layout)
@@ -453,6 +455,7 @@ class ConfirmEmailDialog(QWidget):
         desc_label.setFont(QFont("Times New Roman", 12))
         desc_label.setStyleSheet("color: #4A4947;")
         desc_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Move the text to the next line if it is too long
         desc_label.setWordWrap(True)
         
         # Email field - center it horizontally
@@ -561,7 +564,7 @@ class ConfirmEmailDialog(QWidget):
         
         # Generate OTP
         import random
-        otp = str(random.randint(100000, 999999)) #6-digit OTP without zeros
+        otp = str(random.randint(100000, 999999)) #6-digit OTP 
         
         # Send email with OTP
         if self.send_real_email(email, otp):
@@ -861,14 +864,14 @@ class SignUp(QWidget):
         # For the GIF
         self.gif_label = QLabel()
         self.movie = QMovie("assets/book2.gif")
-        self.movie.setScaledSize(QSize(280, 280))  # adjust size as needed
+        self.movie.setScaledSize(QSize(280, 280)) 
         self.gif_label.setMovie(self.movie)
         self.gif_label.setContentsMargins(0,0,0,100)
         self.gif_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.movie.start()
 
 
-        # EMAIL (CAPITALLL GALIT SI SHELLEY) 
+        # EMAIL 
         email_label = QLabel("Email")
         self.email_input = QLineEdit()
         self.email_input.setPlaceholderText("Enter Email")
@@ -980,7 +983,6 @@ class SignUp(QWidget):
         bottom_layout.addWidget(login_link)
         bottom_layout.setContentsMargins(0,0,0,20)
 
-        # BASTA LAYOUT NG INPUT
         email_layout = QVBoxLayout()
         email_layout.addWidget(email_label)
         email_layout.addWidget(self.email_input)

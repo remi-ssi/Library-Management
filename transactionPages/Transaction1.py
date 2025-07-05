@@ -188,7 +188,7 @@ class LibraryTransactionSystem(QMainWindow):
         header_layout = QHBoxLayout(header_widget)
         header_layout.setContentsMargins(40, 20, 40, 20)
         header_layout.setSpacing(20)
-        title_label = QLabel("Books Management")
+        title_label = QLabel("Transaction Management")
         title_label.setFont(QFont("Times New Roman", 32, QFont.Bold))
         title_label.setStyleSheet("color: #5e3e1f; margin-right: 20px;")
         header_layout.addWidget(title_label)
@@ -486,6 +486,7 @@ class LibraryTransactionSystem(QMainWindow):
                     padding: 5px 10px;
                 }
                 QPushButton:hover {
+                    color: white;
                     background-color: #c0392b;
                 }
             """)
@@ -628,8 +629,9 @@ class LibraryTransactionSystem(QMainWindow):
                     padding:5px 10px;
                 }
                 QPushButton:hover {
+                    color: #c0392b;
                     background-color: #c0392b;
-                    color: white;
+                    
                 }
             """)
             delete_btn.clicked.connect(partial(self.delete_transaction, trans))

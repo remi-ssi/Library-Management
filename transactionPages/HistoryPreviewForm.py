@@ -1,9 +1,9 @@
 import sys
 from PySide6.QtWidgets import (
-    QApplication, QDialog, QVBoxLayout, QFormLayout, QLabel, QLineEdit, QTableWidget,
-    QTableWidgetItem, QDateEdit, QCheckBox, QPushButton, QHBoxLayout, QHeaderView, QTextEdit
+    QApplication, QDialog, QVBoxLayout, QFormLayout, QLineEdit, QTableWidget,
+    QTableWidgetItem, QDateEdit, QHeaderView, QTextEdit
 )
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import QDate
 from PySide6.QtGui import QFont
 from .transaction_logic import BorrowBooks
 from tryDatabase import DatabaseSeeder
@@ -13,10 +13,10 @@ class HistoryTransactionPreviewForm(QDialog):
     def __init__(self, transaction, librarian_id, parent=None):
         super().__init__(parent)
         self.setWindowTitle("History Preview Transaction")
-        self.setFixedSize(1000, 600)  # Increased height for remarks
+        self.setFixedSize(1000, 600)  # fixed height 
         self.transaction = transaction
         self.librarian_id = librarian_id
-        self.db_seeder=DatabaseSeeder()
+        self.db_seeder=DatabaseSeeder() #for database access 
         
         #fetch transaction by TransactionID
         transaction_id = transaction.get('id')
@@ -25,7 +25,7 @@ class HistoryTransactionPreviewForm(QDialog):
         else:
             self.transaction = transaction #fallback to passed transaction
 
-
+        #apply custom stylign to the dialog and its widgets
         self.setStyleSheet("""
             QDialog {
                 background-color: #f5f1e6;
@@ -107,28 +107,29 @@ class HistoryTransactionPreviewForm(QDialog):
             QDateEdit::down-arrow { width: 0px; height: 0px; }
         """)
 
+        #main layout for the dialog
         layout = QVBoxLayout(self)
         
-        # Basic transaction info
+        # for the form layout for transaction details
         form = QFormLayout()
-        form.setSpacing(12)
+        form.setSpacing(12) #spacing between form rows
 
-        # Borrower's Name
+        # Borrower's Name filed
         borrower_edit = QLineEdit(self.transaction.get('borrower', ''))
-        borrower_edit.setReadOnly(True)
+        borrower_edit.setReadOnly(True) # read only field
         form.addRow("Borrower:", borrower_edit)
 
         # Borrowed Date
         borrowed_date = QDateEdit()
         borrowed_date.setDate(QDate.fromString(self.transaction.get('date', ''), "yyyy-MM-dd"))
-        borrowed_date.setCalendarPopup(True)
-        borrowed_date.setReadOnly(True)
+        borrowed_date.setCalendarPopup(True) #enable calendar popup
+        borrowed_date.setReadOnly(True) #read only field
         form.addRow("Borrowed Date:", borrowed_date)
 
-        # transaction remarks
+        # transaction remarks field
         remarks_edit = QTextEdit()
-        remarks_edit.setReadOnly(True)
-        if self.transaction.get('remarks'):
+        remarks_edit.setReadOnly(True) #read only field
+        if self.transaction.get('remarks'): #get remarks from transaction
             remarks_edit.setPlainText(self.transaction['remarks'])
         else:
             remarks_edit.setPlainText("No remarks available")
@@ -141,23 +142,29 @@ class HistoryTransactionPreviewForm(QDialog):
         if self.transaction.get('returned_date'):
             returned_date.setDate(QDate.fromString(self.transaction['returned_date'], "yyyy-MM-dd"))
         else:
-            returned_date.setDate(QDate.currentDate())
+            returned_date.setDate(QDate.currentDate()) #default to current date
         returned_date.setReadOnly(True)  # Make it read-only
         form.addRow("Returned Date:", returned_date)
 
-        layout.addLayout(form)
+        layout.addLayout(form) #add form to main layout
 
+        #create and setup book table
         books_table = QTableWidget()
         self.setup_books_table(books_table)
-        layout.addWidget(books_table)
+        layout.addWidget(books_table) #add table to main layout
 
+    #FETCH COMPLETE TRANSACTION WTH DETAILS FROM DATABASE
     def fetch_transaction_by_id(self, transaction_id):
+        #get all transactions with details from database
         transactions = self.db_seeder.get_transaction_with_details(librarian_id = self.librarian_id)
+        #filter transactions with matching id
         trans_records = [t for t in transactions if t['TransactionID']== transaction_id]
         if not trans_records:
             print(f"No transaction Records found for TransactionID {transaction_id}")
-            return {}
+            return {} #return empty dict if not found
+        #use first record for basic transaction info
         first_trans = trans_records[0]
+        #extract book details from all records
         books = [
             {
                 'title': trans['BookTitle'],
@@ -165,16 +172,17 @@ class HistoryTransactionPreviewForm(QDialog):
             }
             for trans in trans_records
         ]
-
+        #build complete transaction dict
         transaction = {
             'id': first_trans['TransactionID'],
             'borrower': first_trans['borrower'],
             'date': first_trans['BorrowedDate'],
-            'returned_date': first_trans['ReturnedDate'] or '',
+            'returned_date': first_trans['ReturnedDate'] or '', #handle none
             'action': first_trans['Status'],
-            'remarks': first_trans['Remarks'] or '',
-            'due_date': (datetime.strptime(first_trans['BorrowedDate'], "%Y-%m-%d") + timedelta(days=14)).strftime("%Y-%m-%d"),
-            'books': books
+            'remarks': first_trans['Remarks'] or '', #handle none
+            #get due date
+            'due_date': trans_records[0].get("DueDate", "") if trans_records else "",
+            'books': books #list of book dictionaries
         }
         return transaction
     def setup_books_table(self, books_table):
@@ -191,6 +199,7 @@ class HistoryTransactionPreviewForm(QDialog):
                 'quantity': self.transaction.get('quantity', 1)
             }]
         
+        #configure table dimensions
         books_table.setRowCount(len(books))
         books_table.setColumnCount(2)
         books_table.setHorizontalHeaderLabels(["Book Title", "Quantity"])
@@ -198,7 +207,7 @@ class HistoryTransactionPreviewForm(QDialog):
         # Make table completely read-only
         books_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         books_table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
-        books_table.verticalHeader().setVisible(False)
+        books_table.verticalHeader().setVisible(False) #hide row numbers
         
         # Populate table
         for row, book in enumerate(books):
@@ -210,8 +219,8 @@ class HistoryTransactionPreviewForm(QDialog):
         
         # Adjust column widths
         header = books_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch) #stretch title column
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents) #fit quantity column
 
 # Example usage and test
 if __name__ == "__main__":

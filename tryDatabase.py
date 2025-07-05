@@ -147,9 +147,10 @@ class DatabaseSeeder:
                     book_code = i["BookCode"]
                     transaction_id = cursor.lastrowid
                     due_date = i.get("DueDate", "")
+                    quantity = i.get("Quantity", 1)
                     cursor.execute(
                         "INSERT INTO TransactionDetails (Quantity, DueDate, TransactionID, BookCode) VALUES (?, ?, ?, ?)",
-                        (i.get("Quantity", 1), due_date, transaction_id, book_code)
+                        (quantity, due_date, transaction_id, book_code)
                     )
             conn.commit()
             print(f"✓ Seeded {len(data)} rows into {tableName}")
@@ -189,9 +190,12 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+    #RETRIEVE TRANSCTION RECORDS WITH ALL RELATED DETAILS  
     def get_transaction_with_details(self, member_id=None, librarian_id=None):
         try:
+            #get database connection and curosr
             conn, cursor = self.get_connection_and_cursor()
+            #query joining all related table
             query = """
                 SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
                     m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
@@ -203,59 +207,25 @@ class DatabaseSeeder:
                 AND b.isDeleted IS NULL
                 AND m.isDeleted IS NULL
             """
-            parameters = []
-            if member_id:
+            parameters = [] #parameters can etiher be member or librarian for conditional filtering
+            if member_id: #add member filter if specified
                 query += " AND t.MemberID = ?"
                 parameters.append(member_id)
-            if librarian_id:
+            if librarian_id: #add librarian filter if specified
                 query += " AND t.LibrarianID = ?"
-                parameters.append(librarian_id)
-            query += " ORDER BY t.BorrowedDate DESC"
-            cursor.execute(query, parameters)
-            rows = cursor.fetchall()
-            columns = [desc[0] for desc in cursor.description]
-            records = [dict(zip(columns, row)) for row in rows]
+                parameters.append(librarian_id) 
+            query += " ORDER BY t.BorrowedDate DESC" #sort by most recenet transaction first
+            cursor.execute(query, parameters)  #execute query with parameters
+            rows = cursor.fetchall() #get all results in tuple and convert to dict format
+            columns = [desc[0] for desc in cursor.description] #get corresponding column
+            records = [dict(zip(columns, row)) for row in rows] #map the rows to columns then convert to dict
             return records
         except Exception as e:
             print(f"✗ Error fetching transactions with details: {e}")
-            return []
+            return [] #return empty list if error
         finally:
             conn.close()
     
-    def get_all_transactions(self, librarian_id):
-        try:
-            conn, cursor = self.get_connection_and_cursor()
-            query = """
-                SELECT t.TransactionID, t.BorrowedDate, t.Status, t.ReturnedDate, t.Remarks,
-                    m.MemberID, m.MemberFN || ' ' || m.MemberLN AS borrower,
-                    b.BookCode, b.BookTitle, td.Quantity, td.DueDate
-                FROM BookTransaction AS t
-                JOIN TransactionDetails td ON t.TransactionID = td.TransactionID
-                JOIN Member m ON t.MemberID = m.MemberID
-                JOIN Book b ON td.BookCode = b.BookCode
-                WHERE b.isDeleted IS NULL
-                AND m.isDeleted IS NULL
-                AND t.LibrarianID = ?
-                ORDER BY t.BorrowedDate DESC
-            """
-            cursor.execute(query, (librarian_id,))
-            rows = cursor.fetchall()
-            columns = [desc[0] for desc in cursor.description]
-            records = [dict(zip(columns, row)) for row in rows]
-            # --- Add this mapping ---
-            for rec in records:
-                rec['action'] = rec.get('Status', '')
-                rec['date'] = rec.get('BorrowedDate', '')
-                rec['remarks'] = rec.get('remarks', '')
-                rec['returned_date'] = rec.get('ReturnedDate', '') 
-                rec['quantity'] = rec.get('Quantity', 1)
-                rec['due_date'] = rec.get('DueDate', '')
-            return records
-        except Exception as e:
-            print(f"✗ Error fetching all transactions: {e}")
-            return []
-        finally:
-            conn.close()
     
     #to get all the records/rows inside the certain table
     def get_all_records(self, tableName, id):
@@ -276,6 +246,7 @@ class DatabaseSeeder:
                             WHERE BK.isDeleted IS NULL AND BK.LibrarianID = ?"""
                 cursor.execute(query, (id,))
             elif tableName == "TransactionDetails":
+                #for TransactionDetails table, joined with BookTransaction table
                 query = """
                     SELECT td.* 
                     FROM TransactionDetails AS td
@@ -284,13 +255,14 @@ class DatabaseSeeder:
                 """
                 cursor.execute(query, (id,))
             elif tableName == "BookTransaction":
+                #for BookTransaction tabele sorted by ID
                 query = f"SELECT * FROM {tableName} WHERE LibrarianID = ? ORDER BY TransactionID DESC"
                 cursor.execute(query, (id,))
             else:  # Member and Book tables
                 query = f"SELECT * FROM {tableName} WHERE isDeleted IS NULL AND LibrarianID = ?"
                 cursor.execute(query, (id,))
-            
-            rows = cursor.fetchall()
+            #convert results to list of dictionaries
+            rows = cursor.fetchall() 
             columns = [desc[0] for desc in cursor.description]
             records = [dict(zip(columns, row)) for row in rows]
             return records
@@ -622,9 +594,12 @@ class DatabaseSeeder:
         finally:
             conn.close()
 
+    #GET COUNT STATS FOR DASHBOARD DISPLAY BASED ON TABLE NAME
     def dashboardCount (self, tableName, id):
+        #get databse connecttion and curosr
         conn, cursor = self.get_connection_and_cursor()
         try:
+            #create table after log in entry
             self.create_table("Book")
             self.create_table("Member")
             self.create_table("BookTransaction")
@@ -634,23 +609,31 @@ class DatabaseSeeder:
             self.create_table("TransactionDetails")
 
             if tableName == "Book": 
-                query = "SELECT SUM(BookTotalCopies) FROM Book WHERE isDeleted is NULL AND LibrarianID = ?"
+                #query to get total boo copies (dont innclude deleted ones)
+                query = "SELECT SUM(BookTotalCopies) FROM Book WHERE isDeleted is NULL AND LibrarianID = ?" 
                 result = cursor.execute(query, (id, ))
-                count = result.fetchone()[0]
-                return count if count is not None else 0
+                count = result.fetchone()[0] #get column of first row
+                return count if count is not None else 0 #return 0 if null
             elif tableName == "Member":
+                #query to get the active members
                 query = "SELECT COUNT(*) FROM Member WHERE isDeleted is NULL and LibrarianID = ?"
                 result = cursor.execute(query, (id, ))
-                count = result.fetchone()[0]
-                return count if count is not None else 0
+                count = result.fetchone()[0] 
+                return count if count is not None else 0 #return 0 if null
             elif tableName == "BookTransaction":
-                query = "SELECT COUNT(*) FROM BookTransaction WHERE ReturnedDate is NULL and Status = 'Borrowed' and LibrarianID = ?"
-                result = cursor.execute(query, (id, ))
-                count = result.fetchone()[0]
-                return count if count is not None else 0
+                #query to sum the quantity of all currently borrowed books
+                #join BookTransaction table and TransactionDetails table
+                query = """SELECT SUM(td.Quantity) FROM BookTransaction AS t
+                JOIN TransactionDetails AS td ON t.TransactionID = td.transactionID
+                WHERE t.ReturnedDate IS NULL
+                AND t.Status = 'Borrowed'
+                AND t.LibrarianID = ?"""
+                result = cursor.execute(query, (id,))
+                count = result = result.fetchone()[0]
+                return count if count is not None else 0 #return 0 if null
         
         finally:
-            conn.close()
+            conn.close() #close the db
             
     def search_archived_records(self, tableName, search_text, librarian_id):
         """Search archived records based on search text"""

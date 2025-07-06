@@ -18,6 +18,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 class LibraryDashboard(QMainWindow):
     def __init__(self, librarian_id=None):  
+        # Initializes the main dashboard window, sets up the database, UI, and timers
         super().__init__()
         db_path = "bjrsLib.db"
         self.db_path = db_path
@@ -31,6 +32,7 @@ class LibraryDashboard(QMainWindow):
         QTimer.singleShot(100, self.refresh_all_data)
 
     def init_ui(self):
+        # Sets up the main layout, sidebar, header, stats, and due books section
         self.setWindowTitle("BJRS Library Management System")
         self.setGeometry(100, 100, 1400, 900)
         self.setMinimumSize(1300, 700)
@@ -66,6 +68,7 @@ class LibraryDashboard(QMainWindow):
         self.apply_styles()
 
     def refresh_all_data(self):
+        # Refreshes all dashboard data: stats, due books, and current date/time
         try:
             self.borrowed_books = self.get_borrow_transactions()
             
@@ -86,10 +89,12 @@ class LibraryDashboard(QMainWindow):
             print(f"Error refreshing data: {e}")
 
     def showEvent(self, event):
+        # Ensures data is refreshed every time the dashboard window is shown
         super().showEvent(event)
         self.refresh_all_data()
 
     def create_header(self):
+        # Builds the header section with the app title and current date/time
         header = QFrame()
         header.setObjectName("headerFrame")
         header.setFixedHeight(120)
@@ -122,6 +127,7 @@ class LibraryDashboard(QMainWindow):
         return header
 
     def get_borrow_transactions(self):
+        # Fetches all borrow transactions for the current librarian and calculates days left for each
         try:
             borrow_manager = BorrowBooks()
             transactions = borrow_manager.fetch_transaction(self.librarian_id) or []
@@ -168,6 +174,7 @@ class LibraryDashboard(QMainWindow):
             return []
 
     def create_stats_section(self):
+        # Creates the statistics section showing total books, members, issued books, and books due soon
         stats_widget = QFrame()
         stats_widget.setObjectName("statsContainer")
         layout = QGridLayout(stats_widget)
@@ -196,6 +203,7 @@ class LibraryDashboard(QMainWindow):
         return stats_widget
 
     def create_stat_card(self, icon, number, label, color):
+        # Helper to build a single stat card for the stats section
         card = QFrame()
         card.setObjectName("statCard")
         card.setFixedHeight(100)
@@ -241,6 +249,7 @@ class LibraryDashboard(QMainWindow):
         return card
 
     def create_due_books_section(self):
+        # Builds the section that lists books due within a week
         section = QFrame()
         section.setObjectName("sectionCard")
         
@@ -262,6 +271,7 @@ class LibraryDashboard(QMainWindow):
         return section
 
     def setup_due_books_table(self):
+        # Configures the columns and appearance of the due books table
         headers = ["Borrower Name", "Quantity", "Borrowed Date", "Due Date", "Days Left"]
         
         self.due_books_table.setColumnCount(len(headers))
@@ -289,6 +299,7 @@ class LibraryDashboard(QMainWindow):
         self.due_books_table.verticalHeader().hide()
 
     def get_books_due_this_week(self):
+        # Returns a list of borrowed books that are due within the next 7 days or are overdue
         if not self.borrowed_books:
             self.borrowed_books = self.get_borrow_transactions()
         
@@ -310,6 +321,7 @@ class LibraryDashboard(QMainWindow):
         return active_books
 
     def populate_due_books_table(self):
+        # Fills the due books table with data about books due soon or overdue
         active_books = self.get_books_due_this_week()
         
         self.due_books_table.setRowCount(0)
@@ -354,17 +366,20 @@ class LibraryDashboard(QMainWindow):
             self.due_books_table.setItem(row, 4, days_item)
 
     def setup_timer(self):
+        # Starts a timer to update the date/time label every minute
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_datetime)
         self.timer.start(60000)
         self.update_datetime()
 
     def update_datetime(self):
+        # Updates the date/time label in the header with the current time
         now = datetime.now()
         formatted_time = now.strftime("%A, %B %d, %Y at %I:%M %p")
         self.datetime_label.setText(formatted_time)
 
     def apply_styles(self):
+        # Applies the custom stylesheet for the dashboard UI
         style = """
         QMainWindow {
             background-color: #f1efe3;
@@ -478,6 +493,7 @@ class LibraryDashboard(QMainWindow):
         self.setStyleSheet(style)
 
 def main(librarian_id=None):
+    # Entry point for the application. Sets up the app, font, and shows the dashboard window
     app = QApplication(sys.argv)
     app.setStyle('Fusion')
     

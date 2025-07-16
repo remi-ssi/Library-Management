@@ -41,19 +41,22 @@ The objective of **BJRS Library** is to streamline library management by providi
 
 ## 🧑‍💻 Getting Started
 
-Clone the repository:
+1. Clone the repository:
+  ```bash
+      git clone https://github.com/yourusername/bjrs-library.git
+      cd bjrs-library
+  `````
 
-```bash
-git clone https://github.com/yourusername/bjrs-library.git
-cd bjrs-library
+2. Install Dependencies:
+  ```bash
+      pip install -r requirements.txt
+  `````
 
-Install Dependencies
-```bash
-pip install -r requirements.txt
+3. Run the Application: 
+  ```bash
+      python main.pY
+  `````
 
-Run the Application
-```bash
-python main.py
 
 ---
 ## 🤝 Contributors

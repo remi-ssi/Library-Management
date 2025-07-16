@@ -54,7 +54,7 @@ The objective of **BJRS Library** is to streamline library management by providi
 
 3. Run the Application: 
   ```bash
-      python main.pY
+      python main.py
   `````
 
 
